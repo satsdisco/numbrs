@@ -6,6 +6,8 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import AuthPage from "@/pages/AuthPage";
 import DashboardPage from "@/pages/DashboardPage";
+import DashboardsListPage from "@/pages/DashboardsListPage";
+import DashboardBuilderPage from "@/pages/DashboardBuilderPage";
 import RelayDetailPage from "@/pages/RelayDetailPage";
 import RelaysPage from "@/pages/RelaysPage";
 import NewRelayPage from "@/pages/NewRelayPage";
@@ -31,6 +33,8 @@ function ProtectedRoutes() {
     <AppLayout>
       <Routes>
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/dashboards" element={<DashboardsListPage />} />
+        <Route path="/dashboards/:id" element={<DashboardBuilderPage />} />
         <Route path="/relays" element={<RelaysPage />} />
         <Route path="/relays/new" element={<NewRelayPage />} />
         <Route path="/relays/:id" element={<RelayDetailPage />} />

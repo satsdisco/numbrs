@@ -52,7 +52,7 @@ const STAT_FIELDS = [
 export default function AddPanelDialog({ open, onClose, onAdd }: Props) {
   const [title, setTitle] = useState("New Panel");
   const [panelType, setPanelType] = useState<PanelType>("line");
-  const [metricKey, setMetricKey] = useState(RELAY_METRIC_KEYS.CONNECT_LATENCY);
+  const [metricKey, setMetricKey] = useState<string>(RELAY_METRIC_KEYS.CONNECT_LATENCY);
   const [relayId, setRelayId] = useState("");
   const [statField, setStatField] = useState("p50");
 
