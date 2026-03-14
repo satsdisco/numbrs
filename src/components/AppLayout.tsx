@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Activity, LayoutDashboard, Radio, Key, LogOut, Plus } from "lucide-react";
+import { truncatePubkey } from "@/lib/nostr";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
