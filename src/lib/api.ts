@@ -3,10 +3,19 @@ import {
   TimeRange,
   TIME_RANGE_CONFIG,
   TimeseriesBucket,
-  RelaySummaryRow,
   RelayRow,
   ApiKeyRow,
 } from "@/lib/types";
+import { RelayHealthRow } from "@/lib/health";
+
+// ─── Time window helper ────────────────────────────────────────────────────────
+
+function getTimeWindow(range: TimeRange) {
+  const config = TIME_RANGE_CONFIG[range];
+  const now = new Date();
+  const start = new Date(now.getTime() - config.seconds * 1000);
+  return { start, end: now, intervalSeconds: config.intervalSeconds };
+}
 
 // ─── Relays ────────────────────────────────────────────────────────────────────
 
@@ -44,47 +53,29 @@ export async function createRelay(relay: {
   return data as unknown as RelayRow;
 }
 
-export async function updateRelay(
-  id: string,
-  updates: Partial<{ name: string; url: string; region: string }>
-): Promise<RelayRow> {
-  const { data, error } = await supabase
-    .from("relays")
-    .update(updates as any)
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data as unknown as RelayRow;
-}
-
 export async function deleteRelay(id: string) {
   const { error } = await supabase.from("relays").delete().eq("id", id);
   if (error) throw error;
 }
 
-// ─── Relay Health Aggregation ──────────────────────────────────────────────────
+// ─── Relay Health (enriched summary) ───────────────────────────────────────────
 
-function getTimeWindow(range: TimeRange) {
-  const config = TIME_RANGE_CONFIG[range];
-  const now = new Date();
-  const start = new Date(now.getTime() - config.seconds * 1000);
-  return { start, end: now, intervalSeconds: config.intervalSeconds };
-}
-
-export async function fetchRelaySummary(
+export async function fetchRelayHealth(
   relayId: string,
   range: TimeRange
-): Promise<RelaySummaryRow[]> {
+): Promise<RelayHealthRow | null> {
   const { start, end } = getTimeWindow(range);
-  const { data, error } = await supabase.rpc("get_relay_summary", {
+  const { data, error } = await supabase.rpc("get_relay_health", {
     p_relay_id: relayId,
     p_start: start.toISOString(),
     p_end: end.toISOString(),
   } as any);
   if (error) throw error;
-  return (data as unknown as RelaySummaryRow[]) || [];
+  const rows = data as unknown as RelayHealthRow[];
+  return rows?.[0] ?? null;
 }
+
+// ─── Relay Timeseries (for detail page) ────────────────────────────────────────
 
 export async function fetchRelayTimeseries(
   relayId: string,
@@ -101,6 +92,19 @@ export async function fetchRelayTimeseries(
   } as any);
   if (error) throw error;
   return (data as unknown as TimeseriesBucket[]) || [];
+}
+
+// ─── Relay Summary (kept for detail page) ──────────────────────────────────────
+
+export async function fetchRelaySummary(relayId: string, range: TimeRange) {
+  const { start, end } = getTimeWindow(range);
+  const { data, error } = await supabase.rpc("get_relay_summary", {
+    p_relay_id: relayId,
+    p_start: start.toISOString(),
+    p_end: end.toISOString(),
+  } as any);
+  if (error) throw error;
+  return (data as unknown as any[]) || [];
 }
 
 // ─── API Keys ──────────────────────────────────────────────────────────────────
@@ -129,39 +133,6 @@ export async function createApiKey(
 
 export async function deleteApiKey(id: string) {
   const { error } = await supabase.from("api_keys").delete().eq("id", id);
-  if (error) throw error;
-}
-
-// ─── Metrics (definitions) ─────────────────────────────────────────────────────
-
-export async function fetchMetrics() {
-  const { data, error } = await supabase
-    .from("metrics")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return data;
-}
-
-export async function createMetric(metric: {
-  key: string;
-  name: string;
-  description?: string;
-  unit?: string;
-  value_type: string;
-  user_id: string;
-}) {
-  const { data, error } = await supabase
-    .from("metrics")
-    .insert(metric)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function deleteMetric(id: string) {
-  const { error } = await supabase.from("metrics").delete().eq("id", id);
   if (error) throw error;
 }
 

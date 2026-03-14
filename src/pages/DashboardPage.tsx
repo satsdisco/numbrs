@@ -1,28 +1,250 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { fetchRelays, fetchRelaySummary, triggerProbe } from "@/lib/api";
-import { TimeRange, RelaySummaryRow, RELAY_METRIC_KEYS } from "@/lib/types";
+import { fetchRelays, fetchRelayHealth, triggerProbe } from "@/lib/api";
+import { TimeRange } from "@/lib/types";
+import {
+  RelayHealthRow,
+  computeHealthScore,
+  scoreColor,
+  getVolatility,
+  getTrend,
+  formatMs,
+  formatPct,
+  formatDuration,
+  VOLATILITY_COLORS,
+  TREND_ICONS,
+  TREND_COLORS,
+  ScoreColor,
+} from "@/lib/health";
 import TimeRangeSelector from "@/components/TimeRangeSelector";
 import { Button } from "@/components/ui/button";
-import { Plus, RefreshCw, Radio } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Plus, RefreshCw, Radio, Info } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import type { RelayRow } from "@/lib/types";
 
-function getMetric(summary: RelaySummaryRow[], key: string) {
-  return summary.find((s) => s.metric_key === key);
+// ─── Stat cell with optional tooltip ───────────────────────────────────────────
+
+function Stat({
+  label,
+  value,
+  tooltip,
+  className,
+}: {
+  label: string;
+  value: React.ReactNode;
+  tooltip?: string;
+  className?: string;
+}) {
+  const content = (
+    <div className={cn("min-w-0", className)}>
+      <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground leading-none">
+        {label}
+        {tooltip && <Info className="h-2.5 w-2.5 opacity-50" />}
+      </span>
+      <div className="font-mono text-sm tabular-nums text-foreground mt-1 leading-none">
+        {value}
+      </div>
+    </div>
+  );
+
+  if (!tooltip) return content;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{content}</TooltipTrigger>
+      <TooltipContent side="top" className="max-w-52 text-xs">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
-function formatMs(val: number | undefined | null) {
-  if (val === undefined || val === null) return "—";
-  return `${Math.round(val)}ms`;
+// ─── Score badge ───────────────────────────────────────────────────────────────
+
+const SCORE_BG: Record<ScoreColor, string> = {
+  success: "bg-success/15 text-success border-success/30",
+  warning: "bg-warning/15 text-warning border-warning/30",
+  destructive: "bg-destructive/15 text-destructive border-destructive/30",
+};
+
+function HealthBadge({ score }: { score: number }) {
+  const color = scoreColor(score);
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span
+          className={cn(
+            "inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-xs font-bold tabular-nums",
+            SCORE_BG[color]
+          )}
+        >
+          {score}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-60 text-xs">
+        Composite health score (0–100) based on uptime, p95 latency, and failure
+        rate.
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
-function formatPct(summary: RelaySummaryRow[]) {
-  const up = getMetric(summary, RELAY_METRIC_KEYS.UP);
-  if (!up || up.total_count === 0) return "—";
-  return `${(up.avg_val * 100).toFixed(1)}%`;
+// ─── Status dot ────────────────────────────────────────────────────────────────
+
+function StatusBadge({ h }: { h: RelayHealthRow }) {
+  if (h.total_checks === 0) return null;
+  const up = h.uptime_pct !== null && h.uptime_pct >= 50;
+  return (
+    <span
+      className={cn(
+        "flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium shrink-0",
+        up
+          ? "bg-success/10 text-success"
+          : "bg-destructive/10 text-destructive"
+      )}
+    >
+      <span
+        className={cn(
+          "h-1.5 w-1.5 rounded-full",
+          up ? "bg-success animate-live-pulse" : "bg-destructive"
+        )}
+      />
+      {up ? "Up" : "Down"}
+    </span>
+  );
 }
+
+// ─── Relay Card ────────────────────────────────────────────────────────────────
+
+function RelayCard({
+  relay,
+  health,
+}: {
+  relay: RelayRow;
+  health: RelayHealthRow | null;
+}) {
+  if (!health || health.total_checks === 0) {
+    return (
+      <Link
+        to={`/relays/${relay.id}`}
+        className="group rounded-lg border border-border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-card"
+      >
+        <h3 className="font-mono text-sm font-semibold text-foreground truncate">
+          {relay.name}
+        </h3>
+        <p className="text-metric-sm text-muted-foreground truncate mt-0.5">
+          {relay.url}
+        </p>
+        <p className="text-metric-sm text-muted-foreground italic mt-4">
+          No data yet — click "Probe Now" to start
+        </p>
+      </Link>
+    );
+  }
+
+  const h = health;
+  const score = computeHealthScore(h);
+  const volatility = getVolatility(h.connect_stddev, h.connect_avg);
+  const trend = getTrend(h.connect_p50, h.prev_connect_p50);
+
+  return (
+    <Link
+      to={`/relays/${relay.id}`}
+      className="group rounded-lg border border-border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-card"
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="min-w-0 flex-1 mr-2">
+          <h3 className="font-mono text-sm font-semibold text-foreground truncate">
+            {relay.name}
+          </h3>
+          <p className="text-metric-sm text-muted-foreground truncate mt-0.5">
+            {relay.url}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <HealthBadge score={score} />
+          <StatusBadge h={h} />
+        </div>
+      </div>
+
+      {/* Row 1: Latency + Uptime */}
+      <div className="grid grid-cols-3 gap-x-3 gap-y-3 mb-3">
+        <Stat label="Connect P50" value={formatMs(h.connect_p50)} />
+        <Stat label="Connect P95" value={formatMs(h.connect_p95)} />
+        <Stat
+          label="Uptime"
+          value={formatPct(h.uptime_pct)}
+          tooltip="Percentage of successful probes in this time range"
+        />
+      </div>
+
+      {/* Row 2: Event latency + Failures */}
+      <div className="grid grid-cols-3 gap-x-3 gap-y-3 mb-3">
+        <Stat label="Event P50" value={formatMs(h.event_p50)} />
+        <Stat label="Event P95" value={formatMs(h.event_p95)} />
+        <Stat
+          label="Failures"
+          value={
+            <>
+              {h.failed_probes}{" "}
+              <span className="text-muted-foreground text-[10px]">
+                ({formatPct(h.failure_rate)})
+              </span>
+            </>
+          }
+          tooltip="Number of failed probes and failure rate in this window"
+        />
+      </div>
+
+      {/* Row 3: Derived metrics */}
+      <div className="grid grid-cols-3 gap-x-3 border-t border-border pt-3">
+        <Stat
+          label="Volatility"
+          value={
+            <span className={VOLATILITY_COLORS[volatility]}>
+              {volatility === "unknown" ? "—" : volatility}
+            </span>
+          }
+          tooltip="Latency stability: coefficient of variation of connect latency (low < 20%, medium < 50%, high > 50%)"
+        />
+        <Stat
+          label="Trend"
+          value={
+            <span className={TREND_COLORS[trend]}>
+              {TREND_ICONS[trend]}{" "}
+              {trend === "unknown" ? "—" : trend}
+            </span>
+          }
+          tooltip="Compares current p50 connect latency vs the previous equal-length window"
+        />
+        <Stat
+          label="Incidents"
+          value={
+            <>
+              {h.downtime_incidents}
+              {h.downtime_incidents > 0 && (
+                <span className="text-muted-foreground text-[10px] ml-1">
+                  (max {formatDuration(h.longest_downtime_secs)})
+                </span>
+              )}
+            </>
+          }
+          tooltip="Contiguous downtime periods longer than 1 minute. Shows count and longest duration."
+        />
+      </div>
+    </Link>
+  );
+}
+
+// ─── Dashboard Page ────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const [range, setRange] = useState<TimeRange>("24h");
@@ -33,17 +255,17 @@ export default function DashboardPage() {
     queryFn: fetchRelays,
   });
 
-  const { data: summaries, isLoading: summariesLoading } = useQuery({
-    queryKey: ["relay-summaries", range, relays?.map((r) => r.id)],
+  const { data: healthMap, isLoading: healthLoading } = useQuery({
+    queryKey: ["relay-health", range, relays?.map((r) => r.id)],
     queryFn: async () => {
       if (!relays || relays.length === 0) return {};
-      const results: Record<string, RelaySummaryRow[]> = {};
+      const results: Record<string, RelayHealthRow | null> = {};
       await Promise.all(
         relays.map(async (relay) => {
           try {
-            results[relay.id] = await fetchRelaySummary(relay.id, range);
+            results[relay.id] = await fetchRelayHealth(relay.id, range);
           } catch {
-            results[relay.id] = [];
+            results[relay.id] = null;
           }
         })
       );
@@ -56,12 +278,12 @@ export default function DashboardPage() {
     mutationFn: triggerProbe,
     onSuccess: (data) => {
       toast.success(`Probed ${data?.probed || 0} relays`);
-      queryClient.invalidateQueries({ queryKey: ["relay-summaries"] });
+      queryClient.invalidateQueries({ queryKey: ["relay-health"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
-  const loading = relaysLoading || summariesLoading;
+  const loading = relaysLoading || healthLoading;
 
   return (
     <div className="space-y-6">
@@ -116,108 +338,13 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {relays.map((relay) => {
-            const summary = summaries?.[relay.id] || [];
-            const upMetric = getMetric(summary, RELAY_METRIC_KEYS.UP);
-            const connectMetric = getMetric(summary, RELAY_METRIC_KEYS.CONNECT_LATENCY);
-            const eventMetric = getMetric(summary, RELAY_METRIC_KEYS.FIRST_EVENT_LATENCY);
-            const isUp = upMetric ? upMetric.latest_val === 1 : null;
-            const hasData = summary.length > 0;
-
-            return (
-              <Link
-                key={relay.id}
-                to={`/relays/${relay.id}`}
-                className="group rounded-lg border border-border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-card"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="min-w-0">
-                    <h3 className="font-mono text-sm font-semibold text-foreground truncate">
-                      {relay.name}
-                    </h3>
-                    <p className="text-metric-sm text-muted-foreground truncate mt-0.5">
-                      {relay.url}
-                    </p>
-                  </div>
-                  {isUp !== null && (
-                    <div
-                      className={cn(
-                        "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-metric-sm font-medium shrink-0",
-                        isUp
-                          ? "bg-success/10 text-success"
-                          : "bg-destructive/10 text-destructive"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "h-2 w-2 rounded-full",
-                          isUp ? "bg-success animate-live-pulse" : "bg-destructive"
-                        )}
-                      />
-                      {isUp ? "Up" : "Down"}
-                    </div>
-                  )}
-                </div>
-
-                {hasData ? (
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        Connect p50
-                      </span>
-                      <div className="font-mono text-sm tabular-nums text-foreground mt-0.5">
-                        {formatMs(connectMetric?.p50_val)}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        Connect p95
-                      </span>
-                      <div className="font-mono text-sm tabular-nums text-foreground mt-0.5">
-                        {formatMs(connectMetric?.p95_val)}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        Uptime
-                      </span>
-                      <div className="font-mono text-sm tabular-nums text-foreground mt-0.5">
-                        {formatPct(summary)}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        Event p50
-                      </span>
-                      <div className="font-mono text-sm tabular-nums text-foreground mt-0.5">
-                        {formatMs(eventMetric?.p50_val)}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        Event p95
-                      </span>
-                      <div className="font-mono text-sm tabular-nums text-foreground mt-0.5">
-                        {formatMs(eventMetric?.p95_val)}
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        Checks
-                      </span>
-                      <div className="font-mono text-sm tabular-nums text-foreground mt-0.5">
-                        {upMetric?.total_count || 0}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-metric-sm text-muted-foreground italic">
-                    No data yet — click "Probe Now" to start
-                  </p>
-                )}
-              </Link>
-            );
-          })}
+          {relays.map((relay) => (
+            <RelayCard
+              key={relay.id}
+              relay={relay}
+              health={healthMap?.[relay.id] ?? null}
+            />
+          ))}
         </div>
       )}
     </div>
