@@ -5,6 +5,8 @@ import {
   TimeseriesBucket,
   RelayRow,
   ApiKeyRow,
+  MetricRow,
+  MetricStats,
 } from "@/lib/types";
 import { RelayHealthRow } from "@/lib/health";
 
@@ -105,6 +107,61 @@ export async function fetchRelaySummary(relayId: string, range: TimeRange) {
   } as any);
   if (error) throw error;
   return (data as unknown as any[]) || [];
+}
+
+// ─── Metrics (global) ──────────────────────────────────────────────────────────
+
+export async function fetchMetrics(): Promise<MetricRow[]> {
+  const { data, error } = await supabase
+    .from("metrics")
+    .select("*")
+    .order("category", { ascending: true });
+  if (error) throw error;
+  return (data as unknown as MetricRow[]) || [];
+}
+
+export async function fetchMetricByKey(key: string): Promise<MetricRow | null> {
+  const { data, error } = await supabase
+    .from("metrics")
+    .select("*")
+    .eq("key", key)
+    .maybeSingle();
+  if (error) throw error;
+  return data as unknown as MetricRow | null;
+}
+
+// ─── Generic Timeseries (for global/non-relay metrics) ─────────────────────────
+
+export async function fetchGenericTimeseries(
+  metricId: string,
+  range: TimeRange
+): Promise<TimeseriesBucket[]> {
+  const { start, end, intervalSeconds } = getTimeWindow(range);
+  const { data, error } = await supabase.rpc("get_timeseries", {
+    p_metric_id: metricId,
+    p_start: start.toISOString(),
+    p_end: end.toISOString(),
+    p_interval_seconds: intervalSeconds,
+  } as any);
+  if (error) throw error;
+  return (data as unknown as TimeseriesBucket[]) || [];
+}
+
+// ─── Generic Metric Stats (for stat/gauge panels on global metrics) ────────────
+
+export async function fetchMetricStats(
+  metricId: string,
+  range: TimeRange
+): Promise<MetricStats | null> {
+  const { start, end } = getTimeWindow(range);
+  const { data, error } = await supabase.rpc("get_metric_stats", {
+    p_metric_id: metricId,
+    p_start: start.toISOString(),
+    p_end: end.toISOString(),
+  } as any);
+  if (error) throw error;
+  const rows = data as unknown as MetricStats[];
+  return rows?.[0] ?? null;
 }
 
 // ─── API Keys ──────────────────────────────────────────────────────────────────
