@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Activity, LayoutDashboard, Radio, Key, LogOut, Plus } from "lucide-react";
+import { truncatePubkey } from "@/lib/nostr";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -49,7 +50,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Button>
           </Link>
           <div className="flex items-center justify-between px-1">
-            <span className="truncate text-metric-sm text-muted-foreground">{user?.email}</span>
+            <span className="truncate text-metric-sm text-muted-foreground font-mono">
+              {user?.user_metadata?.pubkey
+                ? truncatePubkey(user.user_metadata.pubkey)
+                : user?.email}
+            </span>
             <button onClick={signOut} className="text-muted-foreground hover:text-foreground transition-colors">
               <LogOut className="h-3.5 w-3.5" />
             </button>

@@ -1,33 +1,58 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Activity } from "lucide-react";
+import { Activity, Zap, AlertCircle } from "lucide-react";
+import { hasNostrExtension, signAuthEvent, truncatePubkey } from "@/lib/nostr";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const [hasExtension, setHasExtension] = useState(false);
+  const { user } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    // Check after a small delay since extensions inject window.nostr async
+    const timer = setTimeout(() => setHasExtension(hasNostrExtension()), 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (user) navigate("/", { replace: true });
+  }, [user, navigate]);
+
+  const handleNostrLogin = async () => {
+    if (!hasNostrExtension()) {
+      toast.error("No Nostr extension detected. Install nos2x, Alby, or similar.");
+      return;
+    }
+
     setLoading(true);
     try {
-      if (isLogin) {
-        await signIn(email, password);
-        toast.success("Signed in");
-        navigate("/");
-      } else {
-        await signUp(email, password);
-        toast.success("Account created. Check your email to confirm.");
+      const signedEvent = await signAuthEvent();
+
+      const { data, error } = await supabase.functions.invoke("nostr-auth", {
+        body: { event: signedEvent },
+      });
+
+      if (error || !data?.access_token) {
+        throw new Error(data?.error || error?.message || "Authentication failed");
       }
+
+      // Set the session in Supabase client
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      });
+
+      if (sessionError) throw sessionError;
+
+      toast.success(`Signed in as ${truncatePubkey(signedEvent.pubkey)}`);
+      navigate("/");
     } catch (err: any) {
+      console.error("Nostr auth error:", err);
       toast.error(err.message || "Authentication failed");
     } finally {
       setLoading(false);
@@ -42,46 +67,53 @@ export default function AuthPage() {
             <Activity className="h-8 w-8" />
             <span className="text-metric-lg font-mono tracking-tight">NUMBERS</span>
           </div>
-          <p className="text-metric-sm text-muted-foreground">Time-series metrics for the Nostr ecosystem</p>
+          <p className="text-metric-sm text-muted-foreground">
+            Time-series metrics for the Nostr ecosystem
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-border bg-card p-6 shadow-card">
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-metric-sm">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="operator@relay.nostr"
-              required
-              className="bg-background"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-metric-sm">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              minLength={6}
-              className="bg-background"
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "..." : isLogin ? "Sign In" : "Create Account"}
+        <div className="rounded-lg border border-border bg-card p-6 shadow-card space-y-4">
+          <Button
+            onClick={handleNostrLogin}
+            disabled={loading}
+            className="w-full gap-2"
+            size="lg"
+          >
+            <Zap className="h-4 w-4" />
+            {loading ? "Signing in..." : "Sign in with Nostr"}
           </Button>
-        </form>
 
-        <button
-          onClick={() => setIsLogin(!isLogin)}
-          className="w-full text-center text-metric-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {isLogin ? "No account? Create one" : "Already have an account? Sign in"}
-        </button>
+          <p className="text-center text-metric-sm text-muted-foreground">
+            Uses your browser extension (nos2x, Alby, etc.)
+          </p>
+
+          {!hasExtension && (
+            <div className="flex items-start gap-2 rounded-md border border-border bg-muted/50 p-3 text-metric-sm text-muted-foreground">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>
+                No Nostr extension detected.{" "}
+                <a
+                  href="https://github.com/nickytonline/nos2x"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Install nos2x
+                </a>{" "}
+                or{" "}
+                <a
+                  href="https://getalby.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  Alby
+                </a>{" "}
+                to get started.
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
