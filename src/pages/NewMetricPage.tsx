@@ -36,15 +36,12 @@ export default function NewMetricPage() {
     }
   };
 
-  const updateField = (field: string, value: string | boolean) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-    if (field === "name" && !form.key) {
-      setForm((prev) => ({
-        ...prev,
-        [field]: value,
-        key: String(value).toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
-      }));
-    }
+  const handleNameChange = (value: string) => {
+    setForm((prev) => ({
+      ...prev,
+      name: value,
+      key: prev.key || value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
+    }));
   };
 
   return (
