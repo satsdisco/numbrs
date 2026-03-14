@@ -207,6 +207,24 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_relay_health: {
+        Args: { p_end: string; p_relay_id: string; p_start: string }
+        Returns: {
+          connect_avg: number
+          connect_p50: number
+          connect_p95: number
+          connect_stddev: number
+          downtime_incidents: number
+          event_p50: number
+          event_p95: number
+          failed_probes: number
+          failure_rate: number
+          longest_downtime_secs: number
+          prev_connect_p50: number
+          total_checks: number
+          uptime_pct: number
+        }[]
+      }
       get_relay_summary: {
         Args: { p_end: string; p_relay_id: string; p_start: string }
         Returns: {
