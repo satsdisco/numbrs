@@ -3,15 +3,34 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchRelayById,
-  fetchRelaySummary,
+  fetchRelayHealth,
   fetchRelayTimeseries,
+  fetchRelaySummary,
 } from "@/lib/api";
 import { TimeRange, RELAY_METRIC_KEYS, MetricStats } from "@/lib/types";
+import {
+  computeHealthScore,
+  scoreColor,
+  getVolatility,
+  getTrend,
+  formatMs,
+  formatPct,
+  formatDuration,
+  VOLATILITY_COLORS,
+  TREND_ICONS,
+  TREND_COLORS,
+} from "@/lib/health";
 import TimeRangeSelector from "@/components/TimeRangeSelector";
 import TimeseriesChart from "@/components/TimeseriesChart";
 import StatsGrid from "@/components/StatsGrid";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const SCORE_BG = {
+  success: "bg-success/15 text-success border-success/30",
+  warning: "bg-warning/15 text-warning border-warning/30",
+  destructive: "bg-destructive/15 text-destructive border-destructive/30",
+} as const;
 
 export default function RelayDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +39,12 @@ export default function RelayDetailPage() {
   const { data: relay, isLoading: relayLoading } = useQuery({
     queryKey: ["relay", id],
     queryFn: () => fetchRelayById(id!),
+    enabled: !!id,
+  });
+
+  const { data: health } = useQuery({
+    queryKey: ["relay-health", id, range],
+    queryFn: () => fetchRelayHealth(id!, range),
     enabled: !!id,
   });
 
@@ -65,24 +90,17 @@ export default function RelayDetailPage() {
     );
   }
 
-  const upMetric = summary?.find(
-    (s) => s.metric_key === RELAY_METRIC_KEYS.UP
-  );
   const connectMetric = summary?.find(
-    (s) => s.metric_key === RELAY_METRIC_KEYS.CONNECT_LATENCY
+    (s: any) => s.metric_key === RELAY_METRIC_KEYS.CONNECT_LATENCY
   );
   const eventMetric = summary?.find(
-    (s) => s.metric_key === RELAY_METRIC_KEYS.FIRST_EVENT_LATENCY
+    (s: any) => s.metric_key === RELAY_METRIC_KEYS.FIRST_EVENT_LATENCY
   );
-  const isUp = upMetric ? upMetric.latest_val === 1 : null;
-  const uptimePct =
-    upMetric && upMetric.total_count > 0
-      ? (upMetric.avg_val * 100).toFixed(1)
-      : null;
+  const upMetric = summary?.find(
+    (s: any) => s.metric_key === RELAY_METRIC_KEYS.UP
+  );
 
-  function toStats(
-    m: typeof connectMetric | undefined
-  ): MetricStats | null {
+  function toStats(m: any): MetricStats | null {
     if (!m) return null;
     return {
       min_val: m.min_val,
@@ -93,6 +111,13 @@ export default function RelayDetailPage() {
       total_count: Number(m.total_count),
     };
   }
+
+  const h = health;
+  const score = h ? computeHealthScore(h) : null;
+  const color = score !== null ? scoreColor(score) : null;
+  const isUp = h && h.total_checks > 0 ? h.uptime_pct !== null && h.uptime_pct >= 50 : null;
+  const volatility = h ? getVolatility(h.connect_stddev, h.connect_avg) : "unknown";
+  const trend = h ? getTrend(h.connect_p50, h.prev_connect_p50) : "unknown";
 
   return (
     <div className="space-y-6">
@@ -110,6 +135,16 @@ export default function RelayDetailPage() {
               <h1 className="font-mono text-xl font-semibold text-foreground">
                 {relay.name}
               </h1>
+              {score !== null && color && (
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-xs font-bold tabular-nums",
+                    SCORE_BG[color]
+                  )}
+                >
+                  {score}
+                </span>
+              )}
               {isUp !== null && (
                 <span
                   className={cn(
@@ -122,9 +157,7 @@ export default function RelayDetailPage() {
                   <span
                     className={cn(
                       "h-2 w-2 rounded-full",
-                      isUp
-                        ? "bg-success animate-live-pulse"
-                        : "bg-destructive"
+                      isUp ? "bg-success animate-live-pulse" : "bg-destructive"
                     )}
                   />
                   {isUp ? "Up" : "Down"}
@@ -139,19 +172,47 @@ export default function RelayDetailPage() {
                 </span>
               )}
             </p>
-            {uptimePct !== null && (
-              <p className="text-metric-sm text-muted-foreground mt-1">
-                Uptime:{" "}
-                <span className="font-mono text-foreground">
-                  {uptimePct}%
-                </span>{" "}
-                over {range}
-              </p>
-            )}
           </div>
         </div>
         <TimeRangeSelector value={range} onChange={setRange} />
       </div>
+
+      {/* Health summary strip */}
+      {h && h.total_checks > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+          {[
+            { label: "Uptime", value: formatPct(h.uptime_pct) },
+            { label: "Failures", value: `${h.failed_probes} (${formatPct(h.failure_rate)})` },
+            { label: "Incidents", value: String(h.downtime_incidents) },
+            { label: "Max Downtime", value: formatDuration(h.longest_downtime_secs) },
+            {
+              label: "Volatility",
+              value: volatility,
+              className: VOLATILITY_COLORS[volatility],
+            },
+            {
+              label: "Trend",
+              value: `${TREND_ICONS[trend]} ${trend}`,
+              className: TREND_COLORS[trend],
+            },
+            { label: "Checks", value: String(h.total_checks) },
+          ].map((item) => (
+            <div key={item.label} className="rounded-lg border border-border bg-card p-3">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {item.label}
+              </span>
+              <div
+                className={cn(
+                  "font-mono text-sm tabular-nums mt-1",
+                  (item as any).className || "text-foreground"
+                )}
+              >
+                {item.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Connect Latency */}
       <section className="space-y-3">
