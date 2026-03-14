@@ -44,6 +44,33 @@ export type Database = {
         }
         Relationships: []
       }
+      dashboards: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       datapoints: {
         Row: {
           created_at: string
@@ -130,6 +157,47 @@ export type Database = {
           value_type?: string
         }
         Relationships: []
+      }
+      panels: {
+        Row: {
+          config: Json
+          created_at: string
+          dashboard_id: string
+          id: string
+          layout: Json
+          panel_type: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          dashboard_id: string
+          id?: string
+          layout?: Json
+          panel_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          dashboard_id?: string
+          id?: string
+          layout?: Json
+          panel_type?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "panels_dashboard_id_fkey"
+            columns: ["dashboard_id"]
+            isOneToOne: false
+            referencedRelation: "dashboards"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
