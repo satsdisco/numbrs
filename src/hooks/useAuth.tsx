@@ -34,14 +34,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin } });
-    if (error) throw error;
+  const signUp = async (_email: string, _password: string) => {
+    throw new Error("Use Nostr sign-in instead");
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+  const signIn = async (_email: string, _password: string) => {
+    throw new Error("Use Nostr sign-in instead");
   };
 
   const signOut = async () => {
