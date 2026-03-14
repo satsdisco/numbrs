@@ -58,7 +58,7 @@ export default function NewMetricPage() {
           <Label className="text-metric-sm">Name</Label>
           <Input
             value={form.name}
-            onChange={(e) => updateField("name", e.target.value)}
+            onChange={(e) => handleNameChange(e.target.value)}
             placeholder="Relay Latency"
             required
             className="bg-background"
