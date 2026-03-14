@@ -20,6 +20,7 @@ export type Database = {
           id: string
           is_active: boolean
           key: string
+          last_used_at: string | null
           name: string
           user_id: string
         }
@@ -28,6 +29,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           key?: string
+          last_used_at?: string | null
           name?: string
           user_id: string
         }
@@ -36,6 +38,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           key?: string
+          last_used_at?: string | null
           name?: string
           user_id?: string
         }
@@ -47,6 +50,7 @@ export type Database = {
           dimensions: Json | null
           id: string
           metric_id: string
+          relay_id: string | null
           value: number
         }
         Insert: {
@@ -54,6 +58,7 @@ export type Database = {
           dimensions?: Json | null
           id?: string
           metric_id: string
+          relay_id?: string | null
           value: number
         }
         Update: {
@@ -61,6 +66,7 @@ export type Database = {
           dimensions?: Json | null
           id?: string
           metric_id?: string
+          relay_id?: string | null
           value?: number
         }
         Relationships: [
@@ -71,10 +77,18 @@ export type Database = {
             referencedRelation: "metrics"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "datapoints_relay_id_fkey"
+            columns: ["relay_id"]
+            isOneToOne: false
+            referencedRelation: "relays"
+            referencedColumns: ["id"]
+          },
         ]
       }
       metrics: {
         Row: {
+          category: string
           created_at: string
           description: string | null
           id: string
@@ -84,10 +98,11 @@ export type Database = {
           tags: Json | null
           unit: string | null
           updated_at: string
-          user_id: string
+          user_id: string | null
           value_type: string
         }
         Insert: {
+          category?: string
           created_at?: string
           description?: string | null
           id?: string
@@ -97,10 +112,11 @@ export type Database = {
           tags?: Json | null
           unit?: string | null
           updated_at?: string
-          user_id: string
+          user_id?: string | null
           value_type?: string
         }
         Update: {
+          category?: string
           created_at?: string
           description?: string | null
           id?: string
@@ -110,7 +126,7 @@ export type Database = {
           tags?: Json | null
           unit?: string | null
           updated_at?: string
-          user_id?: string
+          user_id?: string | null
           value_type?: string
         }
         Relationships: []
@@ -149,49 +165,31 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          latency_metric_id: string | null
           name: string
+          region: string | null
           updated_at: string
-          uptime_metric_id: string | null
           url: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          latency_metric_id?: string | null
           name: string
+          region?: string | null
           updated_at?: string
-          uptime_metric_id?: string | null
           url: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          latency_metric_id?: string | null
           name?: string
+          region?: string | null
           updated_at?: string
-          uptime_metric_id?: string | null
           url?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "relays_latency_metric_id_fkey"
-            columns: ["latency_metric_id"]
-            isOneToOne: false
-            referencedRelation: "metrics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "relays_uptime_metric_id_fkey"
-            columns: ["uptime_metric_id"]
-            isOneToOne: false
-            referencedRelation: "metrics"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
@@ -207,6 +205,35 @@ export type Database = {
           p50_val: number
           p95_val: number
           total_count: number
+        }[]
+      }
+      get_relay_summary: {
+        Args: { p_end: string; p_relay_id: string; p_start: string }
+        Returns: {
+          avg_val: number
+          latest_val: number
+          max_val: number
+          metric_key: string
+          min_val: number
+          p50_val: number
+          p95_val: number
+          total_count: number
+        }[]
+      }
+      get_relay_timeseries: {
+        Args: {
+          p_end: string
+          p_interval_seconds: number
+          p_metric_key: string
+          p_relay_id: string
+          p_start: string
+        }
+        Returns: {
+          avg_value: number
+          bucket: string
+          count: number
+          max_value: number
+          min_value: number
         }[]
       }
       get_timeseries: {
