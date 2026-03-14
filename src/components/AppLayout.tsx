@@ -43,10 +43,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="space-y-2 border-t border-border p-3">
-          <Link to="/metrics/new">
+          <Link to="/relays/new">
             <Button size="sm" className="w-full gap-1.5">
               <Plus className="h-3.5 w-3.5" />
-              New Metric
+              Add Relay
             </Button>
           </Link>
           <div className="flex items-center justify-between px-1">

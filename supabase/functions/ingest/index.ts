@@ -45,6 +45,12 @@ serve(async (req) => {
       });
     }
 
+    // Update last_used_at
+    await supabase
+      .from("api_keys")
+      .update({ last_used_at: new Date().toISOString() } as any)
+      .eq("key", apiKey);
+
     const body = await req.json();
     const datapoints = Array.isArray(body) ? body : [body];
 
@@ -59,33 +65,100 @@ serve(async (req) => {
     const errors: string[] = [];
 
     for (const dp of datapoints) {
-      if (!dp.key || dp.value === undefined) {
-        errors.push(`Missing key or value in datapoint`);
+      // Support both old format (key) and new format (metric_key + relay_url)
+      const metricKey = dp.metric_key || dp.key;
+      if (!metricKey || dp.value === undefined) {
+        errors.push("Missing metric_key/key or value");
         continue;
       }
 
-      // Find metric by key and user
-      const { data: metric, error: metricError } = await supabase
+      // Find metric definition by key
+      let metric: { id: string } | null = null;
+
+      // First try system metrics (no user_id)
+      const { data: sysMetric } = await supabase
         .from("metrics")
         .select("id")
-        .eq("key", dp.key)
-        .eq("user_id", userId)
+        .eq("key", metricKey)
+        .is("user_id", null)
         .maybeSingle();
 
-      if (metricError || !metric) {
-        errors.push(`Metric "${dp.key}" not found`);
-        continue;
+      if (sysMetric) {
+        metric = sysMetric;
+      } else {
+        // Then try user's own metrics
+        const { data: userMetric } = await supabase
+          .from("metrics")
+          .select("id")
+          .eq("key", metricKey)
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (userMetric) {
+          metric = userMetric;
+        } else {
+          // Auto-create metric definition for user
+          const { data: newMetric, error: createErr } = await supabase
+            .from("metrics")
+            .insert({
+              key: metricKey,
+              name: metricKey,
+              user_id: userId,
+              value_type: "float",
+              category: "custom",
+            })
+            .select("id")
+            .single();
+
+          if (createErr) {
+            errors.push(`Failed to create metric "${metricKey}": ${createErr.message}`);
+            continue;
+          }
+          metric = newMetric;
+        }
       }
 
-      const { error: insertError } = await supabase.from("datapoints").insert({
-        metric_id: metric.id,
+      // Resolve relay_id if relay_url is provided
+      let relayId: string | null = null;
+      if (dp.relay_url) {
+        const { data: relay } = await supabase
+          .from("relays")
+          .select("id")
+          .eq("url", dp.relay_url)
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (relay) {
+          relayId = relay.id;
+        } else {
+          // Auto-create relay
+          const relayName = dp.relay_url.replace(/^wss?:\/\//, "").replace(/\/$/, "");
+          const { data: newRelay, error: relayErr } = await supabase
+            .from("relays")
+            .insert({ url: dp.relay_url, name: relayName, user_id: userId } as any)
+            .select("id")
+            .single();
+
+          if (relayErr) {
+            errors.push(`Failed to create relay "${dp.relay_url}": ${relayErr.message}`);
+            continue;
+          }
+          relayId = newRelay.id;
+        }
+      }
+
+      const insertObj: any = {
+        metric_id: metric!.id,
         value: Number(dp.value),
         dimensions: dp.tags || dp.dimensions || {},
-        created_at: dp.timestamp || new Date().toISOString(),
-      });
+        created_at: dp.recorded_at || dp.timestamp || new Date().toISOString(),
+      };
+      if (relayId) insertObj.relay_id = relayId;
+
+      const { error: insertError } = await supabase.from("datapoints").insert(insertObj);
 
       if (insertError) {
-        errors.push(`Failed to insert "${dp.key}": ${insertError.message}`);
+        errors.push(`Failed to insert "${metricKey}": ${insertError.message}`);
       } else {
         ingested++;
       }

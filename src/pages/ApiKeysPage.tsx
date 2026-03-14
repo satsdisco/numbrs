@@ -1,99 +1,153 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/hooks/useAuth";
-import { fetchApiKeys, createApiKey, deleteApiKey } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Key, Plus, Trash2, Copy, Check } from "lucide-react";
-import { toast } from "sonner";
 import { useState } from "react";
-import { formatDistanceToNow } from "date-fns";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { fetchApiKeys, createApiKey, deleteApiKey } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Plus, Trash2, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 
 export default function ApiKeysPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [newKeyName, setNewKeyName] = useState("Default");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
   const { data: keys, isLoading } = useQuery({
     queryKey: ["api-keys"],
     queryFn: fetchApiKeys,
   });
 
-  const handleCreate = async () => {
-    if (!user) return;
-    try {
-      await createApiKey(user.id, `Key ${(keys?.length || 0) + 1}`);
+  const createMutation = useMutation({
+    mutationFn: () => createApiKey(user!.id, newKeyName),
+    onSuccess: () => {
       toast.success("API key created");
+      setNewKeyName("Default");
       queryClient.invalidateQueries({ queryKey: ["api-keys"] });
-    } catch {
-      toast.error("Failed to create key");
-    }
-  };
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this API key? Any scripts using it will stop working.")) return;
-    try {
-      await deleteApiKey(id);
-      toast.success("Key deleted");
+  const deleteMutation = useMutation({
+    mutationFn: deleteApiKey,
+    onSuccess: () => {
+      toast.success("API key deleted");
       queryClient.invalidateQueries({ queryKey: ["api-keys"] });
-    } catch {
-      toast.error("Failed to delete key");
-    }
-  };
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
-  const handleCopy = async (key: string, id: string) => {
-    await navigator.clipboard.writeText(key);
+  const copyKey = (key: string, id: string) => {
+    navigator.clipboard.writeText(key);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
     toast.success("Copied to clipboard");
   };
 
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+  const exampleCurl = (key: string) =>
+    `curl -X POST \\
+  https://${projectId}.supabase.co/functions/v1/ingest \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-KEY: ${key}" \\
+  -d '{
+    "metric_key": "relay_latency_connect_ms",
+    "relay_url": "wss://relay.damus.io",
+    "value": 142.5
+  }'`;
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-metric-lg text-foreground">API Keys</h1>
-          <p className="text-metric-sm text-muted-foreground">Authenticate your data ingestion scripts</p>
+      <div>
+        <h1 className="font-mono text-xl font-semibold text-foreground">API Keys</h1>
+        <p className="text-metric-sm text-muted-foreground mt-1">
+          Manage keys for the metrics ingestion API
+        </p>
+      </div>
+
+      {/* Create key */}
+      <div className="flex items-end gap-3 rounded-lg border border-border bg-card p-4">
+        <div className="flex-1 space-y-1.5">
+          <Label htmlFor="key-name" className="text-metric-sm">Key Name</Label>
+          <Input
+            id="key-name"
+            value={newKeyName}
+            onChange={(e) => setNewKeyName(e.target.value)}
+            placeholder="My key"
+            className="bg-background"
+          />
         </div>
-        <Button size="sm" className="gap-1.5" onClick={handleCreate}>
-          <Plus className="h-3.5 w-3.5" />
-          New Key
+        <Button
+          onClick={() => createMutation.mutate()}
+          disabled={createMutation.isPending}
+          className="gap-1.5"
+        >
+          <Plus className="h-3.5 w-3.5" /> Create Key
         </Button>
       </div>
 
+      {/* Keys list */}
       {isLoading ? (
-        <div className="space-y-3">
-          {[1].map((i) => (
-            <div key={i} className="h-16 animate-pulse rounded-lg border border-border bg-card" />
-          ))}
+        <div className="flex items-center justify-center py-10">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
-      ) : keys && keys.length > 0 ? (
-        <div className="space-y-3">
-          {keys.map((k) => (
-            <div key={k.id} className="flex items-center justify-between rounded-lg border border-border bg-card p-4 shadow-card">
-              <div className="flex items-center gap-3 min-w-0">
-                <Key className="h-4 w-4 shrink-0 text-primary" />
-                <div className="min-w-0">
-                  <h3 className="text-metric-base font-medium text-foreground">{k.name}</h3>
-                  <p className="truncate font-mono text-metric-sm text-muted-foreground">{k.key}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-metric-sm text-muted-foreground mr-2">
-                  {formatDistanceToNow(new Date(k.created_at), { addSuffix: true })}
-                </span>
-                <Button variant="ghost" size="icon" onClick={() => handleCopy(k.key, k.id)}>
-                  {copiedId === k.id ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
-                </Button>
-                <Button variant="ghost" size="icon" onClick={() => handleDelete(k.id)} className="text-destructive">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          ))}
+      ) : !keys || keys.length === 0 ? (
+        <div className="rounded-lg border border-border bg-card p-10 text-center text-muted-foreground">
+          No API keys yet. Create one to start ingesting metrics.
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-card py-16">
-          <Key className="mb-3 h-8 w-8 text-muted-foreground" />
-          <p className="text-metric-base text-muted-foreground">No API keys yet</p>
-          <p className="mt-1 text-metric-sm text-muted-foreground">Create an API key to start ingesting data.</p>
+        <div className="space-y-3">
+          {keys.map((k) => (
+            <div key={k.id} className="rounded-lg border border-border bg-card p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-medium text-foreground text-sm">{k.name}</span>
+                  <span className="ml-2 text-metric-sm text-muted-foreground">
+                    Created {new Date(k.created_at).toLocaleDateString()}
+                  </span>
+                  {k.last_used_at && (
+                    <span className="ml-2 text-metric-sm text-muted-foreground">
+                      · Last used {new Date(k.last_used_at).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => copyKey(k.key, k.id)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {copiedId === k.id ? (
+                      <Check className="h-4 w-4 text-success" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm("Delete this API key?")) deleteMutation.mutate(k.id);
+                    }}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="font-mono text-metric-sm text-muted-foreground bg-background rounded px-3 py-2 break-all">
+                {k.key}
+              </div>
+
+              <details className="group">
+                <summary className="text-metric-sm text-primary cursor-pointer hover:underline">
+                  Show example curl command
+                </summary>
+                <pre className="mt-2 overflow-x-auto rounded bg-background p-3 text-[11px] font-mono text-muted-foreground leading-relaxed">
+                  {exampleCurl(k.key)}
+                </pre>
+              </details>
+            </div>
+          ))}
         </div>
       )}
     </div>
