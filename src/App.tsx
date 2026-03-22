@@ -12,6 +12,7 @@ import RelayDetailPage from "@/pages/RelayDetailPage";
 import RelaysPage from "@/pages/RelaysPage";
 import NewRelayPage from "@/pages/NewRelayPage";
 import ApiKeysPage from "@/pages/ApiKeysPage";
+import AlertsPage from "@/pages/AlertsPage";
 import ExplorePage from "@/pages/ExplorePage";
 import NotFound from "@/pages/NotFound";
 
@@ -40,6 +41,7 @@ function ProtectedRoutes() {
         <Route path="/relays/new" element={<NewRelayPage />} />
         <Route path="/relays/:id" element={<RelayDetailPage />} />
         <Route path="/api-keys" element={<ApiKeysPage />} />
+        <Route path="/alerts" element={<AlertsPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

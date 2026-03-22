@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Activity, LayoutDashboard, LayoutGrid, Radio, Key, LogOut, Plus, Globe } from "lucide-react";
+import { Activity, LayoutDashboard, LayoutGrid, Radio, Key, LogOut, Plus, Globe, Bell } from "lucide-react";
 import { truncatePubkey } from "@/lib/nostr";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,7 @@ const navItems = [
   { path: "/", label: "Relay Health", icon: LayoutDashboard },
   { path: "/dashboards", label: "Dashboards", icon: LayoutGrid },
   { path: "/relays", label: "Relays", icon: Radio },
+  { path: "/alerts", label: "Alerts", icon: Bell },
   { path: "/api-keys", label: "API Keys", icon: Key },
   { path: "/explore", label: "Explore", icon: Globe },
 ];
