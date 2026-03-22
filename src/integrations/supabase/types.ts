@@ -275,6 +275,23 @@ export type Database = {
           total_count: number
         }[]
       }
+      get_public_relay_directory: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          connect_p50: number
+          connect_p95: number
+          event_p50: number
+          event_p95: number
+          failed_probes: number
+          health_score: number
+          relay_id: string
+          relay_name: string
+          relay_region: string
+          relay_url: string
+          total_checks: number
+          uptime_pct: number
+        }[]
+      }
       get_relay_health: {
         Args: { p_end: string; p_relay_id: string; p_start: string }
         Returns: {

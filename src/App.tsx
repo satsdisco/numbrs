@@ -12,6 +12,7 @@ import RelayDetailPage from "@/pages/RelayDetailPage";
 import RelaysPage from "@/pages/RelaysPage";
 import NewRelayPage from "@/pages/NewRelayPage";
 import ApiKeysPage from "@/pages/ApiKeysPage";
+import ExplorePage from "@/pages/ExplorePage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -59,6 +60,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
+            <Route path="/explore" element={<ExplorePage />} />
             <Route path="/auth" element={<AuthRoutes />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>

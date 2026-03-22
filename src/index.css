@@ -45,6 +45,8 @@
     --sidebar-ring: 263.4 70% 50.4%;
 
     --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 8px 16px -4px rgba(0, 0, 0, 0.4);
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.06);
   }
 }
 
@@ -69,6 +71,19 @@
   }
   .text-balance {
     text-wrap: balance;
+  }
+  .glass {
+    background: var(--glass-bg);
+    border-color: var(--glass-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .glass-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-card);
   }
 }
 
