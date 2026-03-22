@@ -84,6 +84,7 @@ export default function DashboardBuilderPage() {
     },
   });
 
+  const handleLayoutChange = useCallback(
     (layout: any[]) => {
       if (!panels || !isEditing) return;
       const updates = layout
