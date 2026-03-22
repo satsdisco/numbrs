@@ -40,7 +40,6 @@ async function probeRelay(url: string): Promise<ProbeResult> {
         const connectMs = Math.round(performance.now() - start);
         clearTimeout(connectTimeout);
 
-        // Send a minimal subscription for recent kind-1 events
         const subId = "probe_" + Date.now();
         const reqStart = performance.now();
         ws.send(JSON.stringify(["REQ", subId, { kinds: [1], limit: 1 }]));
@@ -51,7 +50,6 @@ async function probeRelay(url: string): Promise<ProbeResult> {
             ws.send(JSON.stringify(["CLOSE", subId]));
             ws.close();
           } catch { /* ignore */ }
-          // Got connected but no event within timeout — still "up"
           resolve({ connectMs, firstEventMs, up: true });
         }, EVENT_TIMEOUT);
 
@@ -74,6 +72,74 @@ async function probeRelay(url: string): Promise<ProbeResult> {
       resolve({ connectMs: 0, firstEventMs: 0, up: false });
     }
   });
+}
+
+/**
+ * Check alert rules against probe results and create alert events.
+ */
+async function checkAlertRules(
+  supabase: any,
+  relayId: string,
+  result: ProbeResult
+) {
+  try {
+    // Fetch active alert rules that match this relay (or are for all relays)
+    const { data: rules, error } = await supabase
+      .from("alert_rules")
+      .select("*")
+      .eq("is_active", true)
+      .in("metric_key", [
+        "relay_latency_connect_ms",
+        "relay_latency_first_event_ms",
+        "relay_up",
+      ]);
+
+    if (error || !rules) return;
+
+    const metricValues: Record<string, number> = {
+      relay_latency_connect_ms: result.connectMs,
+      relay_latency_first_event_ms: result.firstEventMs,
+      relay_up: result.up ? 1 : 0,
+    };
+
+    const alertEvents: any[] = [];
+
+    for (const rule of rules) {
+      // Skip if rule is for a different relay
+      if (rule.relay_id && rule.relay_id !== relayId) continue;
+
+      const value = metricValues[rule.metric_key];
+      if (value === undefined) continue;
+
+      let triggered = false;
+      if (rule.condition === "gt" && value > rule.threshold) triggered = true;
+      if (rule.condition === "lt" && value < rule.threshold) triggered = true;
+
+      if (triggered) {
+        alertEvents.push({
+          alert_rule_id: rule.id,
+          value,
+          relay_id: relayId,
+          metric_key: rule.metric_key,
+          threshold: rule.threshold,
+          condition: rule.condition,
+        });
+      }
+    }
+
+    if (alertEvents.length > 0) {
+      const { error: insertErr } = await supabase
+        .from("alert_events")
+        .insert(alertEvents);
+      if (insertErr) {
+        console.error("Alert event insert error:", insertErr);
+      } else {
+        console.log(`Triggered ${alertEvents.length} alert(s) for relay ${relayId}`);
+      }
+    }
+  } catch (err) {
+    console.error("Alert check error:", err);
+  }
 }
 
 serve(async (req) => {
@@ -160,6 +226,9 @@ serve(async (req) => {
         if (insertError) {
           console.error(`Insert error for ${relay.name}:`, insertError);
         }
+
+        // Check alert rules for this relay's probe results
+        await checkAlertRules(supabase, relay.id, result);
 
         return {
           relay: relay.name,
