@@ -64,6 +64,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/shared/:token" element={<SharedDashboardPage />} />
             <Route path="/auth" element={<AuthRoutes />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
