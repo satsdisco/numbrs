@@ -14,6 +14,104 @@ export type Database = {
   }
   public: {
     Tables: {
+      alert_events: {
+        Row: {
+          acknowledged: boolean
+          alert_rule_id: string
+          condition: string
+          id: string
+          metric_key: string
+          relay_id: string | null
+          threshold: number
+          triggered_at: string
+          value: number
+        }
+        Insert: {
+          acknowledged?: boolean
+          alert_rule_id: string
+          condition: string
+          id?: string
+          metric_key: string
+          relay_id?: string | null
+          threshold: number
+          triggered_at?: string
+          value: number
+        }
+        Update: {
+          acknowledged?: boolean
+          alert_rule_id?: string
+          condition?: string
+          id?: string
+          metric_key?: string
+          relay_id?: string | null
+          threshold?: number
+          triggered_at?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_events_alert_rule_id_fkey"
+            columns: ["alert_rule_id"]
+            isOneToOne: false
+            referencedRelation: "alert_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_events_relay_id_fkey"
+            columns: ["relay_id"]
+            isOneToOne: false
+            referencedRelation: "relays"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      alert_rules: {
+        Row: {
+          condition: string
+          created_at: string
+          id: string
+          is_active: boolean
+          metric_key: string
+          name: string
+          relay_id: string | null
+          threshold: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          condition?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          metric_key: string
+          name?: string
+          relay_id?: string | null
+          threshold: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          condition?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          metric_key?: string
+          name?: string
+          relay_id?: string | null
+          threshold?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_rules_relay_id_fkey"
+            columns: ["relay_id"]
+            isOneToOne: false
+            referencedRelation: "relays"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_keys: {
         Row: {
           created_at: string
