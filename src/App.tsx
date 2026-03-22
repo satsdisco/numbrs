@@ -14,6 +14,7 @@ import NewRelayPage from "@/pages/NewRelayPage";
 import ApiKeysPage from "@/pages/ApiKeysPage";
 import AlertsPage from "@/pages/AlertsPage";
 import ExplorePage from "@/pages/ExplorePage";
+import SharedDashboardPage from "@/pages/SharedDashboardPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();

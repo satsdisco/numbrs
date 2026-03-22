@@ -276,6 +276,17 @@ export default function DashboardBuilderPage() {
           });
         }}
       />
+
+      {/* Share dialog */}
+      <ShareDialog
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        dashboardId={id!}
+        dashboardName={dashboard.name}
+        isPublic={dashboard.is_public ?? false}
+        shareToken={(dashboard as any).share_token ?? null}
+        onTogglePublic={(pub) => shareMutation.mutate(pub)}
+      />
     </div>
   );
 }
