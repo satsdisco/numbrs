@@ -5,6 +5,8 @@ export interface DashboardRow {
   user_id: string;
   name: string;
   description: string | null;
+  is_public: boolean;
+  share_token: string | null;
   created_at: string;
   updated_at: string;
 }
