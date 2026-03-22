@@ -14,6 +14,7 @@ import NewRelayPage from "@/pages/NewRelayPage";
 import ApiKeysPage from "@/pages/ApiKeysPage";
 import AlertsPage from "@/pages/AlertsPage";
 import ExplorePage from "@/pages/ExplorePage";
+import SharedDashboardPage from "@/pages/SharedDashboardPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -63,6 +64,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/shared/:token" element={<SharedDashboardPage />} />
             <Route path="/auth" element={<AuthRoutes />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>

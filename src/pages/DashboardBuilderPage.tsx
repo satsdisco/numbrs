@@ -9,15 +9,17 @@ import {
   updatePanel,
   updateDashboard,
   updatePanelLayouts,
+  toggleDashboardSharing,
 } from "@/lib/dashboard-api";
 import type { PanelRow, PanelLayout } from "@/lib/dashboard-types";
 import type { TimeRange } from "@/lib/types";
 import TimeRangeSelector from "@/components/TimeRangeSelector";
 import PanelCard from "@/components/panels/PanelCard";
 import AddPanelDialog from "@/components/panels/AddPanelDialog";
+import ShareDialog from "@/components/ShareDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Plus, Pencil, Lock, Check } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Lock, Check, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Responsive, WidthProvider } from "react-grid-layout";
@@ -34,6 +36,7 @@ export default function DashboardBuilderPage() {
   const [range, setRange] = useState<TimeRange>("24h");
   const [isEditing, setIsEditing] = useState(false);
   const [addPanelOpen, setAddPanelOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
 
@@ -71,6 +74,13 @@ export default function DashboardBuilderPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard", id] });
       setEditingName(false);
+    },
+  });
+
+  const shareMutation = useMutation({
+    mutationFn: (isPublic: boolean) => toggleDashboardSharing(id!, isPublic),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard", id] });
     },
   });
 
@@ -177,6 +187,14 @@ export default function DashboardBuilderPage() {
         <div className="flex items-center gap-2">
           <TimeRangeSelector value={range} onChange={setRange} />
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShareOpen(true)}
+            className="gap-1.5"
+          >
+            <Share2 className="h-3.5 w-3.5" /> Share
+          </Button>
+          <Button
             variant={isEditing ? "default" : "outline"}
             size="sm"
             onClick={() => setIsEditing(!isEditing)}
@@ -257,6 +275,17 @@ export default function DashboardBuilderPage() {
             ...panel,
           });
         }}
+      />
+
+      {/* Share dialog */}
+      <ShareDialog
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        dashboardId={id!}
+        dashboardName={dashboard.name}
+        isPublic={dashboard.is_public ?? false}
+        shareToken={(dashboard as any).share_token ?? null}
+        onTogglePublic={(pub) => shareMutation.mutate(pub)}
       />
     </div>
   );

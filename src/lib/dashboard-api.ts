@@ -38,7 +38,7 @@ export async function createDashboard(args: {
 
 export async function updateDashboard(
   id: string,
-  updates: { name?: string; description?: string }
+  updates: { name?: string; description?: string; is_public?: boolean; share_token?: string | null }
 ): Promise<DashboardRow> {
   const { data, error } = await supabase
     .from("dashboards")
@@ -48,6 +48,15 @@ export async function updateDashboard(
     .single();
   if (error) throw error;
   return data as unknown as DashboardRow;
+}
+
+export async function toggleDashboardSharing(id: string, isPublic: boolean): Promise<DashboardRow> {
+  const updates: any = { is_public: isPublic };
+  if (isPublic) {
+    // Generate a share token if making public
+    updates.share_token = crypto.randomUUID().replace(/-/g, "").slice(0, 16);
+  }
+  return updateDashboard(id, updates);
 }
 
 export async function deleteDashboard(id: string) {
