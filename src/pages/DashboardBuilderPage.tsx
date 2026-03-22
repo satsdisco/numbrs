@@ -9,15 +9,17 @@ import {
   updatePanel,
   updateDashboard,
   updatePanelLayouts,
+  toggleDashboardSharing,
 } from "@/lib/dashboard-api";
 import type { PanelRow, PanelLayout } from "@/lib/dashboard-types";
 import type { TimeRange } from "@/lib/types";
 import TimeRangeSelector from "@/components/TimeRangeSelector";
 import PanelCard from "@/components/panels/PanelCard";
 import AddPanelDialog from "@/components/panels/AddPanelDialog";
+import ShareDialog from "@/components/ShareDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Plus, Pencil, Lock, Check } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Lock, Check, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Responsive, WidthProvider } from "react-grid-layout";
@@ -34,6 +36,7 @@ export default function DashboardBuilderPage() {
   const [range, setRange] = useState<TimeRange>("24h");
   const [isEditing, setIsEditing] = useState(false);
   const [addPanelOpen, setAddPanelOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
 
