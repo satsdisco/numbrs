@@ -77,7 +77,13 @@ export default function DashboardBuilderPage() {
     },
   });
 
-  const handleLayoutChange = useCallback(
+  const shareMutation = useMutation({
+    mutationFn: (isPublic: boolean) => toggleDashboardSharing(id!, isPublic),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard", id] });
+    },
+  });
+
     (layout: any[]) => {
       if (!panels || !isEditing) return;
       const updates = layout
@@ -179,6 +185,14 @@ export default function DashboardBuilderPage() {
 
         <div className="flex items-center gap-2">
           <TimeRangeSelector value={range} onChange={setRange} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShareOpen(true)}
+            className="gap-1.5"
+          >
+            <Share2 className="h-3.5 w-3.5" /> Share
+          </Button>
           <Button
             variant={isEditing ? "default" : "outline"}
             size="sm"
