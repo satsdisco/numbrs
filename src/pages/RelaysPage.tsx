@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { fetchRelays, deleteRelay } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Plus, Trash2, ExternalLink } from "lucide-react";
+import { Plus, Trash2, ExternalLink, Radio } from "lucide-react";
 import { toast } from "sonner";
 
 export default function RelaysPage() {
@@ -41,8 +41,21 @@ export default function RelaysPage() {
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
       ) : !relays || relays.length === 0 ? (
-        <div className="rounded-lg border border-border bg-card p-10 text-center text-muted-foreground">
-          No relays yet. Add your first relay to start monitoring.
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 py-20 text-center">
+          <Radio className="h-10 w-10 text-muted-foreground mb-4" />
+          <h2 className="text-lg font-medium text-foreground mb-2">No relays yet</h2>
+          <p className="text-metric-sm text-muted-foreground mb-2 max-w-sm">
+            Add a Nostr relay to start tracking latency, uptime, and health scores automatically.
+          </p>
+          <p className="text-xs text-muted-foreground mb-6">
+            Want to push custom metrics instead?{" "}
+            <Link to="/integrations" className="text-primary hover:underline">View integrations →</Link>
+          </p>
+          <Link to="/relays/new">
+            <Button className="gap-1.5">
+              <Plus className="h-4 w-4" /> Add your first relay
+            </Button>
+          </Link>
         </div>
       ) : (
         <div className="rounded-lg border border-border bg-card overflow-hidden">

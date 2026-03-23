@@ -133,10 +133,10 @@ export default function AuthPage() {
             className="flex items-center gap-2.5 text-primary"
           >
             <Activity className="h-8 w-8" />
-            <span className="text-metric-lg font-mono tracking-tight">NUMBERS</span>
+            <span className="text-2xl font-semibold tracking-tight">numbrs</span>
           </motion.div>
           <p className="text-metric-sm text-muted-foreground text-center">
-            Time-series metrics for the Nostr ecosystem
+            metrics for the open web
           </p>
         </div>
 

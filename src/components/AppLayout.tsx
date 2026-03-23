@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Activity, LayoutDashboard, LayoutGrid, Radio, Key, LogOut, Plus, Globe, Bell } from "lucide-react";
+import { Activity, LayoutDashboard, LayoutGrid, Radio, Key, LogOut, Plus, Globe, Bell, Plug } from "lucide-react";
 import { truncatePubkey } from "@/lib/nostr";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -9,8 +9,10 @@ const navItems = [
   { path: "/", label: "Relay Health", icon: LayoutDashboard },
   { path: "/dashboards", label: "Dashboards", icon: LayoutGrid },
   { path: "/relays", label: "Relays", icon: Radio },
+  { path: "/uptime", label: "Uptime", icon: Activity },
   { path: "/alerts", label: "Alerts", icon: Bell },
   { path: "/api-keys", label: "API Keys", icon: Key },
+  { path: "/integrations", label: "Integrations", icon: Plug },
   { path: "/explore", label: "Explore", icon: Globe },
 ];
 
@@ -24,7 +26,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <aside className="fixed inset-y-0 left-0 z-30 flex w-56 flex-col border-r border-border bg-sidebar">
         <div className="flex items-center gap-2 border-b border-border px-4 py-4">
           <Activity className="h-5 w-5 text-primary" />
-          <span className="font-mono text-sm font-semibold text-foreground tracking-tight">NUMBERS</span>
+          <span className="text-sm font-semibold text-foreground tracking-tight">numbrs</span>
         </div>
 
         <nav className="flex-1 space-y-1 px-2 py-3">

@@ -24,7 +24,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Plus, RefreshCw, Radio, Info } from "lucide-react";
+import { Plus, RefreshCw, Radio, Info, Plug } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { RelayRow } from "@/lib/types";
@@ -321,18 +321,24 @@ export default function DashboardPage() {
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
       ) : !relays || relays.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-card py-20 text-center">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 py-20 text-center">
           <Radio className="h-10 w-10 text-muted-foreground mb-4" />
           <h2 className="text-lg font-medium text-foreground mb-2">
             No relays registered
           </h2>
-          <p className="text-metric-sm text-muted-foreground mb-6 max-w-md">
-            Add your first Nostr relay to start collecting health metrics
-            automatically.
+          <p className="text-metric-sm text-muted-foreground mb-2 max-w-md">
+            Add a Nostr relay to start collecting latency, uptime, and health
+            metrics automatically.
+          </p>
+          <p className="text-xs text-muted-foreground mb-6">
+            Prefer to push custom metrics?{" "}
+            <Link to="/integrations" className="text-primary hover:underline inline-flex items-center gap-0.5">
+              <Plug className="h-3 w-3" /> View integrations
+            </Link>
           </p>
           <Link to="/relays/new">
             <Button className="gap-1.5">
-              <Plus className="h-4 w-4" /> Add Relay
+              <Plus className="h-4 w-4" /> Add your first relay
             </Button>
           </Link>
         </div>

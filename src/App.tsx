@@ -15,7 +15,10 @@ import ApiKeysPage from "@/pages/ApiKeysPage";
 import AlertsPage from "@/pages/AlertsPage";
 import ExplorePage from "@/pages/ExplorePage";
 import SharedDashboardPage from "@/pages/SharedDashboardPage";
+import UptimePage from "@/pages/UptimePage";
+import IntegrationsPage from "@/pages/IntegrationsPage";
 import NotFound from "@/pages/NotFound";
+import Onboarding, { isOnboardingComplete } from "@/components/Onboarding";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +37,7 @@ function ProtectedRoutes() {
 
   return (
     <AppLayout>
+      {!isOnboardingComplete() && <Onboarding />}
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/dashboards" element={<DashboardsListPage />} />
@@ -41,6 +45,8 @@ function ProtectedRoutes() {
         <Route path="/relays" element={<RelaysPage />} />
         <Route path="/relays/new" element={<NewRelayPage />} />
         <Route path="/relays/:id" element={<RelayDetailPage />} />
+        <Route path="/uptime" element={<UptimePage />} />
+        <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="/api-keys" element={<ApiKeysPage />} />
         <Route path="/alerts" element={<AlertsPage />} />
         <Route path="*" element={<NotFound />} />

@@ -13,7 +13,7 @@ export interface DashboardRow {
 
 export type PanelType = "line" | "area" | "stat" | "gauge";
 
-export type DataSourceMode = "relay" | "global";
+export type DataSourceMode = "relay" | "global" | "custom";
 
 export interface PanelConfig {
   metric_key?: string;
@@ -26,7 +26,7 @@ export interface PanelConfig {
   time_range?: string;
   unit?: string;
   /** For stat panels — which aggregate to show */
-  stat_field?: "avg" | "p50" | "p95" | "min" | "max" | "latest" | "count";
+  stat_field?: "avg" | "p50" | "p95" | "min" | "max" | "latest" | "count" | "sum";
   /** For gauge panels — max value for the gauge */
   gauge_max?: number;
 }
