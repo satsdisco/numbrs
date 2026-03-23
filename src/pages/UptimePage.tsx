@@ -118,7 +118,7 @@ function MonitorDetail({ monitor }: { monitor: UptimeMonitor }) {
 
   return (
     <div className="border-t border-border bg-muted/20 px-5 py-4 space-y-3">
-      <div className="flex items-center gap-6 text-xs">
+      <div className="flex flex-wrap items-center gap-6 text-xs">
         <div>
           <span className="text-muted-foreground uppercase tracking-wider">24h Uptime</span>
           <div className="font-mono text-sm font-semibold text-foreground mt-0.5">
@@ -380,7 +380,7 @@ export default function UptimePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-mono text-xl font-semibold text-foreground">Uptime</h1>
           <p className="text-metric-sm text-muted-foreground mt-1">

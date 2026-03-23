@@ -59,6 +59,7 @@ export default function RelaysPage() {
         </div>
       ) : (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-metric-sm">
             <thead>
               <tr className="border-b border-border text-muted-foreground">
@@ -115,6 +116,7 @@ export default function RelaysPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

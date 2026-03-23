@@ -118,7 +118,7 @@ export default function ExplorePage() {
             <div className="flex items-center justify-center gap-2 mb-3">
               <Activity className="h-6 w-6 text-primary" />
               <span className="font-mono text-sm font-semibold text-primary tracking-widest uppercase">
-                Numbers for Nostr
+                numbrs for Nostr
               </span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight">

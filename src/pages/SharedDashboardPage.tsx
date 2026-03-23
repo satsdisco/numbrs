@@ -97,7 +97,7 @@ export default function SharedDashboardPage() {
           <div className="flex items-center gap-3">
             <TimeRangeSelector value={range} onChange={setRange} />
             <span className="text-[10px] text-muted-foreground font-mono flex items-center gap-1">
-              <Activity className="h-3 w-3" /> NUMBERS
+              <Activity className="h-3 w-3" /> numbrs
             </span>
           </div>
         </div>

@@ -47,7 +47,7 @@ export async function signAuthEvent(): Promise<NostrEvent> {
     kind: 22242,
     created_at: Math.floor(Date.now() / 1000),
     tags: [["relay", window.location.origin]],
-    content: "Sign in to NUMBERS",
+    content: "Sign in to numbrs",
   };
 
   return window.nostr.signEvent(unsignedEvent);
@@ -74,7 +74,7 @@ export async function signAuthEventWithNsec(nsecOrHex: string): Promise<NostrEve
     kind: 22242,
     created_at: Math.floor(Date.now() / 1000),
     tags: [["relay", window.location.origin]],
-    content: "Sign in to NUMBERS",
+    content: "Sign in to numbrs",
   };
 
   const event = finalizeEvent(template, secretKey);
@@ -97,7 +97,7 @@ export async function signAuthEventWithBunker(bunkerUri: string): Promise<NostrE
       kind: 22242,
       created_at: Math.floor(Date.now() / 1000),
       tags: [["relay", window.location.origin]],
-      content: "Sign in to NUMBERS",
+      content: "Sign in to numbrs",
     };
 
     const event = await signer.signEvent(template);
