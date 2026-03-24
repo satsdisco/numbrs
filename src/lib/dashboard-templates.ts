@@ -193,6 +193,23 @@ export const DASHBOARD_TEMPLATES: DashboardTemplate[] = [
     ],
   },
   {
+    id: "mac-mini-health",
+    name: "Mac Mini Health",
+    description: "CPU, RAM, disk usage and Jellyfin stats for your home server",
+    icon: "🖥️",
+    panels: [
+      { title: "CPU Usage", panel_type: "area", config: { metric_key: "system.cpu_pct", data_source: "custom" as const, unit: "%" }, layout: { x: 0, y: 0, w: 6, h: 4 } },
+      { title: "RAM Usage", panel_type: "area", config: { metric_key: "system.ram_pct", data_source: "custom" as const, unit: "%" }, layout: { x: 6, y: 0, w: 6, h: 4 } },
+      { title: "CPU %", panel_type: "stat", config: { metric_key: "system.cpu_pct", data_source: "custom" as const, stat_field: "latest" as const, unit: "%" }, layout: { x: 0, y: 4, w: 3, h: 2 } },
+      { title: "RAM %", panel_type: "stat", config: { metric_key: "system.ram_pct", data_source: "custom" as const, stat_field: "latest" as const, unit: "%" }, layout: { x: 3, y: 4, w: 3, h: 2 } },
+      { title: "External Disk", panel_type: "gauge", config: { metric_key: "system.disk_external_pct", data_source: "custom" as const, stat_field: "latest" as const, gauge_max: 100, unit: "%" }, layout: { x: 6, y: 4, w: 3, h: 2 } },
+      { title: "Disk Free (GB)", panel_type: "stat", config: { metric_key: "system.disk_external_free_gb", data_source: "custom" as const, stat_field: "latest" as const, unit: "GB" }, layout: { x: 9, y: 4, w: 3, h: 2 } },
+      { title: "Jellyfin Streams", panel_type: "area", config: { metric_key: "jellyfin.active_streams", data_source: "custom" as const, unit: "streams" }, layout: { x: 0, y: 6, w: 6, h: 4 } },
+      { title: "Active Streams", panel_type: "stat", config: { metric_key: "jellyfin.active_streams", data_source: "custom" as const, stat_field: "latest" as const, unit: "" }, layout: { x: 6, y: 6, w: 3, h: 2 } },
+      { title: "Songs in Library", panel_type: "stat", config: { metric_key: "jellyfin.song_count", data_source: "custom" as const, stat_field: "latest" as const, unit: "" }, layout: { x: 9, y: 6, w: 3, h: 2 } },
+    ],
+  },
+  {
     id: "personal-stats",
     name: "Personal Stats",
     description: "Track anything about yourself — commits, workouts, sleep, habits",
