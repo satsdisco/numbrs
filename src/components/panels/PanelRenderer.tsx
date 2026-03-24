@@ -16,13 +16,14 @@ import GaugePanel from "./GaugePanel";
 interface PanelRendererProps {
   panel: PanelRow;
   globalTimeRange: TimeRange;
+  globalRelayId?: string | null;
 }
 
-export default function PanelRenderer({ panel, globalTimeRange }: PanelRendererProps) {
+export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }: PanelRendererProps) {
   const { config } = panel;
   const range = (config.time_range as TimeRange) || globalTimeRange;
   const metricKey = config.metric_key || "relay_latency_connect_ms";
-  const relayId = config.relay_id;
+  const relayId = config.relay_id || globalRelayId || undefined;
   const isGlobal = config.data_source === "global" || config.data_source === "custom";
   const isChart = panel.panel_type === "line" || panel.panel_type === "area";
   const isStat = panel.panel_type === "stat" || panel.panel_type === "gauge";
@@ -66,7 +67,7 @@ export default function PanelRenderer({ panel, globalTimeRange }: PanelRendererP
   if (!isGlobal && !relayId) {
     return (
       <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-        Select a relay in panel settings
+        Select a relay above or in panel settings
       </div>
     );
   }

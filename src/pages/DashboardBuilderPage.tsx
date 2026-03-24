@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -11,6 +11,7 @@ import {
   updatePanelLayouts,
   toggleDashboardSharing,
 } from "@/lib/dashboard-api";
+import { fetchRelays } from "@/lib/api";
 import type { PanelRow, PanelLayout } from "@/lib/dashboard-types";
 import type { TimeRange } from "@/lib/types";
 import TimeRangeSelector from "@/components/TimeRangeSelector";
@@ -19,6 +20,13 @@ import AddPanelDialog from "@/components/panels/AddPanelDialog";
 import ShareDialog from "@/components/ShareDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ArrowLeft, Plus, Pencil, Lock, Check, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -34,11 +42,23 @@ export default function DashboardBuilderPage() {
   const queryClient = useQueryClient();
 
   const [range, setRange] = useState<TimeRange>("24h");
+  const [globalRelayId, setGlobalRelayId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [addPanelOpen, setAddPanelOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
+
+  const { data: relays } = useQuery({
+    queryKey: ["relays"],
+    queryFn: fetchRelays,
+  });
+
+  useEffect(() => {
+    if (relays?.length === 1) {
+      setGlobalRelayId(relays[0].id);
+    }
+  }, [relays]);
 
   const { data: dashboard, isLoading: dbLoading } = useQuery({
     queryKey: ["dashboard", id],
@@ -185,6 +205,26 @@ export default function DashboardBuilderPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {relays && relays.length > 1 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground font-mono">Relay:</span>
+              <Select
+                value={globalRelayId ?? ""}
+                onValueChange={(v) => setGlobalRelayId(v)}
+              >
+                <SelectTrigger className="h-8 w-44 text-xs font-mono">
+                  <SelectValue placeholder="Pick a relay" />
+                </SelectTrigger>
+                <SelectContent>
+                  {relays.map((r) => (
+                    <SelectItem key={r.id} value={r.id} className="text-xs font-mono">
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <TimeRangeSelector value={range} onChange={setRange} />
           <Button
             variant="outline"
@@ -242,6 +282,7 @@ export default function DashboardBuilderPage() {
               <PanelCard
                 panel={panel}
                 globalTimeRange={range}
+                globalRelayId={globalRelayId}
                 isEditing={isEditing}
                 onDelete={() => deletePanelMutation.mutate(panel.id)}
               />

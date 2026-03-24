@@ -13,6 +13,7 @@ import {
 interface Props {
   panel: PanelRow;
   globalTimeRange: TimeRange;
+  globalRelayId?: string | null;
   isEditing: boolean;
   onDelete?: () => void;
   onSettings?: () => void;
@@ -21,6 +22,7 @@ interface Props {
 export default function PanelCard({
   panel,
   globalTimeRange,
+  globalRelayId,
   isEditing,
   onDelete,
   onSettings,
@@ -78,7 +80,7 @@ export default function PanelCard({
 
       {/* Body */}
       <div className="flex-1 p-2 min-h-0">
-        <PanelRenderer panel={panel} globalTimeRange={globalTimeRange} />
+        <PanelRenderer panel={panel} globalTimeRange={globalTimeRange} globalRelayId={globalRelayId} />
       </div>
     </div>
   );
