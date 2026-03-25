@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Plus, Pencil, Lock, Check, Share2 } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Lock, Check, Share2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Responsive, WidthProvider } from "react-grid-layout";
@@ -290,19 +290,57 @@ export default function DashboardBuilderPage() {
           ))}
         </ResponsiveGridLayout>
       ) : (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 py-20">
-          <div className="text-muted-foreground mb-4 text-sm">
-            No panels yet
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 py-16 px-6">
+          <div className="max-w-md text-center space-y-4">
+            <div>
+              <p className="text-foreground text-sm font-medium mb-1">Your dashboard is empty.</p>
+              <p className="text-muted-foreground text-sm">Add your first panel to start visualizing data.</p>
+            </div>
+            <Button
+              onClick={() => {
+                setIsEditing(true);
+                setAddPanelOpen(true);
+              }}
+              className="gap-1.5"
+            >
+              <Plus className="h-4 w-4" /> Add your first panel
+            </Button>
+            <div className="pt-2 border-t border-border/50 text-left space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">How data gets here:</p>
+              <ul className="text-xs text-muted-foreground space-y-1.5">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  Push metrics via the HTTP API (curl, scripts, GitHub Actions)
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  Connect an integration: Claude AI usage, Jellyfin, Plex
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary mt-0.5">•</span>
+                  Add relay or uptime monitors — they push data automatically
+                </li>
+              </ul>
+              <div className="flex items-center gap-4 pt-1">
+                <a
+                  href="https://docs.numbrs.lol/getting-started/quick-start/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" /> Quick Start guide
+                </a>
+                <a
+                  href="https://docs.numbrs.lol/integrations/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" /> Browse Integrations
+                </a>
+              </div>
+            </div>
           </div>
-          <Button
-            onClick={() => {
-              setIsEditing(true);
-              setAddPanelOpen(true);
-            }}
-            className="gap-1.5"
-          >
-            <Plus className="h-4 w-4" /> Add your first panel
-          </Button>
         </div>
       )}
 
