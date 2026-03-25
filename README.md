@@ -65,6 +65,30 @@ An example collector script that pushes system, Jellyfin, Plex, Bitcoin, and Nos
 
 ---
 
+## Claude Usage Tracking
+
+numbrs can track your Claude Code and OpenClaw AI assistant usage — token consumption, API equivalent costs, and session patterns over time.
+
+**What it tracks:**
+- **Claude Code** — tokens in/out, estimated cost, per-project breakdown from `~/.claude/projects/` JSONL files
+- **OpenClaw** — AI assistant session data from `~/.openclaw/agents/main/sessions/` JSONL files
+
+**How it works:**
+
+A local collector script reads your session files and pushes aggregated stats to your numbrs database. Nothing leaves your machine except to your own Supabase instance.
+
+**Setup:**
+
+The collector script runs every 5 minutes via cron:
+
+```sh
+*/5 * * * * NUMBRS_SUPABASE_URL=... NUMBRS_SUPABASE_SERVICE_KEY=... NUMBRS_OWNER_ID=... /path/to/numbrs-claude-collector.sh
+```
+
+Full setup instructions (including the collector script) are on the [Integrations page](https://numbrs.lol/integrations) under **Claude Code + OpenClaw**.
+
+---
+
 ## Dashboard Templates
 
 | Template | Description |
