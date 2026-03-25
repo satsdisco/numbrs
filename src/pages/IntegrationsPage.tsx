@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Check, Copy, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, Copy, ChevronDown, ChevronUp, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Copy button ───────────────────────────────────────────────────────────────
@@ -308,6 +308,154 @@ await track("api.latency_ms", 238);`,
   },
 ];
 
+// ─── Claude Usage section ──────────────────────────────────────────────────────
+
+const COLLECTOR_SCRIPT = `#!/usr/bin/env bash
+# numbrs-claude-collector.sh — sync Claude Code + OpenClaw usage to numbrs
+# Run every 5 min: */5 * * * * /path/to/numbrs-claude-collector.sh
+
+NUMBRS_SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
+NUMBRS_SUPABASE_SERVICE_KEY="YOUR_SERVICE_KEY"
+NUMBRS_OWNER_ID="YOUR_USER_ID"
+
+python3 << 'PYEOF'
+import json, os, glob, urllib.request
+from collections import defaultdict
+from datetime import datetime, timedelta
+
+SB_URL = os.environ.get("NUMBRS_SUPABASE_URL", "")
+SB_KEY = os.environ.get("NUMBRS_SUPABASE_SERVICE_KEY", "")
+OWNER_ID = os.environ.get("NUMBRS_OWNER_ID", "")
+
+# [Claude Code section]
+PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
+cutoff = (datetime.now() - timedelta(hours=2)).timestamp()
+
+def project_name(dir_name):
+    # customize this for your username
+    n = dir_name.replace("-Users-YOUR_USERNAME--", "").strip("-")
+    return n or "workspace"
+
+# ... [rest of script]
+PYEOF`;
+
+const CRON_EXAMPLE = `*/5 * * * * NUMBRS_SUPABASE_URL=https://YOUR_PROJECT.supabase.co NUMBRS_SUPABASE_SERVICE_KEY=YOUR_SERVICE_KEY NUMBRS_OWNER_ID=YOUR_USER_ID /path/to/numbrs-claude-collector.sh`;
+
+const CLAUDE_SETUP_STEPS = [
+  "Get your User ID from the numbrs Settings page (Profile → User ID)",
+  "Get your Supabase service key from Settings → Advanced",
+  "Download the collector script below",
+  "Run it manually first to backfill recent history",
+  "Add the cron job to run every 5 minutes",
+];
+
+function ClaudeSection() {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-xl border border-border bg-card overflow-hidden"
+    >
+      <button
+        className="w-full flex items-center gap-4 p-5 text-left hover:bg-muted/20 transition-colors"
+        onClick={() => setExpanded((v) => !v)}
+      >
+        <span className="text-2xl shrink-0">🤖</span>
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-sm text-foreground">Claude Code + OpenClaw</div>
+          <div className="text-xs text-muted-foreground mt-0.5">
+            Track token consumption, API equivalent costs, and session patterns — requires a local collector script
+          </div>
+        </div>
+        <div className="shrink-0 text-muted-foreground">
+          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </div>
+      </button>
+
+      {expanded && (
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: "auto", opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="border-t border-border px-5 pb-5 pt-4 space-y-5"
+        >
+          {/* What it tracks */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              What it tracks
+            </div>
+            <ul className="text-xs text-muted-foreground space-y-1.5">
+              <li className="flex items-start gap-2">
+                <span className="text-primary mt-0.5">•</span>
+                <span><strong className="text-foreground">Claude Code sessions</strong> — tokens in/out, estimated API cost, per-project breakdown</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-primary mt-0.5">•</span>
+                <span><strong className="text-foreground">OpenClaw sessions</strong> — AI assistant usage, session durations, tool call patterns</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* How it works */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              How it works
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              A local Python script reads JSONL session files from{" "}
+              <code className="font-mono bg-muted/50 px-1 py-0.5 rounded text-[11px]">~/.claude/projects/</code>{" "}
+              (Claude Code) and{" "}
+              <code className="font-mono bg-muted/50 px-1 py-0.5 rounded text-[11px]">~/.openclaw/agents/main/sessions/</code>{" "}
+              (OpenClaw), aggregates usage stats, and pushes them to your numbrs instance via the Supabase API. No data ever leaves your machine except to your own database.
+            </p>
+          </div>
+
+          {/* Setup steps */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Setup
+            </div>
+            <ol className="space-y-2">
+              {CLAUDE_SETUP_STEPS.map((step, i) => (
+                <li key={i} className="flex items-start gap-3 text-xs text-muted-foreground">
+                  <span className="shrink-0 h-5 w-5 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center mt-0.5">
+                    {i + 1}
+                  </span>
+                  <span className="leading-relaxed">{step}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          {/* Collector script */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Collector script
+            </div>
+            <CodeBlock code={COLLECTOR_SCRIPT} language="bash" />
+          </div>
+
+          {/* Cron example */}
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Crontab entry (every 5 minutes)
+            </div>
+            <CodeBlock code={CRON_EXAMPLE} language="bash" />
+            <p className="text-xs text-muted-foreground">
+              Run{" "}
+              <code className="font-mono bg-muted/50 px-1 py-0.5 rounded text-[11px]">crontab -e</code>{" "}
+              and paste the line above, replacing the placeholder values with your actual credentials.
+            </p>
+          </div>
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function IntegrationsPage() {
@@ -360,6 +508,17 @@ export default function IntegrationsPage() {
             </motion.div>
           ))}
         </div>
+      </div>
+
+      {/* Claude Usage section */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Bot className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Claude AI Usage
+          </h2>
+        </div>
+        <ClaudeSection />
       </div>
 
       {/* Footer note */}

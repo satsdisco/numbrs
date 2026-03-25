@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { Radio, Activity, BarChart2, ArrowRight, X } from "lucide-react";
+import { Radio, Activity, BarChart2, Bot, ArrowRight, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "onboarding_complete";
@@ -16,7 +16,7 @@ function markOnboardingComplete() {
   localStorage.setItem(STORAGE_KEY, "true");
 }
 
-type Track = "relays" | "uptime" | "custom" | null;
+type Track = "relays" | "uptime" | "custom" | "claude" | null;
 
 interface StepProps {
   onNext: () => void;
@@ -74,6 +74,13 @@ const TRACK_OPTIONS = [
     emoji: "📊",
     title: "Custom Metrics",
     description: "Push any number from scripts, APIs, GitHub Actions, and more",
+  },
+  {
+    id: "claude" as Track,
+    icon: Bot,
+    emoji: "🤖",
+    title: "Claude AI Usage",
+    description: "Track token consumption, API equivalent costs, and usage patterns across Claude Code and OpenClaw sessions",
   },
 ];
 
@@ -206,6 +213,44 @@ function CustomStep({ onDone }: { onDone: () => void }) {
   );
 }
 
+function ClaudeStep({ onDone }: { onDone: () => void }) {
+  const navigate = useNavigate();
+  return (
+    <div className="space-y-5">
+      <div className="text-center">
+        <span className="text-3xl">🤖</span>
+        <h2 className="text-base font-semibold text-foreground mt-3">Track Claude AI usage</h2>
+        <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto">
+          numbrs reads your local Claude Code and OpenClaw session files to track token consumption, estimated API costs, and usage patterns over time.
+        </p>
+      </div>
+      <div className="rounded-lg bg-muted/30 border border-border p-3 text-xs text-muted-foreground space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span>📁</span>
+          <code className="font-mono">~/.claude/projects/</code>
+          <span className="text-muted-foreground/60">— Claude Code sessions</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span>📁</span>
+          <code className="font-mono">~/.openclaw/agents/</code>
+          <span className="text-muted-foreground/60">— OpenClaw sessions</span>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground text-center">
+        Requires a local collector script that runs every 5 minutes. Full setup instructions on the Integrations page.
+      </p>
+      <div className="flex flex-col gap-2">
+        <Button onClick={() => { onDone(); navigate("/integrations"); }} className="gap-2">
+          <Bot className="h-4 w-4" /> View setup instructions
+        </Button>
+        <button onClick={onDone} className="text-xs text-muted-foreground hover:text-foreground transition-colors py-1">
+          I'll set it up later
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Onboarding Component ─────────────────────────────────────────────────
 
 type Step = "welcome" | "track" | "detail";
@@ -294,6 +339,17 @@ export default function Onboarding() {
               transition={{ duration: 0.2 }}
             >
               <CustomStep onDone={handleDone} />
+            </motion.div>
+          )}
+          {step === "detail" && track === "claude" && (
+            <motion.div
+              key="claude"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <ClaudeStep onDone={handleDone} />
             </motion.div>
           )}
         </AnimatePresence>
