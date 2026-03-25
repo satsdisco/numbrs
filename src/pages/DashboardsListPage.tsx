@@ -124,11 +124,11 @@ export default function DashboardsListPage() {
 
       {/* Template picker dialog */}
       <Dialog open={showTemplates} onOpenChange={setShowTemplates}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="font-mono">New Dashboard</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 mt-2">
+          <div className="space-y-3 mt-2 overflow-y-auto max-h-[60vh] pr-1">
             <button
               onClick={() => { setShowTemplates(false); createFromTemplate(null); }}
               className="w-full rounded-lg border border-dashed border-border bg-muted/20 p-4 text-left hover:border-primary/40 hover:bg-muted/40 transition-all"

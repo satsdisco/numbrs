@@ -197,7 +197,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </Sheet>
 
       {/* Main content */}
-      <main className="flex-1 lg:ml-56 pt-14 lg:pt-0 pb-16 lg:pb-0 p-6">
+      <main className="flex-1 lg:ml-56 pt-14 lg:pt-0 pb-16 lg:pb-0 p-6 min-w-0 overflow-x-hidden">
         {children}
       </main>
 

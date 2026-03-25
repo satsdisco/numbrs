@@ -84,15 +84,16 @@ export default function RelaysPage() {
                       {relay.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 font-mono text-muted-foreground">
+                  <td className="px-4 py-3 font-mono text-muted-foreground max-w-[240px]">
                     <a
                       href={relay.url.replace("wss://", "https://")}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-1 hover:text-foreground transition-colors"
+                      className="flex items-center gap-1 hover:text-foreground transition-colors truncate"
+                      title={relay.url}
                     >
-                      {relay.url}
-                      <ExternalLink className="h-3 w-3" />
+                      <span className="truncate">{relay.url}</span>
+                      <ExternalLink className="h-3 w-3 shrink-0" />
                     </a>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">

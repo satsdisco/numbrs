@@ -278,7 +278,7 @@ export default function DashboardBuilderPage() {
           margin={[12, 12]}
         >
           {panels.map((panel) => (
-            <div key={panel.id}>
+            <div key={panel.id} className="h-full overflow-hidden">
               <PanelCard
                 panel={panel}
                 globalTimeRange={range}
