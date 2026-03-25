@@ -51,7 +51,6 @@ const bottomNavItems = [
   { path: "/relays", label: "Relays", icon: Radio },
   { path: "/uptime", label: "Uptime", icon: Activity },
   { path: "/alerts", label: "Alerts", icon: Bell },
-  { path: "/profile", label: "Profile", icon: UserCircle },
 ];
 
 function SidebarAvatar() {
