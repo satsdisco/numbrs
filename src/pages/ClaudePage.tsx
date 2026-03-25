@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Range = "day" | "week" | "month" | "3months";
+type TabKey = "openclaw" | "code";
 
 interface UsageRow {
   id?: number;
@@ -34,6 +35,19 @@ interface UsageRow {
   model: string;
   session_id: string;
   created_at: string;
+}
+
+interface OpenClawRow {
+  date: string;
+  session_id: string;
+  channel: string;
+  model: string;
+  messages: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  cost_usd: number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -55,6 +69,13 @@ const PROJECT_COLORS: Record<string, string> = {
   other: "#6b7280",
 };
 
+const MODEL_COLORS: Record<string, string> = {
+  opus: "#7c3aed",
+  sonnet: "#2563eb",
+  haiku: "#16a34a",
+  other: "#6b7280",
+};
+
 const COLOR_PALETTE = [
   "#7c3aed",
   "#2563eb",
@@ -73,8 +94,37 @@ function formatTokens(n: number): string {
   return String(n);
 }
 
+function formatCost(n: number): string {
+  return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function projectColor(project: string, index: number): string {
   return PROJECT_COLORS[project] ?? COLOR_PALETTE[index % COLOR_PALETTE.length];
+}
+
+function modelFamily(model: string): string {
+  if (model.includes("opus")) return "opus";
+  if (model.includes("sonnet")) return "sonnet";
+  if (model.includes("haiku")) return "haiku";
+  return "other";
+}
+
+function modelColor(model: string): string {
+  return MODEL_COLORS[modelFamily(model)] ?? MODEL_COLORS.other;
+}
+
+function shortModelName(model: string): string {
+  // "claude-opus-4-6" → "opus-4-6", "claude-sonnet-4-6" → "sonnet-4-6"
+  return model.replace(/^claude-/, "");
+}
+
+function cleanChannelName(channel: string): string {
+  if (channel === "main") return "Direct Chat";
+  if (channel.startsWith("slack:")) return "Slack";
+  if (channel.startsWith("discord:")) return "Discord";
+  if (channel.startsWith("telegram:")) return "Telegram";
+  if (channel.startsWith("whatsapp:")) return "WhatsApp";
+  return channel;
 }
 
 function sinceDate(range: Range): string {
@@ -161,11 +211,293 @@ function StatCard({
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── OpenClaw Tab ─────────────────────────────────────────────────────────────
 
-export default function ClaudePage() {
-  const [range, setRange] = useState<Range>("month");
+function OpenClawTab({ range }: { range: Range }) {
+  const since = sinceDate(range);
 
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["openclaw_usage", range],
+    queryFn: async (): Promise<OpenClawRow[]> => {
+      const { data } = await supabase
+        .from("openclaw_usage")
+        .select(
+          "date, session_id, channel, model, messages, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd"
+        )
+        .gte("date", since)
+        .order("date", { ascending: true });
+      return (data as OpenClawRow[]) || [];
+    },
+  });
+
+  // ── Stats ────────────────────────────────────────────────────────────────────
+
+  const stats = useMemo(() => {
+    const outputTokens = rows.reduce((s, r) => s + (r.output_tokens || 0), 0);
+    const totalCost = rows.reduce((s, r) => s + (Number(r.cost_usd) || 0), 0);
+    const sessions = new Set(rows.map((r) => r.session_id).filter(Boolean)).size;
+
+    // Top model by output tokens
+    const modelTokens: Record<string, number> = {};
+    for (const r of rows) {
+      const m = r.model || "unknown";
+      modelTokens[m] = (modelTokens[m] || 0) + (r.output_tokens || 0);
+    }
+    const topModelFull =
+      Object.entries(modelTokens).sort(([, a], [, b]) => b - a)[0]?.[0] ?? "—";
+    const topModel = topModelFull !== "—" ? shortModelName(topModelFull) : "—";
+
+    return { outputTokens, totalCost, sessions, topModel };
+  }, [rows]);
+
+  // ── Unique models for stacked chart ─────────────────────────────────────────
+
+  const uniqueModels = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const r of rows) {
+      const m = r.model || "other";
+      totals[m] = (totals[m] || 0) + (r.output_tokens || 0);
+    }
+    return Object.entries(totals)
+      .sort(([, a], [, b]) => b - a)
+      .map(([m]) => m);
+  }, [rows]);
+
+  // ── Stacked bar by model ─────────────────────────────────────────────────────
+
+  const stackedData = useMemo(() => {
+    const dateMap: Record<string, Record<string, number>> = {};
+    for (const r of rows) {
+      const d = r.date;
+      if (!dateMap[d]) dateMap[d] = {};
+      const m = r.model || "other";
+      dateMap[d][m] = (dateMap[d][m] || 0) + (r.output_tokens || 0);
+    }
+    return Object.entries(dateMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, vals]) => {
+        let label: string;
+        try {
+          label = format(new Date(date + "T12:00:00"), range === "day" ? "HH:mm" : "MMM d");
+        } catch {
+          label = date;
+        }
+        return { date: label, rawDate: date, ...vals };
+      });
+  }, [rows, range]);
+
+  const allModelKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const d of stackedData) {
+      for (const k of Object.keys(d)) {
+        if (k !== "date" && k !== "rawDate") keys.add(k);
+      }
+    }
+    return [...uniqueModels.filter((m) => keys.has(m)), ...[...keys].filter((k) => !uniqueModels.includes(k))];
+  }, [stackedData, uniqueModels]);
+
+  // ── By model breakdown ───────────────────────────────────────────────────────
+
+  const byModel = useMemo(() => {
+    const agg: Record<string, { output_tokens: number; cost_usd: number }> = {};
+    for (const r of rows) {
+      const m = r.model || "unknown";
+      if (!agg[m]) agg[m] = { output_tokens: 0, cost_usd: 0 };
+      agg[m].output_tokens += r.output_tokens || 0;
+      agg[m].cost_usd += Number(r.cost_usd) || 0;
+    }
+    const sorted = Object.entries(agg).sort(([, a], [, b]) => b.output_tokens - a.output_tokens);
+    const totalOut = sorted.reduce((s, [, v]) => s + v.output_tokens, 0) || 1;
+    return sorted.map(([model, vals]) => ({
+      model,
+      shortName: shortModelName(model),
+      output_tokens: vals.output_tokens,
+      cost_usd: vals.cost_usd,
+      pct: (vals.output_tokens / totalOut) * 100,
+      color: modelColor(model),
+    }));
+  }, [rows]);
+
+  // ── Channel breakdown ────────────────────────────────────────────────────────
+
+  const byChannel = useMemo(() => {
+    const agg: Record<string, number> = {};
+    for (const r of rows) {
+      const cleanName = cleanChannelName(r.channel || "unknown");
+      agg[cleanName] = (agg[cleanName] || 0) + (r.messages || 0);
+    }
+    const total = Object.values(agg).reduce((s, v) => s + v, 0) || 1;
+    return Object.entries(agg)
+      .sort(([, a], [, b]) => b - a)
+      .map(([channel, messages]) => ({
+        channel,
+        messages,
+        pct: (messages / total) * 100,
+      }));
+  }, [rows]);
+
+  const tickInterval = Math.max(1, Math.floor(stackedData.length / 8));
+  const rangeLabel = RANGES.find((r) => r.key === range)?.label ?? range;
+
+  function StackedTooltip({ active, payload, label }: any) {
+    if (!active || !payload?.length) return null;
+    const total = payload.reduce((s: number, p: any) => s + (p.value || 0), 0);
+    return (
+      <div style={{ ...tooltipContentStyle, padding: "8px 12px", minWidth: "160px" }}>
+        <p style={{ ...tooltipLabelStyle, marginBottom: 6 }}>{label}</p>
+        <p style={{ color: "#e5e7eb", marginBottom: 4, fontSize: "12px" }}>
+          total: {formatTokens(total)}
+        </p>
+        {[...payload].reverse().map((p: any) => (
+          <div key={p.dataKey} style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 2 }}>
+            <span style={{ color: p.fill }}>{shortModelName(p.dataKey)}</span>
+            <span style={{ color: "#e5e7eb" }}>{formatTokens(p.value)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Output Tokens"
+          value={formatTokens(stats.outputTokens)}
+          sub={`${rangeLabel} total`}
+          loading={isLoading}
+        />
+        <StatCard
+          label="API Equiv Cost"
+          value={formatCost(stats.totalCost)}
+          sub={`${rangeLabel} total`}
+          loading={isLoading}
+        />
+        <StatCard
+          label="Sessions"
+          value={stats.sessions.toLocaleString()}
+          sub={`${rangeLabel} total`}
+          loading={isLoading}
+        />
+        <StatCard
+          label="Top Model"
+          value={stats.topModel}
+          sub="by output tokens"
+          loading={isLoading}
+        />
+      </div>
+
+      {/* Stacked bar chart by model */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <p className="text-sm font-medium text-foreground mb-4">Token Usage by Model</p>
+        <div className="h-64">
+          {stackedData.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+              {isLoading ? "Loading…" : "No data for this range"}
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={stackedData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 20%)" vertical={false} />
+                <XAxis dataKey="date" {...axisStyle} interval={tickInterval} />
+                <YAxis {...axisStyle} width={40} tickFormatter={(v: number) => formatTokens(v)} />
+                <Tooltip content={<StackedTooltip />} />
+                <Legend
+                  {...legendStyle}
+                  formatter={(value: string) => shortModelName(value)}
+                />
+                {allModelKeys.map((model, i) => (
+                  <Bar
+                    key={model}
+                    dataKey={model}
+                    stackId="a"
+                    fill={modelColor(model)}
+                    radius={i === allModelKeys.length - 1 ? [2, 2, 0, 0] : [0, 0, 0, 0]}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      {/* Two-column row: By Model + Channel Breakdown */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* By Model */}
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-sm font-medium text-foreground mb-3">By Model</p>
+          <div className="space-y-3">
+            {byModel.length === 0 ? (
+              <p className="text-xs text-muted-foreground">{isLoading ? "Loading…" : "No data"}</p>
+            ) : (
+              byModel.map(({ model, shortName, output_tokens, cost_usd, pct, color }) => (
+                <div key={model}>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-xs font-medium text-foreground">{shortName}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono text-muted-foreground">
+                        {formatCost(cost_usd)}
+                      </span>
+                      <span className="text-xs font-mono text-foreground">
+                        {formatTokens(output_tokens)}
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground w-9 text-right">
+                        {pct.toFixed(0)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${pct}%`, backgroundColor: color }}
+                    />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Channel Breakdown */}
+        <div className="rounded-lg border border-border bg-card p-4">
+          <p className="text-sm font-medium text-foreground mb-3">By Channel</p>
+          <div className="space-y-3">
+            {byChannel.length === 0 ? (
+              <p className="text-xs text-muted-foreground">{isLoading ? "Loading…" : "No data"}</p>
+            ) : (
+              byChannel.map(({ channel, messages, pct }, i) => (
+                <div key={channel}>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-xs font-medium text-foreground">{channel}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-foreground">
+                        {messages.toLocaleString()} msgs
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground w-9 text-right">
+                        {pct.toFixed(0)}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${pct}%`, backgroundColor: COLOR_PALETTE[i % COLOR_PALETTE.length] }}
+                    />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Claude Code Tab ──────────────────────────────────────────────────────────
+
+function ClaudeCodeTab({ range }: { range: Range }) {
   const since = sinceDate(range);
 
   const { data: rows = [], isLoading } = useQuery({
@@ -189,7 +521,6 @@ export default function ClaudePage() {
     const inputTokens = rows.reduce((s, r) => s + (r.input_tokens || 0), 0);
     const sessions = rows.length;
 
-    // Top project by output tokens
     const projectTokens: Record<string, number> = {};
     for (const r of rows) {
       const p = r.project || "unknown";
@@ -209,14 +540,13 @@ export default function ClaudePage() {
       const p = r.project || "other";
       totals[p] = (totals[p] || 0) + (r.output_tokens || 0);
     }
-    const sorted = Object.entries(totals)
+    return Object.entries(totals)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 6)
       .map(([name]) => name);
-    return sorted;
   }, [rows]);
 
-  // ── Stacked bar data: { date, project1: tokens, project2: tokens, ... }[] ───
+  // ── Stacked bar data ─────────────────────────────────────────────────────────
 
   const stackedData = useMemo(() => {
     const dateMap: Record<string, Record<string, number>> = {};
@@ -229,7 +559,6 @@ export default function ClaudePage() {
     return Object.entries(dateMap)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, vals]) => {
-        // Format date for display
         let label: string;
         try {
           label = format(new Date(date + "T12:00:00"), range === "day" ? "HH:mm" : "MMM d");
@@ -240,7 +569,7 @@ export default function ClaudePage() {
       });
   }, [rows, topProjects, range]);
 
-  // ── All projects breakdown for the "By Project" panel ────────────────────────
+  // ── By Project breakdown ─────────────────────────────────────────────────────
 
   const byProject = useMemo(() => {
     const agg: Record<string, { output_tokens: number; input_tokens: number }> = {};
@@ -261,7 +590,7 @@ export default function ClaudePage() {
     }));
   }, [rows]);
 
-  // ── Token trend by day (simple line) ────────────────────────────────────────
+  // ── Token trend by day ───────────────────────────────────────────────────────
 
   const trendData = useMemo(() => {
     const dayCounts: Record<string, number> = {};
@@ -282,7 +611,6 @@ export default function ClaudePage() {
       });
   }, [rows]);
 
-  // ── All projects (including "other") for stacking ───────────────────────────
   const allStackKeys = useMemo(() => {
     const keys = new Set<string>();
     for (const d of stackedData) {
@@ -290,7 +618,6 @@ export default function ClaudePage() {
         if (k !== "date" && k !== "rawDate") keys.add(k);
       }
     }
-    // Sort: topProjects first, then others
     return [
       ...topProjects.filter((p) => keys.has(p)),
       ...[...keys].filter((k) => !topProjects.includes(k)),
@@ -299,20 +626,13 @@ export default function ClaudePage() {
 
   const tickInterval = Math.max(1, Math.floor(stackedData.length / 8));
   const trendTickInterval = Math.max(1, Math.floor(trendData.length / 8));
-
-  // ── Custom stacked bar tooltip ────────────────────────────────────────────────
+  const rangeLabel = RANGES.find((r) => r.key === range)?.label ?? range;
 
   function StackedTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     const total = payload.reduce((s: number, p: any) => s + (p.value || 0), 0);
     return (
-      <div
-        style={{
-          ...tooltipContentStyle,
-          padding: "8px 12px",
-          minWidth: "160px",
-        }}
-      >
+      <div style={{ ...tooltipContentStyle, padding: "8px 12px", minWidth: "160px" }}>
         <p style={{ ...tooltipLabelStyle, marginBottom: 6 }}>{label}</p>
         <p style={{ color: "#e5e7eb", marginBottom: 4, fontSize: "12px" }}>
           total: {formatTokens(total)}
@@ -329,38 +649,24 @@ export default function ClaudePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10">
-            <Bot className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-foreground">Claude Usage</h1>
-            <p className="text-xs text-muted-foreground">Token consumption by project and time</p>
-          </div>
-        </div>
-        <RangeSelector value={range} onChange={setRange} />
-      </div>
-
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Output Tokens"
           value={formatTokens(stats.outputTokens)}
-          sub={`${RANGES.find((r) => r.key === range)?.label ?? range} total`}
+          sub={`${rangeLabel} total`}
           loading={isLoading}
         />
         <StatCard
           label="Input Tokens"
           value={formatTokens(stats.inputTokens)}
-          sub={`${RANGES.find((r) => r.key === range)?.label ?? range} total`}
+          sub={`${rangeLabel} total`}
           loading={isLoading}
         />
         <StatCard
           label="Sessions"
           value={stats.sessions.toLocaleString()}
-          sub={`${RANGES.find((r) => r.key === range)?.label ?? range} total`}
+          sub={`${rangeLabel} total`}
           loading={isLoading}
         />
         <StatCard
@@ -382,17 +688,9 @@ export default function ClaudePage() {
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stackedData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="hsl(240, 3.7%, 20%)"
-                  vertical={false}
-                />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 20%)" vertical={false} />
                 <XAxis dataKey="date" {...axisStyle} interval={tickInterval} />
-                <YAxis
-                  {...axisStyle}
-                  width={40}
-                  tickFormatter={(v: number) => formatTokens(v)}
-                />
+                <YAxis {...axisStyle} width={40} tickFormatter={(v: number) => formatTokens(v)} />
                 <Tooltip content={<StackedTooltip />} />
                 <Legend {...legendStyle} />
                 {allStackKeys.map((project, i) => (
@@ -417,9 +715,7 @@ export default function ClaudePage() {
           <p className="text-sm font-medium text-foreground mb-3">By Project</p>
           <div className="space-y-3">
             {byProject.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                {isLoading ? "Loading…" : "No data"}
-              </p>
+              <p className="text-xs text-muted-foreground">{isLoading ? "Loading…" : "No data"}</p>
             ) : (
               byProject.map(({ project, output_tokens, input_tokens, pct, color }) => (
                 <div key={project}>
@@ -461,21 +757,10 @@ export default function ClaudePage() {
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={trendData}
-                  margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="hsl(240, 3.7%, 20%)"
-                    vertical={false}
-                  />
+                <LineChart data={trendData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 20%)" vertical={false} />
                   <XAxis dataKey="date" {...axisStyle} interval={trendTickInterval} />
-                  <YAxis
-                    {...axisStyle}
-                    width={40}
-                    tickFormatter={(v: number) => formatTokens(v)}
-                  />
+                  <YAxis {...axisStyle} width={40} tickFormatter={(v: number) => formatTokens(v)} />
                   <Tooltip
                     contentStyle={tooltipContentStyle}
                     labelStyle={tooltipLabelStyle}
@@ -495,6 +780,96 @@ export default function ClaudePage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── API Saved Banner ─────────────────────────────────────────────────────────
+
+function ApiSavedBanner({ range }: { range: Range }) {
+  const since = sinceDate(range);
+
+  const { data: openclawRows = [] } = useQuery({
+    queryKey: ["openclaw_usage_banner", range],
+    queryFn: async (): Promise<{ cost_usd: number }[]> => {
+      const { data } = await supabase
+        .from("openclaw_usage")
+        .select("cost_usd")
+        .gte("date", since);
+      return (data as { cost_usd: number }[]) || [];
+    },
+  });
+
+  // Claude Code doesn't have cost_usd, so we only sum OpenClaw for now
+  // If/when claude_usage gets cost data this can be extended
+  const totalCost = openclawRows.reduce((s, r) => s + (Number(r.cost_usd) || 0), 0);
+
+  if (totalCost === 0) return null;
+
+  return (
+    <div className="rounded-md border border-purple-500/30 bg-purple-500/10 px-4 py-2.5 flex items-center gap-2">
+      <span className="text-base">💜</span>
+      <p className="text-xs font-mono text-purple-300">
+        Total API equivalent value:{" "}
+        <span className="font-bold text-purple-100">{formatCost(totalCost)}</span>
+        {" "}— saved vs pay-per-token pricing
+      </p>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+export default function ClaudePage() {
+  const [tab, setTab] = useState<TabKey>("openclaw");
+  const [range, setRange] = useState<Range>("month");
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10">
+            <Bot className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">Claude Usage</h1>
+            <p className="text-xs text-muted-foreground">Token consumption by source</p>
+          </div>
+        </div>
+        <RangeSelector value={range} onChange={setRange} />
+      </div>
+
+      {/* Tabs */}
+      <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5 w-fit">
+        {([
+          { key: "openclaw" as TabKey, label: "OpenClaw" },
+          { key: "code" as TabKey, label: "Claude Code" },
+        ]).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={cn(
+              "rounded-sm px-4 py-1.5 font-mono text-xs font-medium transition-all",
+              tab === key
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* API Saved Banner */}
+      <ApiSavedBanner range={range} />
+
+      {/* Tab content */}
+      {tab === "openclaw" ? (
+        <OpenClawTab range={range} />
+      ) : (
+        <ClaudeCodeTab range={range} />
+      )}
     </div>
   );
 }
