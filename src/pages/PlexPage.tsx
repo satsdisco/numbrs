@@ -372,37 +372,43 @@ export default function PlexPage() {
             {recentlyPlayed.map((e: any) => (
               <div
                 key={e.id}
-                className="flex items-center gap-2 rounded-md border border-border/50 bg-background/30 px-3 py-2"
+                className="rounded-md border border-border/50 bg-background/30 px-3 py-2.5"
               >
-                <span className="font-mono text-[10px] text-muted-foreground shrink-0 w-20">
-                  {formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
-                </span>
-                <Link
-                  to={`/plex/user/${encodeURIComponent(e.username || "Unknown")}`}
-                  className="text-xs font-medium text-foreground hover:text-primary transition-colors shrink-0 w-20 truncate"
-                >
-                  {e.username || "Unknown"}
-                </Link>
-                <EventBadge event={e.event} />
-                <span className="flex-1 truncate text-xs text-foreground">
+                {/* Title — prominent, full width */}
+                <p className="text-sm font-medium text-foreground truncate mb-1">
                   {formatPlexTitle(e)}
-                </span>
-                <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:block truncate max-w-[100px]">
-                  {e.player_title || ""}
-                </span>
-                {e.local !== null && e.local !== undefined && (
-                  <span className={cn(
-                    "rounded px-1.5 py-0.5 font-mono text-[10px] font-medium shrink-0",
-                    e.local ? "bg-green-500/10 text-green-400" : "bg-blue-500/10 text-blue-400"
-                  )}>
-                    {e.local ? "local" : "remote"}
+                </p>
+                {/* Meta row */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-[10px] text-muted-foreground">
+                    {formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
                   </span>
-                )}
-                {e.duration_ms > 0 && (
-                  <span className="font-mono text-[10px] text-muted-foreground shrink-0">
-                    {Math.round(e.duration_ms / 60000)}m
-                  </span>
-                )}
+                  <Link
+                    to={`/plex/user/${encodeURIComponent(e.username || "Unknown")}`}
+                    className="text-[10px] font-medium text-primary hover:underline"
+                  >
+                    {e.username || "Unknown"}
+                  </Link>
+                  <EventBadge event={e.event} />
+                  {e.local !== null && e.local !== undefined && (
+                    <span className={cn(
+                      "rounded px-1.5 py-0.5 font-mono text-[10px] font-medium",
+                      e.local ? "bg-green-500/10 text-green-400" : "bg-blue-500/10 text-blue-400"
+                    )}>
+                      {e.local ? "local" : "remote"}
+                    </span>
+                  )}
+                  {e.duration_ms > 0 && (
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {Math.round(e.duration_ms / 60000)}m
+                    </span>
+                  )}
+                  {e.player_title && (
+                    <span className="text-[10px] text-muted-foreground truncate">
+                      {e.player_title}
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </div>
