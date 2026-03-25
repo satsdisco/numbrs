@@ -10,7 +10,6 @@ import {
   Radio,
   Key,
   LogOut,
-  Plus,
   Globe,
   Bell,
   Plug,
@@ -18,10 +17,6 @@ import {
   ChevronRight,
   Tv2,
   Music2,
-  Settings2,
-  Compass,
-  UserCircle,
-  Settings,
 } from "lucide-react";
 
 function NumbrsLogo({ className }: { className?: string }) {
@@ -35,7 +30,6 @@ function NumbrsLogo({ className }: { className?: string }) {
   );
 }
 import { truncatePubkey } from "@/lib/nostr";
-import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
@@ -50,9 +44,6 @@ const navItems = [
   { path: "/api-keys", label: "API Keys", icon: Key },
   { path: "/integrations", label: "Integrations", icon: Plug },
   { path: "/explore", label: "Explore", icon: Globe },
-  { path: "/profile", label: "Profile", icon: UserCircle },
-  { path: "/settings", label: "Settings", icon: Settings },
-  { path: "/setup", label: "Setup Guide", icon: Compass },
 ];
 
 const bottomNavItems = [
@@ -65,15 +56,25 @@ const bottomNavItems = [
 ];
 
 function SidebarAvatar() {
-  const pictureUrl = localStorage.getItem("numbrs-nostr-picture");
-  if (!pictureUrl) return null;
+  const { user } = useAuth();
+  const picture = localStorage.getItem("numbrs-nostr-picture");
+  const name = localStorage.getItem("numbrs-nostr-name") || user?.user_metadata?.pubkey?.slice(0, 1)?.toUpperCase() || "?";
+
   return (
-    <img
-      src={pictureUrl}
-      alt=""
-      className="h-6 w-6 rounded-full object-cover shrink-0 border border-border/50"
-      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-    />
+    <Link to="/profile" className="shrink-0 rounded-full ring-1 ring-border hover:ring-primary/50 transition-all">
+      {picture ? (
+        <img
+          src={picture}
+          alt="Profile"
+          className="h-7 w-7 rounded-full object-cover"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+        />
+      ) : (
+        <div className="h-7 w-7 rounded-full bg-primary/20 flex items-center justify-center text-primary text-xs font-bold">
+          {name}
+        </div>
+      )}
+    </Link>
   );
 }
 
@@ -88,9 +89,12 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
 
   return (
     <>
-      <div className="flex items-center gap-2 border-b border-border px-4 py-4">
-        <NumbrsLogo className="h-6 w-6" />
-        <span className="text-sm font-semibold text-foreground tracking-tight font-mono">numbrs</span>
+      <div className="flex items-center justify-between border-b border-border px-4 py-4">
+        <div className="flex items-center gap-2">
+          <NumbrsLogo className="h-6 w-6" />
+          <span className="text-sm font-semibold text-foreground tracking-tight font-mono">numbrs</span>
+        </div>
+        <SidebarAvatar />
       </div>
 
       <nav className="flex-1 overflow-y-auto space-y-0.5 px-2 py-3">
@@ -137,26 +141,13 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
         )}
       </nav>
 
-      <div className="space-y-2 border-t border-border p-3">
-        <Link to="/relays/new" onClick={onClose}>
-          <Button size="sm" className="w-full gap-1.5">
-            <Plus className="h-3.5 w-3.5" />
-            Add Relay
-          </Button>
-        </Link>
+      <div className="border-t border-border p-3">
         <div className="flex items-center justify-between px-1">
-          <Link
-            to="/profile"
-            onClick={onClose}
-            className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity"
-          >
-            <SidebarAvatar />
-            <span className="truncate text-metric-sm text-muted-foreground font-mono">
-              {user?.user_metadata?.pubkey
-                ? truncatePubkey(user.user_metadata.pubkey)
-                : user?.email}
-            </span>
-          </Link>
+          <span className="truncate text-metric-sm text-muted-foreground font-mono">
+            {user?.user_metadata?.pubkey
+              ? truncatePubkey(user.user_metadata.pubkey)
+              : user?.email}
+          </span>
           <button
             onClick={signOut}
             className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
@@ -186,13 +177,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <NumbrsLogo className="h-6 w-6" />
           <span className="text-sm font-semibold text-foreground tracking-tight font-mono">numbrs</span>
         </div>
-        <button
-          onClick={() => setMobileOpen(true)}
-          className="rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-          aria-label="Open menu"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <SidebarAvatar />
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="rounded-md p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
       </header>
 
       {/* Mobile sidebar Sheet */}

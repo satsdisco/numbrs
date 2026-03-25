@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import SetupPage from "@/pages/SetupPage";
 
 const THEME_KEY = "numbrs-theme";
 
@@ -31,6 +32,8 @@ function applyTheme(theme: Theme) {
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "account";
   const [currentTheme, setCurrentTheme] = useState<Theme>(
     () => (localStorage.getItem(THEME_KEY) as Theme) || "dark"
   );
@@ -86,8 +89,35 @@ export default function SettingsPage() {
     { value: "system", label: "System", desc: "Coming soon" },
   ];
 
+  const tabs = [
+    { id: "account", label: "Account" },
+    { id: "setup", label: "Setup" },
+  ];
+
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="space-y-0">
+      {/* Tab switcher */}
+      <div className="flex gap-0 border-b border-border mb-6">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => tab.id === "account" ? setSearchParams({}) : setSearchParams({ tab: tab.id })}
+            className={cn(
+              "px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px",
+              activeTab === tab.id
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "setup" ? (
+        <SetupPage />
+      ) : (
+      <div className="max-w-2xl space-y-6">
       <div>
         <h1 className="font-mono text-xl font-semibold text-foreground">Settings</h1>
         <p className="text-metric-sm text-muted-foreground mt-1">Manage your preferences</p>
@@ -225,6 +255,8 @@ export default function SettingsPage() {
           )}
         </div>
       </div>
+      </div>
+      )}
     </div>
   );
 }

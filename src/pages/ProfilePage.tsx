@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { SimplePool } from "nostr-tools/pool";
 import { truncatePubkey, pubkeyToNpub } from "@/lib/nostr";
 import { Copy, Check, LogOut, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,42 +17,37 @@ interface NostrProfile {
 }
 
 async function fetchNostrProfile(pubkeyHex: string): Promise<NostrProfile | null> {
-  const relays = ["wss://relay.damus.io", "wss://nos.lol", "wss://relay.nostr.band"];
-  const pool = new SimplePool();
-
-  return new Promise((resolve) => {
-    const timeout = setTimeout(() => {
-      pool.close(relays);
-      resolve(null);
-    }, 5000);
-
-    const sub = pool.subscribeMany(
-      relays,
-      [{ kinds: [0], authors: [pubkeyHex], limit: 1 }],
-      {
-        onevent(event) {
-          clearTimeout(timeout);
-          sub.close();
-          pool.close(relays);
-          try {
-            const profile = JSON.parse(event.content) as NostrProfile;
-            // Cache picture in localStorage for sidebar use
-            if (profile.picture) {
-              localStorage.setItem("numbrs-nostr-picture", profile.picture);
-            }
-            resolve(profile);
-          } catch {
-            resolve(null);
-          }
-        },
-        oneose() {
-          clearTimeout(timeout);
-          pool.close(relays);
-          resolve(null);
-        },
+  // Try purplepag.es first (HTTP, fast)
+  try {
+    const res = await fetch(`https://purplepag.es/${pubkeyHex}`, { signal: AbortSignal.timeout(5000) });
+    if (res.ok) {
+      const event = await res.json();
+      if (event?.content) {
+        const profile = JSON.parse(event.content);
+        if (profile.picture) localStorage.setItem("numbrs-nostr-picture", profile.picture);
+        if (profile.name) localStorage.setItem("numbrs-nostr-name", profile.name);
+        return profile;
       }
-    );
-  });
+    }
+  } catch {}
+
+  // Fallback: try primal.net NIP-05 style lookup
+  try {
+    const res = await fetch(`https://primal.net/api/user/${pubkeyHex}`, { signal: AbortSignal.timeout(5000) });
+    if (res.ok) {
+      const data = await res.json();
+      const picture = data?.picture || data?.image;
+      const name = data?.name || data?.display_name;
+      if (picture) {
+        const profile = { picture, name, about: data?.about, nip05: data?.nip05 };
+        localStorage.setItem("numbrs-nostr-picture", picture);
+        if (name) localStorage.setItem("numbrs-nostr-name", name);
+        return profile;
+      }
+    }
+  } catch {}
+
+  return null;
 }
 
 function CopyButton({ text, label }: { text: string; label?: string }) {
@@ -248,7 +242,7 @@ export default function ProfilePage() {
         <h3 className="text-metric-sm font-semibold text-foreground mb-3">Quick Links</h3>
         <div className="space-y-2">
           <Link
-            to="/setup"
+            to="/settings?tab=setup"
             className="flex items-center justify-between rounded-md px-3 py-2 text-metric-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
           >
             Setup Guide

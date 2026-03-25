@@ -21,7 +21,6 @@ import JellyfinPage from "@/pages/JellyfinPage";
 import JellyfinUserPage from "@/pages/JellyfinUserPage";
 import PlexPage from "@/pages/PlexPage";
 import PlexUserPage from "@/pages/PlexUserPage";
-import SetupPage from "@/pages/SetupPage";
 import ProfilePage from "@/pages/ProfilePage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
@@ -54,7 +53,7 @@ function ProtectedRoutes() {
         <Route path="/relays/:id" element={<RelayDetailPage />} />
         <Route path="/uptime" element={<UptimePage />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
-        <Route path="/setup" element={<SetupPage />} />
+        <Route path="/setup" element={<Navigate to="/settings?tab=setup" replace />} />
         <Route path="/api-keys" element={<ApiKeysPage />} />
         <Route path="/alerts" element={<AlertsPage />} />
         <Route path="/jellyfin" element={<JellyfinPage />} />
