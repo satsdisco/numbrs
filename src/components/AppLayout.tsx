@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { fetchDashboards } from "@/lib/dashboard-api";
 import {
   Activity,
   LayoutDashboard,
@@ -13,6 +15,7 @@ import {
   Bell,
   Plug,
   Menu,
+  ChevronRight,
 } from "lucide-react";
 
 function NumbrsLogo({ className }: { className?: string }) {
@@ -53,6 +56,11 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   const { pathname } = useLocation();
   const { user, signOut } = useAuth();
 
+  const { data: dashboards } = useQuery({
+    queryKey: ["dashboards"],
+    queryFn: fetchDashboards,
+  });
+
   return (
     <>
       <div className="flex items-center gap-2 border-b border-border px-4 py-4">
@@ -60,7 +68,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
         <span className="text-sm font-semibold text-foreground tracking-tight font-mono">numbrs</span>
       </div>
 
-      <nav className="flex-1 space-y-1 px-2 py-3">
+      <nav className="flex-1 overflow-y-auto space-y-0.5 px-2 py-3">
         {navItems.map((item) => (
           <Link
             key={item.path}
@@ -77,6 +85,31 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
             {item.label}
           </Link>
         ))}
+
+        {/* Pinned dashboards */}
+        {dashboards && dashboards.length > 0 && (
+          <div className="mt-3 pt-3 border-t border-border/50">
+            <p className="px-3 mb-1 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-medium">
+              My Dashboards
+            </p>
+            {dashboards.map((db) => (
+              <Link
+                key={db.id}
+                to={`/dashboards/${db.id}`}
+                onClick={onClose}
+                className={cn(
+                  "flex items-center gap-2 rounded-md px-3 py-1.5 text-metric-sm transition-colors group",
+                  pathname === `/dashboards/${db.id}`
+                    ? "bg-sidebar-accent text-foreground"
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-foreground"
+                )}
+              >
+                <ChevronRight className="h-3 w-3 opacity-40 group-hover:opacity-70 shrink-0" />
+                <span className="truncate">{db.name}</span>
+              </Link>
+            ))}
+          </div>
+        )}
       </nav>
 
       <div className="space-y-2 border-t border-border p-3">
