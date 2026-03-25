@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Check, Copy, ChevronDown, ChevronUp, Bot } from "lucide-react";
+import { Check, Copy, ChevronDown, ChevronUp, Bot, Info, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Copy button ───────────────────────────────────────────────────────────────
@@ -456,11 +456,51 @@ function ClaudeSection() {
   );
 }
 
+// ─── Quick Start Banner ────────────────────────────────────────────────────────
+
+function QuickStartBanner() {
+  const [dismissed, setDismissed] = useState(
+    () => localStorage.getItem("integrations_banner_dismissed") === "true"
+  );
+
+  if (dismissed) return null;
+
+  const handleDismiss = () => {
+    localStorage.setItem("integrations_banner_dismissed", "true");
+    setDismissed(true);
+  };
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+      <Info className="h-4 w-4 text-primary shrink-0" />
+      <p className="text-xs text-muted-foreground flex-1">
+        New to numbrs?{" "}
+        <a
+          href="https://docs.numbrs.lol/getting-started/quick-start/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline font-medium"
+        >
+          Start with the Quick Start guide →
+        </a>
+      </p>
+      <button
+        onClick={handleDismiss}
+        className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+        aria-label="Dismiss"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function IntegrationsPage() {
   return (
     <div className="space-y-8">
+      <QuickStartBanner />
       <div>
         <h1 className="font-mono text-xl font-semibold text-foreground">Integrations</h1>
         <p className="text-metric-sm text-muted-foreground mt-1">

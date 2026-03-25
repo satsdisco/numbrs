@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { DASHBOARD_TEMPLATES, type DashboardTemplate } from "@/lib/dashboard-templates";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, LayoutGrid, Trash2 } from "lucide-react";
+import { Plus, LayoutGrid, Trash2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -76,15 +76,30 @@ export default function DashboardsListPage() {
           ))}
         </div>
       ) : !dashboards || dashboards.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 py-20">
-          <LayoutGrid className="h-10 w-10 text-muted-foreground mb-4" />
-          <h2 className="text-lg font-medium text-foreground mb-2">No dashboards yet</h2>
-          <p className="text-sm text-muted-foreground mb-6 max-w-md text-center">
-            Start from a template or create a blank dashboard.
-          </p>
-          <Button onClick={() => setShowTemplates(true)} className="gap-1.5">
-            <Plus className="h-4 w-4" /> Create Dashboard
-          </Button>
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 py-16 px-6">
+          <div className="max-w-md text-center space-y-4">
+            <LayoutGrid className="h-10 w-10 text-muted-foreground mx-auto" />
+            <div>
+              <h2 className="text-lg font-medium text-foreground mb-2">No dashboards yet</h2>
+              <p className="text-sm text-muted-foreground">
+                Dashboards let you build custom views with drag-and-drop panels — line charts, stats, gauges, and more — visualizing any metric you push to numbrs.
+              </p>
+            </div>
+            <Button onClick={() => setShowTemplates(true)} className="gap-1.5">
+              <Plus className="h-4 w-4" /> New Dashboard
+            </Button>
+            <div className="pt-2 border-t border-border/50 text-left space-y-2">
+              <p className="text-xs text-muted-foreground">To see data in panels, you need to push metrics first — or pick a template that uses built-in relay/uptime data.</p>
+              <a
+                href="https://docs.numbrs.lol/getting-started/quick-start/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" /> Quick Start guide — push your first metric
+              </a>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

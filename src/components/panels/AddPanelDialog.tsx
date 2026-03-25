@@ -30,7 +30,7 @@ import {
   SelectGroup,
   SelectLabel,
 } from "@/components/ui/select";
-import { Zap, BarChart3, TrendingUp } from "lucide-react";
+import { Zap, BarChart3, TrendingUp, ExternalLink } from "lucide-react";
 
 interface Props {
   open: boolean;
@@ -150,6 +150,14 @@ export default function AddPanelDialog({ open, onClose, onAdd }: Props) {
           <DialogTitle className="font-mono flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-primary" />
             Add Panel
+            <a
+              href="https://docs.numbrs.lol/features/dashboard-builder/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors font-normal"
+            >
+              <ExternalLink className="h-3 w-3" /> Docs
+            </a>
           </DialogTitle>
         </DialogHeader>
 

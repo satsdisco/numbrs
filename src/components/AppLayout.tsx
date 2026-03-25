@@ -18,6 +18,8 @@ import {
   Tv2,
   Music2,
   Bot,
+  ExternalLink,
+  BookOpen,
 } from "lucide-react";
 
 function NumbrsLogo({ className }: { className?: string }) {
@@ -141,7 +143,17 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
         )}
       </nav>
 
-      <div className="border-t border-border p-3">
+      <div className="border-t border-border p-3 space-y-1.5">
+        <a
+          href="https://docs.numbrs.lol"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2.5 rounded-md px-3 py-2 text-metric-sm font-medium transition-colors text-sidebar-foreground hover:bg-sidebar-accent hover:text-foreground"
+        >
+          <BookOpen className="h-4 w-4" />
+          Docs
+          <ExternalLink className="h-3 w-3 ml-auto opacity-50" />
+        </a>
         <div className="flex items-center justify-between px-1">
           <span className="truncate text-metric-sm text-muted-foreground font-mono">
             {user?.user_metadata?.pubkey
