@@ -24,10 +24,17 @@ export default function LinePanelChart({ data, unit }: Props) {
     );
   }
 
+  const tickInterval = Math.max(1, Math.floor(data.length / 7));
+  const spanMs = data.length > 1
+    ? new Date(data[data.length - 1].bucket).getTime() - new Date(data[0].bucket).getTime()
+    : 0;
+  const isMultiDay = spanMs > 86400000;
+  const dateFormat = isMultiDay ? "MMM d" : "HH:mm";
+
   const chartData = data.map((d) => ({
     ...d,
     time: new Date(d.bucket).getTime(),
-    label: format(new Date(d.bucket), "MMM d HH:mm"),
+    label: format(new Date(d.bucket), dateFormat),
   }));
 
   return (
@@ -39,7 +46,7 @@ export default function LinePanelChart({ data, unit }: Props) {
           tick={{ fill: "hsl(240, 5%, 64.9%)", fontSize: 9, fontFamily: "JetBrains Mono" }}
           axisLine={false}
           tickLine={false}
-          interval="preserveStartEnd"
+          interval={tickInterval}
         />
         <YAxis
           tick={{ fill: "hsl(240, 5%, 64.9%)", fontSize: 9, fontFamily: "JetBrains Mono" }}

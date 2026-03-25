@@ -5,6 +5,7 @@ import {
   fetchMetricByKey,
   fetchGenericTimeseries,
   fetchMetricStats,
+  fetchLatestDatapoint,
 } from "@/lib/api";
 import type { PanelRow } from "@/lib/dashboard-types";
 import type { TimeRange } from "@/lib/types";
@@ -27,6 +28,7 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
   const isGlobal = config.data_source === "global" || config.data_source === "custom";
   const isChart = panel.panel_type === "line" || panel.panel_type === "area";
   const isStat = panel.panel_type === "stat" || panel.panel_type === "gauge";
+  const wantsLatest = config.stat_field === "latest";
 
   // For global metrics, resolve metric_id from key
   const { data: metricDef } = useQuery({
@@ -63,6 +65,13 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
     enabled: isGlobal && !!metricDef?.id && isStat,
   });
 
+  // Fetch the actual latest datapoint when stat_field is "latest"
+  const { data: latestValue, isLoading: latestLoading } = useQuery({
+    queryKey: ["panel-latest", panel.id, metricDef?.id],
+    queryFn: () => fetchLatestDatapoint(metricDef!.id),
+    enabled: isGlobal && !!metricDef?.id && isStat && wantsLatest,
+  });
+
   // Determine if we need a relay but don't have one
   if (!isGlobal && !relayId) {
     return (
@@ -72,7 +81,7 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
     );
   }
 
-  const loading = relayTsLoading || globalTsLoading || summaryLoading || globalStatsLoading;
+  const loading = relayTsLoading || globalTsLoading || summaryLoading || globalStatsLoading || latestLoading;
 
   if (loading) {
     return (
@@ -95,7 +104,7 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
           max_val: globalStats.max_val ?? 0,
           p50_val: globalStats.p50_val ?? 0,
           p95_val: globalStats.p95_val ?? 0,
-          latest_val: globalStats.avg_val ?? 0, // fallback
+          latest_val: latestValue ?? globalStats.max_val ?? 0,
           total_count: globalStats.total_count ?? 0,
         }
       : undefined

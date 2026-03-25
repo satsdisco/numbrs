@@ -24,17 +24,27 @@ export default function AreaPanelChart({ data, unit }: Props) {
     );
   }
 
+  // Determine tick interval — show ~6-8 labels max
+  const tickInterval = Math.max(1, Math.floor(data.length / 7));
+
+  // Smart date format — shorter for many points, include date for multi-day
+  const spanMs = data.length > 1
+    ? new Date(data[data.length - 1].bucket).getTime() - new Date(data[0].bucket).getTime()
+    : 0;
+  const isMultiDay = spanMs > 86400000;
+  const dateFormat = isMultiDay ? "MMM d" : "HH:mm";
+
   const chartData = data.map((d) => ({
     ...d,
     time: new Date(d.bucket).getTime(),
-    label: format(new Date(d.bucket), "MMM d HH:mm"),
+    label: format(new Date(d.bucket), dateFormat),
   }));
 
   return (
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
         <defs>
-          <linearGradient id="panelAreaFill" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`areaFill-${unit || "default"}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="hsl(197, 71%, 52%)" stopOpacity={0.45} />
             <stop offset="100%" stopColor="hsl(197, 71%, 52%)" stopOpacity={0.05} />
           </linearGradient>
@@ -45,7 +55,7 @@ export default function AreaPanelChart({ data, unit }: Props) {
           tick={{ fill: "hsl(240, 5%, 64.9%)", fontSize: 9, fontFamily: "JetBrains Mono" }}
           axisLine={false}
           tickLine={false}
-          interval="preserveStartEnd"
+          interval={tickInterval}
         />
         <YAxis
           tick={{ fill: "hsl(240, 5%, 64.9%)", fontSize: 9, fontFamily: "JetBrains Mono" }}
@@ -72,7 +82,7 @@ export default function AreaPanelChart({ data, unit }: Props) {
           dataKey="avg_value"
           stroke="hsl(197, 71%, 52%)"
           strokeWidth={2}
-          fill="url(#panelAreaFill)"
+          fill={`url(#areaFill-${unit || "default"})`}
           dot={false}
         />
       </AreaChart>

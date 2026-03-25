@@ -202,3 +202,19 @@ export async function triggerProbe() {
   if (error) throw error;
   return data;
 }
+
+// ─── Latest Datapoint (most recent value for a metric) ─────────────────────────
+
+export async function fetchLatestDatapoint(
+  metricId: string
+): Promise<number | null> {
+  const { data, error } = await supabase
+    .from("datapoints")
+    .select("value")
+    .eq("metric_id", metricId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.value ?? null;
+}
