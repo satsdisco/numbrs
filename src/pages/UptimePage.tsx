@@ -407,8 +407,24 @@ export default function UptimePage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div className="space-y-3">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="rounded-lg border border-border bg-card p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-5 w-5 animate-pulse bg-muted rounded-full" />
+                  <div className="h-4 w-36 animate-pulse bg-muted rounded" />
+                </div>
+                <div className="h-6 w-14 animate-pulse bg-muted rounded-full" />
+              </div>
+              <div className="h-3 w-64 animate-pulse bg-muted rounded mb-2" />
+              <div className="flex gap-4">
+                <div className="h-3 w-20 animate-pulse bg-muted rounded" />
+                <div className="h-3 w-20 animate-pulse bg-muted rounded" />
+                <div className="h-3 w-20 animate-pulse bg-muted rounded" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : !monitors || monitors.length === 0 ? (
         <motion.div

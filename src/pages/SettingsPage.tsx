@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ function applyTheme(theme: Theme) {
 export default function SettingsPage() {
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "account";
   const [currentTheme, setCurrentTheme] = useState<Theme>(
@@ -39,6 +40,7 @@ export default function SettingsPage() {
   );
   const [displayNameInput, setDisplayNameInput] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
@@ -192,6 +194,19 @@ export default function SettingsPage() {
             <ExternalLink className="h-3.5 w-3.5 opacity-50" />
           </Link>
         ))}
+        <div className="pt-2 border-t border-border/50">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => {
+              localStorage.removeItem("onboarding_complete");
+              navigate("/");
+            }}
+          >
+            Restart Setup Guide
+          </Button>
+        </div>
       </div>
 
       {/* Danger Zone */}
@@ -237,12 +252,35 @@ export default function SettingsPage() {
               <Button
                 variant="destructive"
                 size="sm"
+                disabled={isDeleting}
                 onClick={async () => {
-                  toast.error("Data deletion not yet implemented — contact support.");
-                  setDeleteConfirm(false);
+                  if (!user) return;
+                  setIsDeleting(true);
+                  try {
+                    const tables = [
+                      "metrics",
+                      "dashboards",
+                      "panels",
+                      "relays",
+                      "uptime_monitors",
+                      "alert_rules",
+                      "api_keys",
+                      "plex_events",
+                      "jellyfin_events",
+                    ];
+                    for (const table of tables) {
+                      await supabase.from(table as any).delete().eq("user_id", user.id);
+                    }
+                    toast.success("All data deleted. Signing out…");
+                    await signOut();
+                  } catch (err: any) {
+                    toast.error(err.message ?? "Failed to delete data");
+                    setIsDeleting(false);
+                    setDeleteConfirm(false);
+                  }
                 }}
               >
-                Confirm
+                {isDeleting ? "Deleting…" : "Confirm"}
               </Button>
               <Button
                 variant="outline"

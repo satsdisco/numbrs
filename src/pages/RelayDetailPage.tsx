@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   fetchRelayById,
@@ -34,6 +34,7 @@ const SCORE_BG = {
 
 export default function RelayDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [range, setRange] = useState<TimeRange>("24h");
 
   const { data: relay, isLoading: relayLoading } = useQuery({
@@ -124,12 +125,12 @@ export default function RelayDetailPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-3">
-          <Link
-            to="/"
+          <button
+            onClick={() => navigate(-1)}
             className="mt-1 rounded-md p-1 text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
-          </Link>
+          </button>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="font-mono text-xl font-semibold text-foreground">
