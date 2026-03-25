@@ -2,53 +2,48 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Bot } from "lucide-react";
-import { format, subDays } from "date-fns";
+import { format, subDays, startOfDay } from "date-fns";
 import {
   BarChart,
   Bar,
+  LineChart,
+  Line,
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
+  Legend,
 } from "recharts";
 import { cn } from "@/lib/utils";
 
-type Range = "7d" | "30d" | "90d" | "all";
-const RANGES: Range[] = ["7d", "30d", "90d", "all"];
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-function RangeSelector({ value, onChange }: { value: Range; onChange: (r: Range) => void }) {
-  return (
-    <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
-      {RANGES.map((r) => (
-        <button
-          key={r}
-          onClick={() => onChange(r)}
-          className={cn(
-            "rounded-sm px-3 py-1 font-mono text-xs font-medium transition-all",
-            value === r
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          {r}
-        </button>
-      ))}
-    </div>
-  );
+type Range = "day" | "week" | "month" | "3months";
+
+interface UsageRow {
+  id?: number;
+  date: string;
+  project: string;
+  messages: number;
+  tool_calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  model: string;
+  session_id: string;
+  created_at: string;
 }
 
-function formatNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-function shortModel(model: string): string {
-  return model.replace(/^claude-/, "").replace(/-\d{8}$/, "");
-}
-
-const PURPLE = "#7c3aed";
+const RANGES: { key: Range; label: string }[] = [
+  { key: "day", label: "Day" },
+  { key: "week", label: "Week" },
+  { key: "month", label: "Month" },
+  { key: "3months", label: "3 Months" },
+];
 
 const PROJECT_COLORS: Record<string, string> = {
   numbrs: "#7c3aed",
@@ -57,22 +52,55 @@ const PROJECT_COLORS: Record<string, string> = {
   workspace: "#d97706",
   hacek: "#db2777",
   jellyamp: "#0891b2",
+  other: "#6b7280",
 };
 
-function projectColor(project: string): string {
-  return PROJECT_COLORS[project] ?? "#6b7280";
+const COLOR_PALETTE = [
+  "#7c3aed",
+  "#2563eb",
+  "#16a34a",
+  "#d97706",
+  "#db2777",
+  "#0891b2",
+  "#6b7280",
+];
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
 }
 
-const tooltipStyle = {
-  contentStyle: {
-    backgroundColor: "hsl(240, 10%, 6%)",
-    border: "1px solid hsl(240, 3.7%, 15.9%)",
-    borderRadius: "4px",
-    fontFamily: "JetBrains Mono, monospace",
-    fontSize: "11px",
-  },
-  labelStyle: { color: "hsl(240, 5%, 64.9%)" },
+function projectColor(project: string, index: number): string {
+  return PROJECT_COLORS[project] ?? COLOR_PALETTE[index % COLOR_PALETTE.length];
+}
+
+function sinceDate(range: Range): string {
+  switch (range) {
+    case "day":
+      return format(startOfDay(new Date()), "yyyy-MM-dd");
+    case "week":
+      return format(subDays(new Date(), 7), "yyyy-MM-dd");
+    case "month":
+      return format(subDays(new Date(), 30), "yyyy-MM-dd");
+    case "3months":
+      return format(subDays(new Date(), 90), "yyyy-MM-dd");
+  }
+}
+
+// ─── Styled tooltip ───────────────────────────────────────────────────────────
+
+const tooltipContentStyle = {
+  backgroundColor: "hsl(240, 10%, 6%)",
+  border: "1px solid hsl(240, 3.7%, 15.9%)",
+  borderRadius: "4px",
+  fontFamily: "JetBrains Mono, monospace",
+  fontSize: "11px",
 };
+
+const tooltipLabelStyle = { color: "hsl(240, 5%, 64.9%)" };
 
 const axisStyle = {
   tick: { fill: "hsl(240, 5%, 64.9%)", fontSize: 9, fontFamily: "JetBrains Mono, monospace" },
@@ -80,111 +108,236 @@ const axisStyle = {
   tickLine: false as const,
 };
 
+const legendStyle = {
+  wrapperStyle: {
+    fontSize: "10px",
+    fontFamily: "JetBrains Mono, monospace",
+    color: "hsl(240, 5%, 64.9%)",
+  },
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function RangeSelector({ value, onChange }: { value: Range; onChange: (r: Range) => void }) {
+  return (
+    <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
+      {RANGES.map(({ key, label }) => (
+        <button
+          key={key}
+          onClick={() => onChange(key)}
+          className={cn(
+            "rounded-sm px-3 py-1 font-mono text-xs font-medium transition-all",
+            value === key
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  sub,
+  loading,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  loading?: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono mb-1">
+        {label}
+      </p>
+      <p className="text-2xl font-bold font-mono text-foreground">{loading ? "—" : value}</p>
+      {sub && <p className="text-[9px] text-muted-foreground font-mono mt-0.5">{sub}</p>}
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
+
 export default function ClaudePage() {
-  const [range, setRange] = useState<Range>("30d");
+  const [range, setRange] = useState<Range>("month");
 
-  const days = range === "7d" ? 7 : range === "30d" ? 30 : range === "90d" ? 90 : null;
-  const since = days ? subDays(new Date(), days).toISOString() : null;
+  const since = sinceDate(range);
 
-  // All-time data for top stats
-  const { data: allData = [], isLoading: allLoading } = useQuery({
-    queryKey: ["claude_usage_all"],
-    queryFn: async () => {
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["claude_usage_v2", range],
+    queryFn: async (): Promise<UsageRow[]> => {
       const { data } = await supabase
         .from("claude_usage")
-        .select("*")
-        .order("date", { ascending: false });
-      return data || [];
+        .select(
+          "date, project, messages, tool_calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, model, session_id, created_at"
+        )
+        .gte("date", since)
+        .order("date", { ascending: true });
+      return (data as UsageRow[]) || [];
     },
   });
 
-  // Range-filtered data for chart and range-specific stats
-  const { data: rangeData = [], isLoading: rangeLoading } = useQuery({
-    queryKey: ["claude_usage_range", range],
-    queryFn: async () => {
-      let q = supabase.from("claude_usage").select("*").order("date", { ascending: true });
-      if (since) q = q.gte("date", since.slice(0, 10));
-      const { data } = await q;
-      return data || [];
-    },
-  });
-
-  const isLoading = allLoading || rangeLoading;
+  // ── Aggregate stats ──────────────────────────────────────────────────────────
 
   const stats = useMemo(() => {
-    const totalSessions = allData.length;
-    const totalMessages = allData.reduce((s: number, r: any) => s + (r.messages || 0), 0);
-    const totalOutputTokens = allData.reduce((s: number, r: any) => s + (r.output_tokens || 0), 0);
+    const outputTokens = rows.reduce((s, r) => s + (r.output_tokens || 0), 0);
+    const inputTokens = rows.reduce((s, r) => s + (r.input_tokens || 0), 0);
+    const sessions = rows.length;
 
-    // Avg messages/day over last 30 days
-    const cutoff = subDays(new Date(), 30).toISOString().slice(0, 10);
-    const last30 = allData.filter((r: any) => r.date >= cutoff);
-    const msgLast30 = last30.reduce((s: number, r: any) => s + (r.messages || 0), 0);
-    const avgMsgPerDay = last30.length > 0 ? Math.round(msgLast30 / 30) : 0;
+    // Top project by output tokens
+    const projectTokens: Record<string, number> = {};
+    for (const r of rows) {
+      const p = r.project || "unknown";
+      projectTokens[p] = (projectTokens[p] || 0) + (r.output_tokens || 0);
+    }
+    const topProject =
+      Object.entries(projectTokens).sort(([, a], [, b]) => b - a)[0]?.[0] ?? "—";
 
-    return { totalSessions, totalMessages, totalOutputTokens, avgMsgPerDay };
-  }, [allData]);
+    return { outputTokens, inputTokens, sessions, topProject };
+  }, [rows]);
 
-  // Activity chart: messages per day for range
-  const activityData = useMemo(() => {
-    const dayCounts: Record<string, { messages: number; tool_calls: number }> = {};
-    for (const r of rangeData as any[]) {
-      const d = r.date as string;
-      if (!dayCounts[d]) dayCounts[d] = { messages: 0, tool_calls: 0 };
-      dayCounts[d].messages += r.messages || 0;
-      dayCounts[d].tool_calls += r.tool_calls || 0;
+  // ── Top 6 projects for stacked chart ────────────────────────────────────────
+
+  const topProjects = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const r of rows) {
+      const p = r.project || "other";
+      totals[p] = (totals[p] || 0) + (r.output_tokens || 0);
+    }
+    const sorted = Object.entries(totals)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 6)
+      .map(([name]) => name);
+    return sorted;
+  }, [rows]);
+
+  // ── Stacked bar data: { date, project1: tokens, project2: tokens, ... }[] ───
+
+  const stackedData = useMemo(() => {
+    const dateMap: Record<string, Record<string, number>> = {};
+    for (const r of rows) {
+      const d = r.date;
+      if (!dateMap[d]) dateMap[d] = {};
+      const p = topProjects.includes(r.project || "other") ? (r.project || "other") : "other";
+      dateMap[d][p] = (dateMap[d][p] || 0) + (r.output_tokens || 0);
+    }
+    return Object.entries(dateMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, vals]) => {
+        // Format date for display
+        let label: string;
+        try {
+          label = format(new Date(date + "T12:00:00"), range === "day" ? "HH:mm" : "MMM d");
+        } catch {
+          label = date;
+        }
+        return { date: label, rawDate: date, ...vals };
+      });
+  }, [rows, topProjects, range]);
+
+  // ── All projects breakdown for the "By Project" panel ────────────────────────
+
+  const byProject = useMemo(() => {
+    const agg: Record<string, { output_tokens: number; input_tokens: number }> = {};
+    for (const r of rows) {
+      const p = r.project || "unknown";
+      if (!agg[p]) agg[p] = { output_tokens: 0, input_tokens: 0 };
+      agg[p].output_tokens += r.output_tokens || 0;
+      agg[p].input_tokens += r.input_tokens || 0;
+    }
+    const sorted = Object.entries(agg).sort(([, a], [, b]) => b.output_tokens - a.output_tokens);
+    const totalOut = sorted.reduce((s, [, v]) => s + v.output_tokens, 0) || 1;
+    return sorted.map(([project, vals], i) => ({
+      project,
+      output_tokens: vals.output_tokens,
+      input_tokens: vals.input_tokens,
+      pct: (vals.output_tokens / totalOut) * 100,
+      color: projectColor(project, i),
+    }));
+  }, [rows]);
+
+  // ── Token trend by day (simple line) ────────────────────────────────────────
+
+  const trendData = useMemo(() => {
+    const dayCounts: Record<string, number> = {};
+    for (const r of rows) {
+      const d = r.date;
+      dayCounts[d] = (dayCounts[d] || 0) + (r.output_tokens || 0);
     }
     return Object.entries(dayCounts)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, vals]) => ({
-        date: format(new Date(date + "T12:00:00"), "MMM d"),
-        messages: vals.messages,
-        tool_calls: vals.tool_calls,
-      }));
-  }, [rangeData]);
+      .map(([date, tokens]) => {
+        let label: string;
+        try {
+          label = format(new Date(date + "T12:00:00"), "MMM d");
+        } catch {
+          label = date;
+        }
+        return { date: label, tokens };
+      });
+  }, [rows]);
 
-  // By project (all time)
-  const byProject = useMemo(() => {
-    const counts: Record<string, { messages: number; output_tokens: number }> = {};
-    for (const r of allData as any[]) {
-      const p = r.project || "unknown";
-      if (!counts[p]) counts[p] = { messages: 0, output_tokens: 0 };
-      counts[p].messages += r.messages || 0;
-      counts[p].output_tokens += r.output_tokens || 0;
+  // ── All projects (including "other") for stacking ───────────────────────────
+  const allStackKeys = useMemo(() => {
+    const keys = new Set<string>();
+    for (const d of stackedData) {
+      for (const k of Object.keys(d)) {
+        if (k !== "date" && k !== "rawDate") keys.add(k);
+      }
     }
-    const sorted = Object.entries(counts)
-      .sort(([, a], [, b]) => b.messages - a.messages);
-    const max = sorted[0]?.[1].messages || 1;
-    return sorted.map(([project, vals]) => ({
-      project,
-      messages: vals.messages,
-      output_tokens: vals.output_tokens,
-      pct: (vals.messages / max) * 100,
-    }));
-  }, [allData]);
+    // Sort: topProjects first, then others
+    return [
+      ...topProjects.filter((p) => keys.has(p)),
+      ...[...keys].filter((k) => !topProjects.includes(k)),
+    ];
+  }, [stackedData, topProjects]);
 
-  // Recent sessions (last 20)
-  const recentSessions = useMemo(() => {
-    return [...(allData as any[])]
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 20);
-  }, [allData]);
+  const tickInterval = Math.max(1, Math.floor(stackedData.length / 8));
+  const trendTickInterval = Math.max(1, Math.floor(trendData.length / 8));
 
-  const tickInterval = Math.max(1, Math.floor(activityData.length / 7));
+  // ── Custom stacked bar tooltip ────────────────────────────────────────────────
+
+  function StackedTooltip({ active, payload, label }: any) {
+    if (!active || !payload?.length) return null;
+    const total = payload.reduce((s: number, p: any) => s + (p.value || 0), 0);
+    return (
+      <div
+        style={{
+          ...tooltipContentStyle,
+          padding: "8px 12px",
+          minWidth: "160px",
+        }}
+      >
+        <p style={{ ...tooltipLabelStyle, marginBottom: 6 }}>{label}</p>
+        <p style={{ color: "#e5e7eb", marginBottom: 4, fontSize: "12px" }}>
+          total: {formatTokens(total)}
+        </p>
+        {[...payload].reverse().map((p: any) => (
+          <div key={p.dataKey} style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 2 }}>
+            <span style={{ color: p.fill }}>{p.dataKey}</span>
+            <span style={{ color: "#e5e7eb" }}>{formatTokens(p.value)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary/10">
             <Bot className="h-5 w-5 text-primary" />
           </div>
           <div>
             <h1 className="text-lg font-semibold text-foreground">Claude Usage</h1>
-            <p className="text-xs text-muted-foreground">
-              Session analytics — messages, tokens, and project activity
-            </p>
+            <p className="text-xs text-muted-foreground">Token consumption by project and time</p>
           </div>
         </div>
         <RangeSelector value={range} onChange={setRange} />
@@ -192,153 +345,152 @@ export default function ClaudePage() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono mb-1">
-            Total Sessions
-          </p>
-          <p className="text-2xl font-bold font-mono text-foreground">
-            {isLoading ? "—" : formatNum(stats.totalSessions)}
-          </p>
-          <p className="text-[9px] text-muted-foreground font-mono mt-0.5">all time</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono mb-1">
-            Total Messages
-          </p>
-          <p className="text-2xl font-bold font-mono text-foreground">
-            {isLoading ? "—" : formatNum(stats.totalMessages)}
-          </p>
-          <p className="text-[9px] text-muted-foreground font-mono mt-0.5">all time</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono mb-1">
-            Output Tokens
-          </p>
-          <p className="text-2xl font-bold font-mono text-foreground">
-            {isLoading ? "—" : formatNum(stats.totalOutputTokens)}
-          </p>
-          <p className="text-[9px] text-muted-foreground font-mono mt-0.5">all time</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono mb-1">
-            Avg Msgs / Day
-          </p>
-          <p className="text-2xl font-bold font-mono text-foreground">
-            {isLoading ? "—" : formatNum(stats.avgMsgPerDay)}
-          </p>
-          <p className="text-[9px] text-muted-foreground font-mono mt-0.5">last 30 days</p>
-        </div>
+        <StatCard
+          label="Output Tokens"
+          value={formatTokens(stats.outputTokens)}
+          sub={`${RANGES.find((r) => r.key === range)?.label ?? range} total`}
+          loading={isLoading}
+        />
+        <StatCard
+          label="Input Tokens"
+          value={formatTokens(stats.inputTokens)}
+          sub={`${RANGES.find((r) => r.key === range)?.label ?? range} total`}
+          loading={isLoading}
+        />
+        <StatCard
+          label="Sessions"
+          value={stats.sessions.toLocaleString()}
+          sub={`${RANGES.find((r) => r.key === range)?.label ?? range} total`}
+          loading={isLoading}
+        />
+        <StatCard
+          label="Top Project"
+          value={stats.topProject}
+          sub="by output tokens"
+          loading={isLoading}
+        />
       </div>
 
-      {/* Activity chart */}
+      {/* Main stacked bar chart */}
       <div className="rounded-lg border border-border bg-card p-4">
-        <p className="text-sm font-medium text-foreground mb-4">Messages per Day</p>
-        <div className="h-52">
-          {activityData.length === 0 ? (
+        <p className="text-sm font-medium text-foreground mb-4">Token Usage Over Time</p>
+        <div className="h-64">
+          {stackedData.length === 0 ? (
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-              No data for this range
+              {isLoading ? "Loading…" : "No data for this range"}
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={activityData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 20%)" vertical={false} />
-                <XAxis dataKey="date" {...axisStyle} interval={tickInterval} />
-                <YAxis {...axisStyle} width={32} />
-                <Tooltip
-                  {...tooltipStyle}
-                  content={({ active, payload, label }) => {
-                    if (!active || !payload?.length) return null;
-                    const d = payload[0]?.payload;
-                    return (
-                      <div
-                        style={{
-                          backgroundColor: "hsl(240, 10%, 6%)",
-                          border: "1px solid hsl(240, 3.7%, 15.9%)",
-                          borderRadius: "4px",
-                          padding: "6px 10px",
-                          fontFamily: "JetBrains Mono, monospace",
-                          fontSize: "11px",
-                        }}
-                      >
-                        <p style={{ color: "hsl(240, 5%, 64.9%)", marginBottom: 4 }}>{label}</p>
-                        <p style={{ color: "#e5e7eb" }}>messages: {d?.messages}</p>
-                        <p style={{ color: "hsl(240, 5%, 64.9%)" }}>tool calls: {d?.tool_calls}</p>
-                      </div>
-                    );
-                  }}
+              <BarChart data={stackedData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="hsl(240, 3.7%, 20%)"
+                  vertical={false}
                 />
-                <Bar dataKey="messages" fill={PURPLE} radius={[2, 2, 0, 0]} />
+                <XAxis dataKey="date" {...axisStyle} interval={tickInterval} />
+                <YAxis
+                  {...axisStyle}
+                  width={40}
+                  tickFormatter={(v: number) => formatTokens(v)}
+                />
+                <Tooltip content={<StackedTooltip />} />
+                <Legend {...legendStyle} />
+                {allStackKeys.map((project, i) => (
+                  <Bar
+                    key={project}
+                    dataKey={project}
+                    stackId="a"
+                    fill={projectColor(project, i)}
+                    radius={i === allStackKeys.length - 1 ? [2, 2, 0, 0] : [0, 0, 0, 0]}
+                  />
+                ))}
               </BarChart>
             </ResponsiveContainer>
           )}
         </div>
       </div>
 
-      {/* Two-column: by project + recent sessions */}
+      {/* Two-column row */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* By Project */}
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm font-medium text-foreground mb-3">By Project</p>
           <div className="space-y-3">
             {byProject.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No data</p>
+              <p className="text-xs text-muted-foreground">
+                {isLoading ? "Loading…" : "No data"}
+              </p>
             ) : (
-              byProject.map(({ project, messages, output_tokens, pct }) => (
+              byProject.map(({ project, output_tokens, input_tokens, pct, color }) => (
                 <div key={project}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-foreground capitalize">{project}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-foreground">{formatNum(messages)} msgs</span>
-                      <span className="text-[10px] font-mono text-muted-foreground">{formatNum(output_tokens)} tok</span>
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-xs font-medium text-foreground capitalize">
+                      {project}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono text-foreground">
+                        {formatTokens(output_tokens)}
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground w-9 text-right">
+                        {pct.toFixed(0)}%
+                      </span>
                     </div>
                   </div>
                   <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
-                      className="h-full rounded-full transition-all"
-                      style={{ width: `${pct}%`, backgroundColor: projectColor(project) }}
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${pct}%`, backgroundColor: color }}
                     />
                   </div>
+                  <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                    in: {formatTokens(input_tokens)}
+                  </p>
                 </div>
               ))
             )}
           </div>
         </div>
 
-        {/* Recent Sessions */}
+        {/* Token Trend by Day */}
         <div className="rounded-lg border border-border bg-card p-4">
-          <p className="text-sm font-medium text-foreground mb-3">Recent Sessions</p>
-          <div className="space-y-1">
-            {recentSessions.length === 0 ? (
-              <p className="text-xs text-muted-foreground">No data</p>
+          <p className="text-sm font-medium text-foreground mb-4">Token Trend by Day</p>
+          <div className="h-52">
+            {trendData.length === 0 ? (
+              <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                {isLoading ? "Loading…" : "No data"}
+              </div>
             ) : (
-              recentSessions.map((s: any) => (
-                <div
-                  key={s.id}
-                  className="flex items-center gap-2 rounded-md border border-border/50 bg-background/30 px-3 py-2"
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart
+                  data={trendData}
+                  margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
                 >
-                  <span className="font-mono text-[10px] text-muted-foreground shrink-0 w-16">
-                    {s.date}
-                  </span>
-                  <span
-                    className="rounded px-1.5 py-0.5 font-mono text-[10px] font-medium shrink-0 capitalize"
-                    style={{
-                      backgroundColor: `${projectColor(s.project || "unknown")}22`,
-                      color: projectColor(s.project || "unknown"),
-                    }}
-                  >
-                    {s.project || "—"}
-                  </span>
-                  <span className="text-[10px] font-mono text-foreground shrink-0">
-                    {s.messages}m
-                  </span>
-                  <span className="flex-1 text-right text-[10px] font-mono text-muted-foreground truncate">
-                    {formatNum(s.output_tokens || 0)} tok
-                  </span>
-                  <span className="text-[10px] font-mono text-muted-foreground shrink-0 truncate max-w-[80px]">
-                    {s.model ? shortModel(s.model) : "—"}
-                  </span>
-                </div>
-              ))
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="hsl(240, 3.7%, 20%)"
+                    vertical={false}
+                  />
+                  <XAxis dataKey="date" {...axisStyle} interval={trendTickInterval} />
+                  <YAxis
+                    {...axisStyle}
+                    width={40}
+                    tickFormatter={(v: number) => formatTokens(v)}
+                  />
+                  <Tooltip
+                    contentStyle={tooltipContentStyle}
+                    labelStyle={tooltipLabelStyle}
+                    formatter={(v: number) => [formatTokens(v), "output tokens"]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="tokens"
+                    stroke="#7c3aed"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4, fill: "#7c3aed" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             )}
           </div>
         </div>
