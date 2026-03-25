@@ -5,7 +5,7 @@
  */
 
 import { finalizeEvent, generateSecretKey } from "nostr-tools";
-import { decode as nip19Decode } from "nostr-tools/nip19";
+import { decode as nip19Decode, npubEncode } from "nostr-tools/nip19";
 import { parseBunkerInput, BunkerSigner } from "nostr-tools/nip46";
 import { SimplePool } from "nostr-tools/pool";
 
@@ -109,4 +109,8 @@ export async function signAuthEventWithBunker(bunkerUri: string): Promise<NostrE
 
 export function truncatePubkey(pubkey: string): string {
   return pubkey.slice(0, 8) + ":" + pubkey.slice(-4);
+}
+
+export function pubkeyToNpub(hex: string): string {
+  return npubEncode(hex);
 }

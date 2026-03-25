@@ -19,6 +19,9 @@ import {
   Tv2,
   Music2,
   Settings2,
+  Compass,
+  UserCircle,
+  Settings,
 } from "lucide-react";
 
 function NumbrsLogo({ className }: { className?: string }) {
@@ -47,16 +50,32 @@ const navItems = [
   { path: "/api-keys", label: "API Keys", icon: Key },
   { path: "/integrations", label: "Integrations", icon: Plug },
   { path: "/explore", label: "Explore", icon: Globe },
+  { path: "/profile", label: "Profile", icon: UserCircle },
+  { path: "/settings", label: "Settings", icon: Settings },
+  { path: "/setup", label: "Setup Guide", icon: Compass },
 ];
 
 const bottomNavItems = [
   { path: "/dashboards", label: "Dashboards", icon: LayoutGrid },
-  { path: "/setup", label: "Setup", icon: Settings2 },
+  { path: "/setup", label: "Setup", icon: Compass },
   { path: "/relays", label: "Relays", icon: Radio },
   { path: "/uptime", label: "Uptime", icon: Activity },
   { path: "/alerts", label: "Alerts", icon: Bell },
-  { path: "/api-keys", label: "API Keys", icon: Key },
+  { path: "/profile", label: "Profile", icon: UserCircle },
 ];
+
+function SidebarAvatar() {
+  const pictureUrl = localStorage.getItem("numbrs-nostr-picture");
+  if (!pictureUrl) return null;
+  return (
+    <img
+      src={pictureUrl}
+      alt=""
+      className="h-6 w-6 rounded-full object-cover shrink-0 border border-border/50"
+      onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+    />
+  );
+}
 
 function SidebarContent({ onClose }: { onClose?: () => void }) {
   const { pathname } = useLocation();
@@ -126,14 +145,21 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
           </Button>
         </Link>
         <div className="flex items-center justify-between px-1">
-          <span className="truncate text-metric-sm text-muted-foreground font-mono">
-            {user?.user_metadata?.pubkey
-              ? truncatePubkey(user.user_metadata.pubkey)
-              : user?.email}
-          </span>
+          <Link
+            to="/profile"
+            onClick={onClose}
+            className="flex items-center gap-2 min-w-0 hover:opacity-80 transition-opacity"
+          >
+            <SidebarAvatar />
+            <span className="truncate text-metric-sm text-muted-foreground font-mono">
+              {user?.user_metadata?.pubkey
+                ? truncatePubkey(user.user_metadata.pubkey)
+                : user?.email}
+            </span>
+          </Link>
           <button
             onClick={signOut}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
           >
             <LogOut className="h-3.5 w-3.5" />
           </button>
