@@ -21,6 +21,7 @@ import JellyfinPage from "@/pages/JellyfinPage";
 import JellyfinUserPage from "@/pages/JellyfinUserPage";
 import PlexPage from "@/pages/PlexPage";
 import PlexUserPage from "@/pages/PlexUserPage";
+import ClaudePage from "@/pages/ClaudePage";
 import ProfilePage from "@/pages/ProfilePage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
@@ -60,6 +61,7 @@ function ProtectedRoutes() {
         <Route path="/jellyfin/user/:username" element={<JellyfinUserPage />} />
         <Route path="/plex" element={<PlexPage />} />
         <Route path="/plex/user/:username" element={<PlexUserPage />} />
+        <Route path="/claude" element={<ClaudePage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFound />} />
