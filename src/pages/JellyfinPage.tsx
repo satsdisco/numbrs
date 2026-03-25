@@ -89,6 +89,7 @@ function formatJellyfinTitle(e: any): string {
 
 export default function JellyfinPage() {
   const [range, setRange] = useState<Range>("30d");
+  const [showAllRecent, setShowAllRecent] = useState(false);
 
   const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
   const since = subDays(new Date(), days).toISOString();
@@ -192,6 +193,7 @@ export default function JellyfinPage() {
       .sort((a: any, b: any) => new Date(b.date_played).getTime() - new Date(a.date_played).getTime())
       .slice(0, 30);
   }, [events]);
+  const visibleRecent = showAllRecent ? recentlyPlayed : recentlyPlayed.slice(0, 15);
 
   const tickInterval = Math.max(1, Math.floor(activityData.length / 7));
 
@@ -308,33 +310,43 @@ export default function JellyfinPage() {
         {recentlyPlayed.length === 0 ? (
           <p className="text-xs text-muted-foreground">No data</p>
         ) : (
-          <div className="space-y-1">
-            {recentlyPlayed.map((e: any) => (
-              <div
-                key={e.id}
-                className="flex items-center gap-2 rounded-md border border-border/50 bg-background/30 px-3 py-2"
-              >
-                <span className="font-mono text-[10px] text-muted-foreground shrink-0 w-20">
-                  {formatDistanceToNow(new Date(e.date_played), { addSuffix: true })}
-                </span>
-                <Link
-                  to={`/jellyfin/user/${encodeURIComponent(e.username || "Unknown")}`}
-                  className="text-xs font-medium text-foreground hover:text-primary transition-colors shrink-0 w-20 truncate"
+          <>
+            <div className="space-y-1">
+              {visibleRecent.map((e: any) => (
+                <div
+                  key={e.id}
+                  className="flex items-center gap-2 rounded-md border border-border/50 bg-background/30 px-3 py-2"
                 >
-                  {e.username || "Unknown"}
-                </Link>
-                <EventTypeBadge eventType={e.event_type} />
-                <span className="flex-1 truncate text-xs text-foreground">
-                  {formatJellyfinTitle(e)}
-                </span>
-                {e.media_type && (
-                  <span className="rounded px-1.5 py-0.5 font-mono text-[10px] font-medium shrink-0 bg-muted/40 text-muted-foreground">
-                    {e.media_type}
+                  <span className="font-mono text-[10px] text-muted-foreground shrink-0 w-20">
+                    {formatDistanceToNow(new Date(e.date_played), { addSuffix: true })}
                   </span>
-                )}
-              </div>
-            ))}
-          </div>
+                  <Link
+                    to={`/jellyfin/user/${encodeURIComponent(e.username || "Unknown")}`}
+                    className="text-xs font-medium text-foreground hover:text-primary transition-colors shrink-0 w-20 truncate"
+                  >
+                    {e.username || "Unknown"}
+                  </Link>
+                  <EventTypeBadge eventType={e.event_type} />
+                  <span className="flex-1 truncate text-xs text-foreground">
+                    {formatJellyfinTitle(e)}
+                  </span>
+                  {e.media_type && (
+                    <span className="rounded px-1.5 py-0.5 font-mono text-[10px] font-medium shrink-0 bg-muted/40 text-muted-foreground">
+                      {e.media_type}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+            {recentlyPlayed.length > 15 && (
+              <button
+                onClick={() => setShowAllRecent(v => !v)}
+                className="mt-2 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
+              >
+                {showAllRecent ? "Show less" : `Show ${recentlyPlayed.length - 15} more`}
+              </button>
+            )}
+          </>
         )}
       </div>
 
