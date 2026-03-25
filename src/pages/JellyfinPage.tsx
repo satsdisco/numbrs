@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Music2 } from "lucide-react";
-import { format, subDays } from "date-fns";
+import { format, subDays, formatDistanceToNow } from "date-fns";
+import { Link } from "react-router-dom";
 import {
   AreaChart,
   Area,
@@ -66,6 +67,26 @@ const axisStyle = {
   tickLine: false as const,
 };
 
+function EventTypeBadge({ eventType }: { eventType: string }) {
+  const styles: Record<string, string> = {
+    play: "bg-green-500/15 text-green-400",
+    stop: "bg-muted/60 text-muted-foreground",
+  };
+  const cls = styles[eventType] ?? "bg-muted/60 text-muted-foreground";
+  return (
+    <span className={cn("rounded px-1.5 py-0.5 font-mono text-[10px] font-medium shrink-0", cls)}>
+      {eventType}
+    </span>
+  );
+}
+
+function formatJellyfinTitle(e: any): string {
+  if (e.parsed_artist) {
+    return `${e.parsed_artist} — ${e.parsed_title || e.content || "Unknown"}`;
+  }
+  return e.content || "Unknown";
+}
+
 export default function JellyfinPage() {
   const [range, setRange] = useState<Range>("30d");
 
@@ -78,7 +99,6 @@ export default function JellyfinPage() {
       const { data } = await supabase
         .from("jellyfin_events")
         .select("*")
-        .eq("event_type", "stop")
         .gte("date_played", since)
         .order("date_played", { ascending: true });
       return data || [];
@@ -86,8 +106,9 @@ export default function JellyfinPage() {
   });
 
   const stats = useMemo(() => {
-    const totalPlays = events.length;
-    const totalHours = Math.round((totalPlays * 3) / 60 * 10) / 10;
+    const stops = events.filter((e: any) => e.event_type === "stop");
+    const totalPlays = stops.length;
+    const estHours = Math.round((totalPlays * 3) / 60 * 10) / 10;
 
     const userCounts: Record<string, number> = {};
     const hourCounts: Record<number, number> = {};
@@ -103,7 +124,7 @@ export default function JellyfinPage() {
     const peakHour = Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0];
     const peakHourLabel = peakHour ? formatHour(parseInt(peakHour[0])) : "—";
 
-    return { totalPlays, totalHours, mostActiveUser, peakHourLabel };
+    return { totalPlays, estHours, mostActiveUser, peakHourLabel };
   }, [events]);
 
   const activityData = useMemo(() => {
@@ -166,6 +187,12 @@ export default function JellyfinPage() {
     return sorted.map(([name, count]) => ({ name, count, pct: (count / max) * 100 }));
   }, [events]);
 
+  const recentlyPlayed = useMemo(() => {
+    return [...events]
+      .sort((a: any, b: any) => new Date(b.date_played).getTime() - new Date(a.date_played).getTime())
+      .slice(0, 30);
+  }, [events]);
+
   const tickInterval = Math.max(1, Math.floor(activityData.length / 7));
 
   return (
@@ -198,11 +225,12 @@ export default function JellyfinPage() {
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono mb-1">
-            Total Hours
+            Est. Hours
           </p>
-          <p className="text-2xl font-bold font-mono text-foreground">
-            {isLoading ? "—" : stats.totalHours.toLocaleString()}
+          <p className="text-2xl font-bold font-mono text-foreground" title="Estimated at ~3 min per track — Jellyfin doesn't report duration">
+            {isLoading ? "—" : `~${stats.estHours.toLocaleString()}`}
           </p>
+          <p className="text-[9px] text-muted-foreground font-mono mt-0.5">~3 min/track est.</p>
         </div>
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono mb-1">
@@ -224,7 +252,6 @@ export default function JellyfinPage() {
 
       {/* Charts row */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Activity Over Time */}
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm font-medium text-foreground mb-4">Activity Over Time</p>
           <div className="h-48">
@@ -244,10 +271,7 @@ export default function JellyfinPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 20%)" vertical={false} />
                   <XAxis dataKey="date" {...axisStyle} interval={tickInterval} />
                   <YAxis {...axisStyle} width={32} />
-                  <Tooltip
-                    {...tooltipStyle}
-                    formatter={(v: number) => [v, "plays"]}
-                  />
+                  <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "events"]} />
                   <Area
                     type="monotone"
                     dataKey="plays"
@@ -262,23 +286,15 @@ export default function JellyfinPage() {
           </div>
         </div>
 
-        {/* Peak Hours */}
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm font-medium text-foreground mb-4">Peak Hours</p>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={peakHoursData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 20%)" vertical={false} />
-                <XAxis
-                  dataKey="hour"
-                  {...axisStyle}
-                  interval={2}
-                />
+                <XAxis dataKey="hour" {...axisStyle} interval={2} />
                 <YAxis {...axisStyle} width={32} />
-                <Tooltip
-                  {...tooltipStyle}
-                  formatter={(v: number) => [v, "plays"]}
-                />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "events"]} />
                 <Bar dataKey="plays" fill={PURPLE} radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -286,9 +302,44 @@ export default function JellyfinPage() {
         </div>
       </div>
 
+      {/* Recently Played */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <p className="text-sm font-medium text-foreground mb-3">Recently Played</p>
+        {recentlyPlayed.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No data</p>
+        ) : (
+          <div className="space-y-1">
+            {recentlyPlayed.map((e: any) => (
+              <div
+                key={e.id}
+                className="flex items-center gap-2 rounded-md border border-border/50 bg-background/30 px-3 py-2"
+              >
+                <span className="font-mono text-[10px] text-muted-foreground shrink-0 w-20">
+                  {formatDistanceToNow(new Date(e.date_played), { addSuffix: true })}
+                </span>
+                <Link
+                  to={`/jellyfin/user/${encodeURIComponent(e.username || "Unknown")}`}
+                  className="text-xs font-medium text-foreground hover:text-primary transition-colors shrink-0 w-20 truncate"
+                >
+                  {e.username || "Unknown"}
+                </Link>
+                <EventTypeBadge eventType={e.event_type} />
+                <span className="flex-1 truncate text-xs text-foreground">
+                  {formatJellyfinTitle(e)}
+                </span>
+                {e.media_type && (
+                  <span className="rounded px-1.5 py-0.5 font-mono text-[10px] font-medium shrink-0 bg-muted/40 text-muted-foreground">
+                    {e.media_type}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Bottom row: Top Artists + Top Tracks + Top Users */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Top Artists */}
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm font-medium text-foreground mb-3">Top Artists</p>
           <div className="space-y-2">
@@ -313,7 +364,6 @@ export default function JellyfinPage() {
           </div>
         </div>
 
-        {/* Top Tracks */}
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm font-medium text-foreground mb-3">Top Tracks</p>
           <div className="space-y-2">
@@ -338,7 +388,6 @@ export default function JellyfinPage() {
           </div>
         </div>
 
-        {/* Top Users */}
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm font-medium text-foreground mb-3">Top Users</p>
           <div className="space-y-2">
@@ -347,7 +396,12 @@ export default function JellyfinPage() {
             ) : (
               topUsers.map(({ name, count, pct }) => (
                 <div key={name} className="flex items-center gap-2">
-                  <span className="w-24 truncate text-xs text-foreground shrink-0">{name}</span>
+                  <Link
+                    to={`/jellyfin/user/${encodeURIComponent(name)}`}
+                    className="w-24 truncate text-xs text-foreground hover:text-primary transition-colors shrink-0"
+                  >
+                    {name}
+                  </Link>
                   <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full rounded-full"

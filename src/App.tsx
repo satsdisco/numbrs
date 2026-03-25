@@ -18,7 +18,9 @@ import SharedDashboardPage from "@/pages/SharedDashboardPage";
 import UptimePage from "@/pages/UptimePage";
 import IntegrationsPage from "@/pages/IntegrationsPage";
 import JellyfinPage from "@/pages/JellyfinPage";
+import JellyfinUserPage from "@/pages/JellyfinUserPage";
 import PlexPage from "@/pages/PlexPage";
+import PlexUserPage from "@/pages/PlexUserPage";
 import SetupPage from "@/pages/SetupPage";
 import NotFound from "@/pages/NotFound";
 import Onboarding, { isOnboardingComplete } from "@/components/Onboarding";
@@ -54,7 +56,9 @@ function ProtectedRoutes() {
         <Route path="/api-keys" element={<ApiKeysPage />} />
         <Route path="/alerts" element={<AlertsPage />} />
         <Route path="/jellyfin" element={<JellyfinPage />} />
+        <Route path="/jellyfin/user/:username" element={<JellyfinUserPage />} />
         <Route path="/plex" element={<PlexPage />} />
+        <Route path="/plex/user/:username" element={<PlexUserPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

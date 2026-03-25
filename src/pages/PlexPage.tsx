@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tv2 } from "lucide-react";
-import { format, subDays } from "date-fns";
+import { format, subDays, formatDistanceToNow } from "date-fns";
+import { Link } from "react-router-dom";
 import {
   AreaChart,
   Area,
@@ -69,6 +70,37 @@ const axisStyle = {
 type ContentTab = "Movies" | "Shows" | "Music";
 const CONTENT_TABS: ContentTab[] = ["Movies", "Shows", "Music"];
 
+function formatPlexTitle(e: any): string {
+  if (e.media_type === "episode") {
+    return `${e.grandparent_title || "Unknown Show"} — ${e.title || "Unknown Episode"}`;
+  } else if (e.media_type === "track") {
+    return `${e.grandparent_title || "Unknown Artist"} — ${e.title || "Unknown Track"}`;
+  }
+  return e.title || "Unknown";
+}
+
+function EventBadge({ event }: { event: string }) {
+  const styles: Record<string, string> = {
+    "media.play": "bg-green-500/15 text-green-400",
+    "media.stop": "bg-muted/60 text-muted-foreground",
+    "media.scrobble": "bg-purple-500/15 text-purple-400",
+    "media.pause": "bg-yellow-500/15 text-yellow-400",
+  };
+  const labels: Record<string, string> = {
+    "media.play": "play",
+    "media.stop": "stop",
+    "media.scrobble": "scrobble",
+    "media.pause": "pause",
+  };
+  const cls = styles[event] ?? "bg-muted/60 text-muted-foreground";
+  const label = labels[event] ?? event.replace("media.", "");
+  return (
+    <span className={cn("rounded px-1.5 py-0.5 font-mono text-[10px] font-medium shrink-0", cls)}>
+      {label}
+    </span>
+  );
+}
+
 export default function PlexPage() {
   const [range, setRange] = useState<Range>("30d");
   const [contentTab, setContentTab] = useState<ContentTab>("Movies");
@@ -82,7 +114,6 @@ export default function PlexPage() {
       const { data } = await supabase
         .from("plex_events")
         .select("*")
-        .eq("event", "media.scrobble")
         .gte("created_at", since)
         .order("created_at", { ascending: true });
       return data || [];
@@ -90,10 +121,11 @@ export default function PlexPage() {
   });
 
   const stats = useMemo(() => {
-    const totalPlays = events.length;
+    const scrobbles = events.filter((e: any) => e.event === "media.scrobble");
+    const totalPlays = scrobbles.length;
     const watchHours =
       Math.round(
-        (events.reduce((sum: number, e: any) => sum + (e.duration_ms || 0), 0) / 3600000) * 10
+        (scrobbles.reduce((sum: number, e: any) => sum + (e.duration_ms || 0), 0) / 3600000) * 10
       ) / 10;
 
     const userCounts: Record<string, number> = {};
@@ -180,6 +212,33 @@ export default function PlexPage() {
     return sorted.map(([name, count]) => ({ name, count, pct: (count / max) * 100 }));
   }, [events]);
 
+  const deviceData = useMemo(() => {
+    const deviceCounts: Record<string, number> = {};
+    let localCount = 0;
+    let remoteCount = 0;
+    for (const e of events) {
+      const d = e.player_title || "Unknown";
+      deviceCounts[d] = (deviceCounts[d] || 0) + 1;
+      if (e.local) localCount++;
+      else remoteCount++;
+    }
+    const sorted = Object.entries(deviceCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+    const max = sorted[0]?.[1] || 1;
+    return {
+      devices: sorted.map(([name, count]) => ({ name, count, pct: (count / max) * 100 })),
+      localCount,
+      remoteCount,
+    };
+  }, [events]);
+
+  const recentlyPlayed = useMemo(() => {
+    return [...events]
+      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 30);
+  }, [events]);
+
   const collectionCleanup = useMemo(() => {
     const movieCounts: Record<string, number> = {};
     for (const e of events) {
@@ -218,7 +277,7 @@ export default function PlexPage() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono mb-1">
-            Total Plays ({range})
+            Completed Plays ({range})
           </p>
           <p className="text-2xl font-bold font-mono text-foreground">
             {isLoading ? "—" : stats.totalPlays.toLocaleString()}
@@ -252,7 +311,6 @@ export default function PlexPage() {
 
       {/* Charts row */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Activity */}
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm font-medium text-foreground mb-4">Activity</p>
           <div className="h-48">
@@ -272,10 +330,7 @@ export default function PlexPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 20%)" vertical={false} />
                   <XAxis dataKey="date" {...axisStyle} interval={tickInterval} />
                   <YAxis {...axisStyle} width={32} />
-                  <Tooltip
-                    {...tooltipStyle}
-                    formatter={(v: number) => [v, "plays"]}
-                  />
+                  <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "events"]} />
                   <Area
                     type="monotone"
                     dataKey="plays"
@@ -290,7 +345,6 @@ export default function PlexPage() {
           </div>
         </div>
 
-        {/* Peak Hours */}
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm font-medium text-foreground mb-4">Peak Hours</p>
           <div className="h-48">
@@ -299,10 +353,7 @@ export default function PlexPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 20%)" vertical={false} />
                 <XAxis dataKey="hour" {...axisStyle} interval={2} />
                 <YAxis {...axisStyle} width={32} />
-                <Tooltip
-                  {...tooltipStyle}
-                  formatter={(v: number) => [v, "plays"]}
-                />
+                <Tooltip {...tooltipStyle} formatter={(v: number) => [v, "events"]} />
                 <Bar dataKey="plays" fill={PURPLE} radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -310,9 +361,55 @@ export default function PlexPage() {
         </div>
       </div>
 
+      {/* Recently Played */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <p className="text-sm font-medium text-foreground mb-3">Recently Played</p>
+        {recentlyPlayed.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No data</p>
+        ) : (
+          <div className="space-y-1">
+            {recentlyPlayed.map((e: any) => (
+              <div
+                key={e.id}
+                className="flex items-center gap-2 rounded-md border border-border/50 bg-background/30 px-3 py-2"
+              >
+                <span className="font-mono text-[10px] text-muted-foreground shrink-0 w-20">
+                  {formatDistanceToNow(new Date(e.created_at), { addSuffix: true })}
+                </span>
+                <Link
+                  to={`/plex/user/${encodeURIComponent(e.username || "Unknown")}`}
+                  className="text-xs font-medium text-foreground hover:text-primary transition-colors shrink-0 w-20 truncate"
+                >
+                  {e.username || "Unknown"}
+                </Link>
+                <EventBadge event={e.event} />
+                <span className="flex-1 truncate text-xs text-foreground">
+                  {formatPlexTitle(e)}
+                </span>
+                <span className="text-[10px] text-muted-foreground shrink-0 hidden sm:block truncate max-w-[100px]">
+                  {e.player_title || ""}
+                </span>
+                {e.local !== null && e.local !== undefined && (
+                  <span className={cn(
+                    "rounded px-1.5 py-0.5 font-mono text-[10px] font-medium shrink-0",
+                    e.local ? "bg-green-500/10 text-green-400" : "bg-blue-500/10 text-blue-400"
+                  )}>
+                    {e.local ? "local" : "remote"}
+                  </span>
+                )}
+                {e.duration_ms > 0 && (
+                  <span className="font-mono text-[10px] text-muted-foreground shrink-0">
+                    {Math.round(e.duration_ms / 60000)}m
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Bottom: Top Content + Top Users */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* Top Content with tabs */}
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-medium text-foreground">Top Content</p>
@@ -355,7 +452,6 @@ export default function PlexPage() {
           </div>
         </div>
 
-        {/* Top Users */}
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm font-medium text-foreground mb-3">Top Users</p>
           <div className="space-y-2">
@@ -364,7 +460,12 @@ export default function PlexPage() {
             ) : (
               topUsers.map(({ name, count, pct }) => (
                 <div key={name} className="flex items-center gap-2">
-                  <span className="w-24 truncate text-xs text-foreground shrink-0">{name}</span>
+                  <Link
+                    to={`/plex/user/${encodeURIComponent(name)}`}
+                    className="w-24 truncate text-xs text-foreground hover:text-primary transition-colors shrink-0"
+                  >
+                    {name}
+                  </Link>
                   <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full rounded-full"
@@ -378,6 +479,43 @@ export default function PlexPage() {
               ))
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Devices */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-medium text-foreground">Devices</p>
+          {(deviceData.localCount + deviceData.remoteCount) > 0 && (
+            <div className="flex items-center gap-3 text-[10px] font-mono text-muted-foreground">
+              <span className="text-green-400">
+                {deviceData.localCount} local
+              </span>
+              <span className="text-blue-400">
+                {deviceData.remoteCount} remote
+              </span>
+            </div>
+          )}
+        </div>
+        <div className="space-y-2">
+          {deviceData.devices.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No data</p>
+          ) : (
+            deviceData.devices.map(({ name, count, pct }) => (
+              <div key={name} className="flex items-center gap-2">
+                <span className="w-40 truncate text-xs text-foreground shrink-0">{name}</span>
+                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${pct}%`, backgroundColor: PURPLE }}
+                  />
+                </div>
+                <span className="text-xs font-mono text-muted-foreground w-8 text-right shrink-0">
+                  {count}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
