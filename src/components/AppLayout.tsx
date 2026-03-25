@@ -16,6 +16,8 @@ import {
   Plug,
   Menu,
   ChevronRight,
+  Tv2,
+  Music2,
 } from "lucide-react";
 
 function NumbrsLogo({ className }: { className?: string }) {
@@ -36,6 +38,8 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { path: "/", label: "Relay Health", icon: LayoutDashboard },
   { path: "/dashboards", label: "Dashboards", icon: LayoutGrid },
+  { path: "/plex", label: "Plex", icon: Tv2 },
+  { path: "/jellyfin", label: "Jellyfin", icon: Music2 },
   { path: "/relays", label: "Relays", icon: Radio },
   { path: "/uptime", label: "Uptime", icon: Activity },
   { path: "/alerts", label: "Alerts", icon: Bell },
