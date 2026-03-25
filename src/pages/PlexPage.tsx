@@ -87,9 +87,9 @@ function EventBadge({ event }: { event: string }) {
     "media.pause": "bg-yellow-500/15 text-yellow-400",
   };
   const labels: Record<string, string> = {
-    "media.play": "play",
+    "media.play": "started",
     "media.stop": "stop",
-    "media.scrobble": "scrobble",
+    "media.scrobble": "played",
     "media.pause": "pause",
   };
   const cls = styles[event] ?? "bg-muted/60 text-muted-foreground";
@@ -114,6 +114,7 @@ export default function PlexPage() {
       const { data } = await supabase
         .from("plex_events")
         .select("*")
+        .eq("event", "media.scrobble")
         .gte("created_at", since)
         .order("created_at", { ascending: true });
       return data || [];
