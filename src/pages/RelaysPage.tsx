@@ -37,8 +37,31 @@ export default function RelaysPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-metric-sm">
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th className="px-4 py-3 text-left font-medium">Name</th>
+                  <th className="px-4 py-3 text-left font-medium">URL</th>
+                  <th className="px-4 py-3 text-left font-medium">Region</th>
+                  <th className="px-4 py-3 text-left font-medium">Added</th>
+                  <th className="px-4 py-3 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...Array(5)].map((_, i) => (
+                  <tr key={i} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3"><div className="h-4 w-28 animate-pulse bg-muted rounded" /></td>
+                    <td className="px-4 py-3"><div className="h-4 w-52 animate-pulse bg-muted rounded" /></td>
+                    <td className="px-4 py-3"><div className="h-4 w-16 animate-pulse bg-muted rounded" /></td>
+                    <td className="px-4 py-3"><div className="h-4 w-20 animate-pulse bg-muted rounded" /></td>
+                    <td className="px-4 py-3 text-right"><div className="h-4 w-4 animate-pulse bg-muted rounded ml-auto" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : !relays || relays.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 py-20 text-center">

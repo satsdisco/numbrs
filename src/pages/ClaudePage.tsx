@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Bot } from "lucide-react";
@@ -87,7 +87,12 @@ const COLOR_PALETTE = [
   "#6b7280",
 ];
 
-const MONTHLY_PLAN_COST = 200;
+const MONTHLY_PLAN_COST_KEY = "numbrs_claude_monthly_cost";
+function getMonthlyPlanCost(): number {
+  const stored = localStorage.getItem(MONTHLY_PLAN_COST_KEY);
+  const parsed = stored ? parseFloat(stored) : NaN;
+  return isNaN(parsed) ? 200 : parsed;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -218,6 +223,17 @@ function StatCard({
 function OverviewTab({ range }: { range: Range }) {
   const since = sinceDate(range);
   const rangeLabel = RANGES.find((r) => r.key === range)?.label ?? range;
+  const [monthlyPlanCost, setMonthlyPlanCost] = useState<number>(getMonthlyPlanCost);
+  const [editingCost, setEditingCost] = useState(false);
+  const [costInput, setCostInput] = useState<string>("");
+  const costInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingCost && costInputRef.current) {
+      costInputRef.current.focus();
+      costInputRef.current.select();
+    }
+  }, [editingCost]);
 
   const { data: openclawRows = [], isLoading: ocLoading } = useQuery({
     queryKey: ["overview_openclaw", range],
@@ -320,11 +336,11 @@ function OverviewTab({ range }: { range: Range }) {
 
   const tickInterval = Math.max(1, Math.floor(combinedChartData.length / 8));
   const combinedTotal = stats.ocCost + stats.codeCost;
-  const roiMultiplier = combinedTotal > 0 ? combinedTotal / MONTHLY_PLAN_COST : 0;
+  const roiMultiplier = combinedTotal > 0 ? combinedTotal / monthlyPlanCost : 0;
 
   // For ROI bar: scale so the longer bar fills 100%
-  const maxVal = Math.max(combinedTotal, MONTHLY_PLAN_COST, 0.01);
-  const planBarWidth = (MONTHLY_PLAN_COST / maxVal) * 100;
+  const maxVal = Math.max(combinedTotal, monthlyPlanCost, 0.01);
+  const planBarWidth = (monthlyPlanCost / maxVal) * 100;
   const valueBarWidth = (combinedTotal / maxVal) * 100;
 
   function CombinedTooltip({ active, payload, label }: any) {
@@ -420,7 +436,39 @@ function OverviewTab({ range }: { range: Range }) {
 
       {/* Value of Max breakdown */}
       <div className="rounded-lg border border-border bg-card p-4">
-        <p className="text-sm font-medium text-foreground mb-5">Value of Max — $200/mo Plan ROI</p>
+        <div className="flex items-center gap-2 mb-5">
+          <p className="text-sm font-medium text-foreground">Value of Max — </p>
+          {editingCost ? (
+            <input
+              ref={costInputRef}
+              type="number"
+              value={costInput}
+              onChange={(e) => setCostInput(e.target.value)}
+              onBlur={() => {
+                const val = parseFloat(costInput);
+                if (!isNaN(val) && val > 0) {
+                  setMonthlyPlanCost(val);
+                  localStorage.setItem(MONTHLY_PLAN_COST_KEY, String(val));
+                }
+                setEditingCost(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                if (e.key === "Escape") setEditingCost(false);
+              }}
+              className="w-20 rounded border border-primary bg-background px-1.5 py-0.5 font-mono text-sm text-foreground focus:outline-none"
+            />
+          ) : (
+            <button
+              onClick={() => { setCostInput(String(monthlyPlanCost)); setEditingCost(true); }}
+              className="font-mono text-sm text-muted-foreground hover:text-foreground underline decoration-dashed underline-offset-2 transition-colors"
+              title="Click to edit monthly plan cost"
+            >
+              {formatCost(monthlyPlanCost)}/mo
+            </button>
+          )}
+          <p className="text-sm font-medium text-foreground">Plan ROI</p>
+        </div>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Left: line items */}
           <div className="space-y-3">
@@ -446,7 +494,7 @@ function OverviewTab({ range }: { range: Range }) {
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground font-mono">Monthly plan cost</span>
               <span className="text-sm font-mono text-muted-foreground">
-                {formatCost(MONTHLY_PLAN_COST)}
+                {formatCost(monthlyPlanCost)}
               </span>
             </div>
             <div className="h-px bg-border" />
@@ -471,7 +519,7 @@ function OverviewTab({ range }: { range: Range }) {
             <div className="space-y-1">
               <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground">
                 <span>Plan Cost</span>
-                <span>{formatCost(MONTHLY_PLAN_COST)}</span>
+                <span>{formatCost(monthlyPlanCost)}</span>
               </div>
               <div className="h-5 rounded-sm bg-muted overflow-hidden">
                 <div

@@ -17,6 +17,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -31,6 +41,7 @@ export default function AlertsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const { data: rules, isLoading: rulesLoading } = useQuery({
     queryKey: ["alert-rules"],
@@ -108,7 +119,14 @@ export default function AlertsPage() {
           {rulesLoading ? (
             <div className="space-y-3">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-16 rounded-lg bg-card animate-pulse border border-border" />
+                <div key={i} className="flex items-center gap-4 rounded-lg border border-border bg-card p-4">
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-48 animate-pulse bg-muted rounded" />
+                    <div className="h-3 w-72 animate-pulse bg-muted rounded" />
+                  </div>
+                  <div className="h-6 w-10 animate-pulse bg-muted rounded-full" />
+                  <div className="h-4 w-4 animate-pulse bg-muted rounded" />
+                </div>
               ))}
             </div>
           ) : !rules || rules.length === 0 ? (
@@ -133,7 +151,7 @@ export default function AlertsPage() {
                   onToggle={(active) =>
                     toggleMutation.mutate({ id: rule.id, is_active: active })
                   }
-                  onDelete={() => deleteMutation.mutate(rule.id)}
+                  onDelete={() => setDeleteTarget(rule.id)}
                 />
               ))}
             </div>
@@ -202,6 +220,31 @@ export default function AlertsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this alert rule?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It will stop monitoring and all history will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteTarget) {
+                  deleteMutation.mutate(deleteTarget);
+                  setDeleteTarget(null);
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CreateAlertDialog
         open={showCreate}
