@@ -48,7 +48,6 @@ const navItems = [
 
 const bottomNavItems = [
   { path: "/dashboards", label: "Dashboards", icon: LayoutGrid },
-  { path: "/setup", label: "Setup", icon: Compass },
   { path: "/relays", label: "Relays", icon: Radio },
   { path: "/uptime", label: "Uptime", icon: Activity },
   { path: "/alerts", label: "Alerts", icon: Bell },
