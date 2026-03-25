@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Range = "day" | "week" | "month" | "3months";
-type TabKey = "openclaw" | "code";
+type TabKey = "overview" | "openclaw" | "code";
 
 interface UsageRow {
   id?: number;
@@ -48,6 +48,7 @@ interface OpenClawRow {
   cache_read_tokens: number;
   cache_write_tokens: number;
   cost_usd: number;
+  created_at?: string;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -86,6 +87,8 @@ const COLOR_PALETTE = [
   "#6b7280",
 ];
 
+const MONTHLY_PLAN_COST = 200;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatTokens(n: number): string {
@@ -114,7 +117,6 @@ function modelColor(model: string): string {
 }
 
 function shortModelName(model: string): string {
-  // "claude-opus-4-6" → "opus-4-6", "claude-sonnet-4-6" → "sonnet-4-6"
   return model.replace(/^claude-/, "");
 }
 
@@ -211,6 +213,297 @@ function StatCard({
   );
 }
 
+// ─── Overview Tab ─────────────────────────────────────────────────────────────
+
+function OverviewTab({ range }: { range: Range }) {
+  const since = sinceDate(range);
+  const rangeLabel = RANGES.find((r) => r.key === range)?.label ?? range;
+
+  const { data: openclawRows = [], isLoading: ocLoading } = useQuery({
+    queryKey: ["overview_openclaw", range],
+    queryFn: async (): Promise<{ date: string; session_id: string; output_tokens: number; input_tokens: number; cost_usd: number }[]> => {
+      const { data } = await supabase
+        .from("openclaw_usage")
+        .select("date, session_id, output_tokens, input_tokens, cost_usd")
+        .gte("date", since)
+        .order("date", { ascending: true });
+      return (data as any[]) || [];
+    },
+  });
+
+  const { data: codeRows = [], isLoading: codeLoading } = useQuery({
+    queryKey: ["overview_code", range],
+    queryFn: async (): Promise<{ date: string; session_id: string; output_tokens: number; input_tokens: number }[]> => {
+      const { data } = await supabase
+        .from("claude_usage")
+        .select("date, session_id, output_tokens, input_tokens")
+        .gte("date", since)
+        .order("date", { ascending: true });
+      return (data as any[]) || [];
+    },
+  });
+
+  const isLoading = ocLoading || codeLoading;
+
+  // ── Stats ────────────────────────────────────────────────────────────────────
+
+  const stats = useMemo(() => {
+    const ocOutputTokens = openclawRows.reduce((s, r) => s + (r.output_tokens || 0), 0);
+    const codeOutputTokens = codeRows.reduce((s, r) => s + (r.output_tokens || 0), 0);
+    const codeInputTokens = codeRows.reduce((s, r) => s + (r.input_tokens || 0), 0);
+    const totalOutputTokens = ocOutputTokens + codeOutputTokens;
+
+    const ocCost = openclawRows.reduce((s, r) => s + (Number(r.cost_usd) || 0), 0);
+    const codeCost = (codeOutputTokens * 15) / 1_000_000 + (codeInputTokens * 3) / 1_000_000;
+    const totalApiValue = ocCost + codeCost;
+
+    const ocSessions = new Set(openclawRows.map((r) => r.session_id).filter(Boolean)).size;
+    const codeSessions = new Set(codeRows.map((r) => r.session_id).filter(Boolean)).size;
+    const totalSessions = ocSessions + codeSessions;
+
+    // Most active day
+    const dayTotals: Record<string, number> = {};
+    for (const r of openclawRows) {
+      dayTotals[r.date] = (dayTotals[r.date] || 0) + (r.output_tokens || 0);
+    }
+    for (const r of codeRows) {
+      dayTotals[r.date] = (dayTotals[r.date] || 0) + (r.output_tokens || 0);
+    }
+    const mostActiveDay =
+      Object.entries(dayTotals).sort(([, a], [, b]) => b - a)[0]?.[0] ?? null;
+    const mostActiveDayLabel = mostActiveDay
+      ? (() => {
+          try {
+            return format(new Date(mostActiveDay + "T12:00:00"), "MMM d");
+          } catch {
+            return mostActiveDay;
+          }
+        })()
+      : "—";
+
+    return {
+      totalOutputTokens,
+      totalApiValue,
+      totalSessions,
+      mostActiveDayLabel,
+      ocCost,
+      codeCost,
+    };
+  }, [openclawRows, codeRows]);
+
+  // ── Combined daily bar chart ──────────────────────────────────────────────────
+
+  const combinedChartData = useMemo(() => {
+    const dateMap: Record<string, { openclaw: number; code: number }> = {};
+
+    for (const r of openclawRows) {
+      if (!dateMap[r.date]) dateMap[r.date] = { openclaw: 0, code: 0 };
+      dateMap[r.date].openclaw += r.output_tokens || 0;
+    }
+    for (const r of codeRows) {
+      if (!dateMap[r.date]) dateMap[r.date] = { openclaw: 0, code: 0 };
+      dateMap[r.date].code += r.output_tokens || 0;
+    }
+
+    return Object.entries(dateMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, vals]) => {
+        let label: string;
+        try {
+          label = format(new Date(date + "T12:00:00"), range === "day" ? "HH:mm" : "MMM d");
+        } catch {
+          label = date;
+        }
+        return { date: label, rawDate: date, ...vals };
+      });
+  }, [openclawRows, codeRows, range]);
+
+  const tickInterval = Math.max(1, Math.floor(combinedChartData.length / 8));
+  const combinedTotal = stats.ocCost + stats.codeCost;
+  const roiMultiplier = combinedTotal > 0 ? combinedTotal / MONTHLY_PLAN_COST : 0;
+
+  // For ROI bar: scale so the longer bar fills 100%
+  const maxVal = Math.max(combinedTotal, MONTHLY_PLAN_COST, 0.01);
+  const planBarWidth = (MONTHLY_PLAN_COST / maxVal) * 100;
+  const valueBarWidth = (combinedTotal / maxVal) * 100;
+
+  function CombinedTooltip({ active, payload, label }: any) {
+    if (!active || !payload?.length) return null;
+    const total = payload.reduce((s: number, p: any) => s + (p.value || 0), 0);
+    return (
+      <div style={{ ...tooltipContentStyle, padding: "8px 12px", minWidth: "160px" }}>
+        <p style={{ ...tooltipLabelStyle, marginBottom: 6 }}>{label}</p>
+        <p style={{ color: "#e5e7eb", marginBottom: 4, fontSize: "12px" }}>
+          total: {formatTokens(total)}
+        </p>
+        {[...payload].reverse().map((p: any) => (
+          <div
+            key={p.dataKey}
+            style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 2 }}
+          >
+            <span style={{ color: p.fill }}>
+              {p.dataKey === "openclaw" ? "OpenClaw" : "Claude Code"}
+            </span>
+            <span style={{ color: "#e5e7eb" }}>{formatTokens(p.value)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          label="Output Tokens"
+          value={formatTokens(stats.totalOutputTokens)}
+          sub={`${rangeLabel} — both sources`}
+          loading={isLoading}
+        />
+        <StatCard
+          label="API Equiv Value"
+          value={formatCost(stats.totalApiValue)}
+          sub={`${rangeLabel} — vs pay-per-token`}
+          loading={isLoading}
+        />
+        <StatCard
+          label="Total Sessions"
+          value={stats.totalSessions.toLocaleString()}
+          sub={`${rangeLabel} — both sources`}
+          loading={isLoading}
+        />
+        <StatCard
+          label="Most Active Day"
+          value={stats.mostActiveDayLabel}
+          sub="peak output tokens"
+          loading={isLoading}
+        />
+      </div>
+
+      {/* Combined daily bar chart */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <p className="text-sm font-medium text-foreground mb-4">Combined Output Tokens by Day</p>
+        <div className="h-64">
+          {combinedChartData.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+              {isLoading ? "Loading…" : "No data for this range"}
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={combinedChartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="hsl(240, 3.7%, 20%)"
+                  vertical={false}
+                />
+                <XAxis dataKey="date" {...axisStyle} interval={tickInterval} />
+                <YAxis
+                  {...axisStyle}
+                  width={40}
+                  tickFormatter={(v: number) => formatTokens(v)}
+                />
+                <Tooltip content={<CombinedTooltip />} />
+                <Legend
+                  {...legendStyle}
+                  formatter={(value: string) =>
+                    value === "openclaw" ? "OpenClaw" : "Claude Code"
+                  }
+                />
+                <Bar dataKey="openclaw" stackId="a" fill="#a855f7" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="code" stackId="a" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      {/* Value of Max breakdown */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <p className="text-sm font-medium text-foreground mb-5">Value of Max — $200/mo Plan ROI</p>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Left: line items */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground font-mono">OpenClaw API equiv</span>
+              <span className="text-sm font-bold font-mono text-purple-400">
+                {isLoading ? "—" : formatCost(stats.ocCost)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground font-mono">Claude Code API equiv</span>
+              <span className="text-sm font-bold font-mono text-blue-400">
+                {isLoading ? "—" : formatCost(stats.codeCost)}
+              </span>
+            </div>
+            <div className="h-px bg-border" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-foreground font-mono">Combined total</span>
+              <span className="text-sm font-bold font-mono text-foreground">
+                {isLoading ? "—" : formatCost(combinedTotal)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground font-mono">Monthly plan cost</span>
+              <span className="text-sm font-mono text-muted-foreground">
+                {formatCost(MONTHLY_PLAN_COST)}
+              </span>
+            </div>
+            <div className="h-px bg-border" />
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-foreground font-mono">ROI multiplier</span>
+              <span className="text-xl font-bold font-mono text-green-400">
+                {isLoading ? "—" : `${roiMultiplier.toFixed(1)}x`}
+              </span>
+            </div>
+            <p className="text-[10px] font-mono text-muted-foreground">
+              return on investment vs API pricing
+            </p>
+          </div>
+
+          {/* Right: visual comparison */}
+          <div className="flex flex-col justify-center gap-4">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-mono">
+              Plan vs Value
+            </p>
+
+            {/* Plan cost bar */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground">
+                <span>Plan Cost</span>
+                <span>{formatCost(MONTHLY_PLAN_COST)}</span>
+              </div>
+              <div className="h-5 rounded-sm bg-muted overflow-hidden">
+                <div
+                  className="h-full bg-muted-foreground/40 rounded-sm transition-all duration-700"
+                  style={{ width: `${planBarWidth}%` }}
+                />
+              </div>
+            </div>
+
+            {/* API value bar */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-[10px] font-mono">
+                <span className="text-muted-foreground">API Value</span>
+                <span className="text-green-400">{isLoading ? "—" : formatCost(combinedTotal)}</span>
+              </div>
+              <div className="h-5 rounded-sm bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-sm transition-all duration-700"
+                  style={{
+                    width: `${valueBarWidth}%`,
+                    background: "linear-gradient(90deg, #a855f7 0%, #3b82f6 100%)",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── OpenClaw Tab ─────────────────────────────────────────────────────────────
 
 function OpenClawTab({ range }: { range: Range }) {
@@ -230,6 +523,32 @@ function OpenClawTab({ range }: { range: Range }) {
     },
   });
 
+  // Separate query for heatmap — 90d, uses created_at
+  const { data: heatmapRows = [] } = useQuery({
+    queryKey: ["openclaw_heatmap"],
+    queryFn: async (): Promise<{ output_tokens: number; created_at: string }[]> => {
+      const since90 = format(subDays(new Date(), 90), "yyyy-MM-dd");
+      const { data } = await supabase
+        .from("openclaw_usage")
+        .select("output_tokens, created_at")
+        .gte("date", since90);
+      return (data as any[]) || [];
+    },
+  });
+
+  // Separate query for monthly trend — last 6 months
+  const { data: monthlyRows = [] } = useQuery({
+    queryKey: ["openclaw_monthly"],
+    queryFn: async (): Promise<{ date: string; output_tokens: number }[]> => {
+      const since6m = format(subDays(new Date(), 180), "yyyy-MM-dd");
+      const { data } = await supabase
+        .from("openclaw_usage")
+        .select("date, output_tokens")
+        .gte("date", since6m);
+      return (data as any[]) || [];
+    },
+  });
+
   // ── Stats ────────────────────────────────────────────────────────────────────
 
   const stats = useMemo(() => {
@@ -237,7 +556,6 @@ function OpenClawTab({ range }: { range: Range }) {
     const totalCost = rows.reduce((s, r) => s + (Number(r.cost_usd) || 0), 0);
     const sessions = new Set(rows.map((r) => r.session_id).filter(Boolean)).size;
 
-    // Top model by output tokens
     const modelTokens: Record<string, number> = {};
     for (const r of rows) {
       const m = r.model || "unknown";
@@ -293,7 +611,10 @@ function OpenClawTab({ range }: { range: Range }) {
         if (k !== "date" && k !== "rawDate") keys.add(k);
       }
     }
-    return [...uniqueModels.filter((m) => keys.has(m)), ...[...keys].filter((k) => !uniqueModels.includes(k))];
+    return [
+      ...uniqueModels.filter((m) => keys.has(m)),
+      ...[...keys].filter((k) => !uniqueModels.includes(k)),
+    ];
   }, [stackedData, uniqueModels]);
 
   // ── By model breakdown ───────────────────────────────────────────────────────
@@ -336,8 +657,51 @@ function OpenClawTab({ range }: { range: Range }) {
       }));
   }, [rows]);
 
+  // ── Heatmap: day-of-week × hour ──────────────────────────────────────────────
+
+  const heatmapData = useMemo(() => {
+    // 7 rows (0=Sun … 6=Sat), 24 cols (0–23h)
+    const grid: number[][] = Array.from({ length: 7 }, () => new Array(24).fill(0));
+    for (const r of heatmapRows) {
+      if (!r.created_at) continue;
+      try {
+        const d = new Date(r.created_at);
+        const dow = d.getDay(); // 0=Sun
+        const hour = d.getHours();
+        grid[dow][hour] += r.output_tokens || 0;
+      } catch {
+        // skip bad timestamps
+      }
+    }
+    const max = Math.max(...grid.flat(), 1);
+    return { grid, max };
+  }, [heatmapRows]);
+
+  // ── Monthly trend data ────────────────────────────────────────────────────────
+
+  const monthlyData = useMemo(() => {
+    const agg: Record<string, number> = {};
+    for (const r of monthlyRows) {
+      const month = r.date.substring(0, 7); // "YYYY-MM"
+      agg[month] = (agg[month] || 0) + (r.output_tokens || 0);
+    }
+    return Object.entries(agg)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([month, tokens]) => {
+        let label: string;
+        try {
+          label = format(new Date(month + "-15"), "MMM yy");
+        } catch {
+          label = month;
+        }
+        return { month: label, tokens };
+      });
+  }, [monthlyRows]);
+
   const tickInterval = Math.max(1, Math.floor(stackedData.length / 8));
   const rangeLabel = RANGES.find((r) => r.key === range)?.label ?? range;
+
+  const DAYS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   function StackedTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
@@ -349,7 +713,10 @@ function OpenClawTab({ range }: { range: Range }) {
           total: {formatTokens(total)}
         </p>
         {[...payload].reverse().map((p: any) => (
-          <div key={p.dataKey} style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 2 }}>
+          <div
+            key={p.dataKey}
+            style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 2 }}
+          >
             <span style={{ color: p.fill }}>{shortModelName(p.dataKey)}</span>
             <span style={{ color: "#e5e7eb" }}>{formatTokens(p.value)}</span>
           </div>
@@ -399,9 +766,17 @@ function OpenClawTab({ range }: { range: Range }) {
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stackedData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 20%)" vertical={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="hsl(240, 3.7%, 20%)"
+                  vertical={false}
+                />
                 <XAxis dataKey="date" {...axisStyle} interval={tickInterval} />
-                <YAxis {...axisStyle} width={40} tickFormatter={(v: number) => formatTokens(v)} />
+                <YAxis
+                  {...axisStyle}
+                  width={40}
+                  tickFormatter={(v: number) => formatTokens(v)}
+                />
                 <Tooltip content={<StackedTooltip />} />
                 <Legend
                   {...legendStyle}
@@ -429,7 +804,9 @@ function OpenClawTab({ range }: { range: Range }) {
           <p className="text-sm font-medium text-foreground mb-3">By Model</p>
           <div className="space-y-3">
             {byModel.length === 0 ? (
-              <p className="text-xs text-muted-foreground">{isLoading ? "Loading…" : "No data"}</p>
+              <p className="text-xs text-muted-foreground">
+                {isLoading ? "Loading…" : "No data"}
+              </p>
             ) : (
               byModel.map(({ model, shortName, output_tokens, cost_usd, pct, color }) => (
                 <div key={model}>
@@ -464,7 +841,9 @@ function OpenClawTab({ range }: { range: Range }) {
           <p className="text-sm font-medium text-foreground mb-3">By Channel</p>
           <div className="space-y-3">
             {byChannel.length === 0 ? (
-              <p className="text-xs text-muted-foreground">{isLoading ? "Loading…" : "No data"}</p>
+              <p className="text-xs text-muted-foreground">
+                {isLoading ? "Loading…" : "No data"}
+              </p>
             ) : (
               byChannel.map(({ channel, messages, pct }, i) => (
                 <div key={channel}>
@@ -482,13 +861,133 @@ function OpenClawTab({ range }: { range: Range }) {
                   <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${pct}%`, backgroundColor: COLOR_PALETTE[i % COLOR_PALETTE.length] }}
+                      style={{
+                        width: `${pct}%`,
+                        backgroundColor: COLOR_PALETTE[i % COLOR_PALETTE.length],
+                      }}
                     />
                   </div>
                 </div>
               ))
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Peak Hours Heatmap */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <p className="text-sm font-medium text-foreground mb-1">Peak Hours — Last 90 Days</p>
+        <p className="text-[10px] text-muted-foreground font-mono mb-4">
+          Output token intensity by day of week × hour
+        </p>
+
+        {heatmapRows.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No data</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <div className="min-w-[520px]">
+              {/* Hour labels */}
+              <div className="flex items-center mb-1 ml-8">
+                {Array.from({ length: 24 }, (_, h) => (
+                  <div
+                    key={h}
+                    className="flex-1 text-center"
+                    style={{ minWidth: 0 }}
+                  >
+                    {h % 4 === 0 ? (
+                      <span className="text-[8px] font-mono text-muted-foreground">{h}</span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+
+              {/* Grid rows */}
+              <div className="space-y-0.5">
+                {DAYS_SHORT.map((day, dow) => (
+                  <div key={dow} className="flex items-center gap-1">
+                    <span className="text-[9px] font-mono text-muted-foreground w-7 shrink-0 text-right">
+                      {day}
+                    </span>
+                    <div className="flex flex-1 gap-0.5">
+                      {Array.from({ length: 24 }, (_, hour) => {
+                        const val = heatmapData.grid[dow][hour];
+                        const intensity = val / heatmapData.max;
+                        return (
+                          <div
+                            key={hour}
+                            title={`${day} ${hour}:00 — ${formatTokens(val)}`}
+                            className="flex-1 h-4 rounded-[2px] transition-all duration-300"
+                            style={{
+                              backgroundColor:
+                                val === 0
+                                  ? "hsl(240, 3.7%, 15.9%)"
+                                  : `rgba(168, 85, 247, ${0.15 + intensity * 0.85})`,
+                              minWidth: 0,
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Legend */}
+              <div className="flex items-center gap-2 mt-3 ml-8">
+                <span className="text-[9px] font-mono text-muted-foreground">less</span>
+                {[0.1, 0.3, 0.5, 0.7, 0.9].map((v) => (
+                  <div
+                    key={v}
+                    className="w-3 h-3 rounded-[2px]"
+                    style={{ backgroundColor: `rgba(168, 85, 247, ${0.15 + v * 0.85})` }}
+                  />
+                ))}
+                <span className="text-[9px] font-mono text-muted-foreground">more</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Monthly Trend */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <p className="text-sm font-medium text-foreground mb-1">Monthly Output Token Trend</p>
+        <p className="text-[10px] text-muted-foreground font-mono mb-4">Last 6 months</p>
+        <div className="h-52">
+          {monthlyData.length === 0 ? (
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+              No data
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={monthlyData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="hsl(240, 3.7%, 20%)"
+                  vertical={false}
+                />
+                <XAxis dataKey="month" {...axisStyle} />
+                <YAxis
+                  {...axisStyle}
+                  width={40}
+                  tickFormatter={(v: number) => formatTokens(v)}
+                />
+                <Tooltip
+                  contentStyle={tooltipContentStyle}
+                  labelStyle={tooltipLabelStyle}
+                  formatter={(v: number) => [formatTokens(v), "output tokens"]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="tokens"
+                  stroke="#a855f7"
+                  strokeWidth={2}
+                  dot={{ fill: "#a855f7", r: 3 }}
+                  activeDot={{ r: 5, fill: "#a855f7" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
     </div>
@@ -511,6 +1010,20 @@ function ClaudeCodeTab({ range }: { range: Range }) {
         .gte("date", since)
         .order("date", { ascending: true });
       return (data as UsageRow[]) || [];
+    },
+  });
+
+  // Top sessions query
+  const { data: topSessionRows = [], isLoading: topSessionsLoading } = useQuery({
+    queryKey: ["claude_top_sessions", range],
+    queryFn: async (): Promise<{ date: string; project: string; output_tokens: number; tool_calls: number; model: string; session_id: string }[]> => {
+      const { data } = await supabase
+        .from("claude_usage")
+        .select("date, project, output_tokens, tool_calls, model, session_id")
+        .gte("date", since)
+        .order("output_tokens", { ascending: false })
+        .limit(10);
+      return (data as any[]) || [];
     },
   });
 
@@ -553,7 +1066,7 @@ function ClaudeCodeTab({ range }: { range: Range }) {
     for (const r of rows) {
       const d = r.date;
       if (!dateMap[d]) dateMap[d] = {};
-      const p = topProjects.includes(r.project || "other") ? (r.project || "other") : "other";
+      const p = topProjects.includes(r.project || "other") ? r.project || "other" : "other";
       dateMap[d][p] = (dateMap[d][p] || 0) + (r.output_tokens || 0);
     }
     return Object.entries(dateMap)
@@ -569,15 +1082,16 @@ function ClaudeCodeTab({ range }: { range: Range }) {
       });
   }, [rows, topProjects, range]);
 
-  // ── By Project breakdown ─────────────────────────────────────────────────────
+  // ── By Project breakdown with last active ────────────────────────────────────
 
   const byProject = useMemo(() => {
-    const agg: Record<string, { output_tokens: number; input_tokens: number }> = {};
+    const agg: Record<string, { output_tokens: number; input_tokens: number; lastActive: string }> = {};
     for (const r of rows) {
       const p = r.project || "unknown";
-      if (!agg[p]) agg[p] = { output_tokens: 0, input_tokens: 0 };
+      if (!agg[p]) agg[p] = { output_tokens: 0, input_tokens: 0, lastActive: r.date };
       agg[p].output_tokens += r.output_tokens || 0;
       agg[p].input_tokens += r.input_tokens || 0;
+      if (r.date > agg[p].lastActive) agg[p].lastActive = r.date;
     }
     const sorted = Object.entries(agg).sort(([, a], [, b]) => b.output_tokens - a.output_tokens);
     const totalOut = sorted.reduce((s, [, v]) => s + v.output_tokens, 0) || 1;
@@ -585,6 +1099,7 @@ function ClaudeCodeTab({ range }: { range: Range }) {
       project,
       output_tokens: vals.output_tokens,
       input_tokens: vals.input_tokens,
+      lastActive: vals.lastActive,
       pct: (vals.output_tokens / totalOut) * 100,
       color: projectColor(project, i),
     }));
@@ -638,7 +1153,10 @@ function ClaudeCodeTab({ range }: { range: Range }) {
           total: {formatTokens(total)}
         </p>
         {[...payload].reverse().map((p: any) => (
-          <div key={p.dataKey} style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 2 }}>
+          <div
+            key={p.dataKey}
+            style={{ display: "flex", justifyContent: "space-between", gap: 12, marginTop: 2 }}
+          >
             <span style={{ color: p.fill }}>{p.dataKey}</span>
             <span style={{ color: "#e5e7eb" }}>{formatTokens(p.value)}</span>
           </div>
@@ -688,9 +1206,17 @@ function ClaudeCodeTab({ range }: { range: Range }) {
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stackedData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 20%)" vertical={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="hsl(240, 3.7%, 20%)"
+                  vertical={false}
+                />
                 <XAxis dataKey="date" {...axisStyle} interval={tickInterval} />
-                <YAxis {...axisStyle} width={40} tickFormatter={(v: number) => formatTokens(v)} />
+                <YAxis
+                  {...axisStyle}
+                  width={40}
+                  tickFormatter={(v: number) => formatTokens(v)}
+                />
                 <Tooltip content={<StackedTooltip />} />
                 <Legend {...legendStyle} />
                 {allStackKeys.map((project, i) => (
@@ -710,39 +1236,52 @@ function ClaudeCodeTab({ range }: { range: Range }) {
 
       {/* Two-column row */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        {/* By Project */}
+        {/* By Project with last active */}
         <div className="rounded-lg border border-border bg-card p-4">
           <p className="text-sm font-medium text-foreground mb-3">By Project</p>
           <div className="space-y-3">
             {byProject.length === 0 ? (
-              <p className="text-xs text-muted-foreground">{isLoading ? "Loading…" : "No data"}</p>
+              <p className="text-xs text-muted-foreground">
+                {isLoading ? "Loading…" : "No data"}
+              </p>
             ) : (
-              byProject.map(({ project, output_tokens, input_tokens, pct, color }) => (
-                <div key={project}>
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-xs font-medium text-foreground capitalize">
-                      {project}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-foreground">
-                        {formatTokens(output_tokens)}
+              byProject.map(({ project, output_tokens, input_tokens, pct, color, lastActive }) => {
+                let lastActiveLabel: string;
+                try {
+                  lastActiveLabel = format(new Date(lastActive + "T12:00:00"), "MMM d");
+                } catch {
+                  lastActiveLabel = lastActive;
+                }
+                return (
+                  <div key={project}>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-medium text-foreground capitalize">
+                        {project}
                       </span>
-                      <span className="text-[10px] font-mono text-muted-foreground w-9 text-right">
-                        {pct.toFixed(0)}%
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-mono text-muted-foreground">
+                          {lastActiveLabel}
+                        </span>
+                        <span className="text-xs font-mono text-foreground">
+                          {formatTokens(output_tokens)}
+                        </span>
+                        <span className="text-[10px] font-mono text-muted-foreground w-9 text-right">
+                          {pct.toFixed(0)}%
+                        </span>
+                      </div>
                     </div>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%`, backgroundColor: color }}
+                      />
+                    </div>
+                    <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+                      in: {formatTokens(input_tokens)}
+                    </p>
                   </div>
-                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{ width: `${pct}%`, backgroundColor: color }}
-                    />
-                  </div>
-                  <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
-                    in: {formatTokens(input_tokens)}
-                  </p>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -758,9 +1297,17 @@ function ClaudeCodeTab({ range }: { range: Range }) {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={trendData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 20%)" vertical={false} />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="hsl(240, 3.7%, 20%)"
+                    vertical={false}
+                  />
                   <XAxis dataKey="date" {...axisStyle} interval={trendTickInterval} />
-                  <YAxis {...axisStyle} width={40} tickFormatter={(v: number) => formatTokens(v)} />
+                  <YAxis
+                    {...axisStyle}
+                    width={40}
+                    tickFormatter={(v: number) => formatTokens(v)}
+                  />
                   <Tooltip
                     contentStyle={tooltipContentStyle}
                     labelStyle={tooltipLabelStyle}
@@ -769,16 +1316,82 @@ function ClaudeCodeTab({ range }: { range: Range }) {
                   <Line
                     type="monotone"
                     dataKey="tokens"
-                    stroke="#7c3aed"
+                    stroke="#3b82f6"
                     strokeWidth={2}
                     dot={false}
-                    activeDot={{ r: 4, fill: "#7c3aed" }}
+                    activeDot={{ r: 4, fill: "#3b82f6" }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             )}
           </div>
         </div>
+      </div>
+
+      {/* Top Sessions table */}
+      <div className="rounded-lg border border-border bg-card p-4">
+        <p className="text-sm font-medium text-foreground mb-3">Top 10 Sessions by Output Tokens</p>
+        {topSessionRows.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {topSessionsLoading ? "Loading…" : "No data for this range"}
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs font-mono">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left text-[10px] uppercase tracking-wider text-muted-foreground pb-2 pr-3">
+                    Date
+                  </th>
+                  <th className="text-left text-[10px] uppercase tracking-wider text-muted-foreground pb-2 pr-3">
+                    Project
+                  </th>
+                  <th className="text-right text-[10px] uppercase tracking-wider text-muted-foreground pb-2 pr-3">
+                    Output
+                  </th>
+                  <th className="text-right text-[10px] uppercase tracking-wider text-muted-foreground pb-2 pr-3">
+                    Tools
+                  </th>
+                  <th className="text-left text-[10px] uppercase tracking-wider text-muted-foreground pb-2">
+                    Model
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {topSessionRows.map((row, i) => {
+                  let dateLabel: string;
+                  try {
+                    dateLabel = format(new Date(row.date + "T12:00:00"), "MMM d");
+                  } catch {
+                    dateLabel = row.date;
+                  }
+                  return (
+                    <tr key={row.session_id || i} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-2 pr-3 text-muted-foreground">{dateLabel}</td>
+                      <td className="py-2 pr-3">
+                        <span
+                          className="capitalize"
+                          style={{ color: projectColor(row.project || "other", i) }}
+                        >
+                          {row.project || "—"}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3 text-right text-foreground">
+                        {formatTokens(row.output_tokens || 0)}
+                      </td>
+                      <td className="py-2 pr-3 text-right text-muted-foreground">
+                        {(row.tool_calls || 0).toLocaleString()}
+                      </td>
+                      <td className="py-2 text-muted-foreground">
+                        {row.model ? shortModelName(row.model) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -800,8 +1413,6 @@ function ApiSavedBanner({ range }: { range: Range }) {
     },
   });
 
-  // Claude Code doesn't have cost_usd, so we only sum OpenClaw for now
-  // If/when claude_usage gets cost data this can be extended
   const totalCost = openclawRows.reduce((s, r) => s + (Number(r.cost_usd) || 0), 0);
 
   if (totalCost === 0) return null;
@@ -810,7 +1421,7 @@ function ApiSavedBanner({ range }: { range: Range }) {
     <div className="rounded-md border border-purple-500/30 bg-purple-500/10 px-4 py-2.5 flex items-center gap-2">
       <span className="text-base">💜</span>
       <p className="text-xs font-mono text-purple-300">
-        Total API equivalent value:{" "}
+        OpenClaw API equivalent:{" "}
         <span className="font-bold text-purple-100">{formatCost(totalCost)}</span>
         {" "}— saved vs pay-per-token pricing
       </p>
@@ -821,8 +1432,14 @@ function ApiSavedBanner({ range }: { range: Range }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ClaudePage() {
-  const [tab, setTab] = useState<TabKey>("openclaw");
+  const [tab, setTab] = useState<TabKey>("overview");
   const [range, setRange] = useState<Range>("month");
+
+  const TABS: { key: TabKey; label: string }[] = [
+    { key: "overview", label: "Overview" },
+    { key: "openclaw", label: "OpenClaw" },
+    { key: "code", label: "Claude Code" },
+  ];
 
   return (
     <div className="space-y-6">
@@ -842,10 +1459,7 @@ export default function ClaudePage() {
 
       {/* Tabs */}
       <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5 w-fit">
-        {([
-          { key: "openclaw" as TabKey, label: "OpenClaw" },
-          { key: "code" as TabKey, label: "Claude Code" },
-        ]).map(({ key, label }) => (
+        {TABS.map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -861,15 +1475,13 @@ export default function ClaudePage() {
         ))}
       </div>
 
-      {/* API Saved Banner */}
-      <ApiSavedBanner range={range} />
+      {/* API Saved Banner — only on non-overview tabs */}
+      {tab !== "overview" && <ApiSavedBanner range={range} />}
 
       {/* Tab content */}
-      {tab === "openclaw" ? (
-        <OpenClawTab range={range} />
-      ) : (
-        <ClaudeCodeTab range={range} />
-      )}
+      {tab === "overview" && <OverviewTab range={range} />}
+      {tab === "openclaw" && <OpenClawTab range={range} />}
+      {tab === "code" && <ClaudeCodeTab range={range} />}
     </div>
   );
 }
