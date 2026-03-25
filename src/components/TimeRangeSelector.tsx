@@ -6,7 +6,7 @@ interface TimeRangeSelectorProps {
   onChange: (range: TimeRange) => void;
 }
 
-const ranges: TimeRange[] = ["1h", "24h", "7d", "30d"];
+const ranges: TimeRange[] = ["1h", "6h", "24h", "7d", "30d"];
 
 export default function TimeRangeSelector({ value, onChange }: TimeRangeSelectorProps) {
   return (

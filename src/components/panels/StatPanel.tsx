@@ -12,24 +12,30 @@ const FIELD_MAP: Record<string, { key: string; label: string }> = {
   max: { key: "max_val", label: "MAX" },
   latest: { key: "latest_val", label: "LATEST" },
   count: { key: "total_count", label: "COUNT" },
+  sum: { key: "total_count", label: "TOTAL" },
 };
 
 export default function StatPanel({ summary, field, unit }: Props) {
   const mapping = FIELD_MAP[field] || FIELD_MAP.avg;
   const value = summary?.[mapping.key];
 
+  const formatted =
+    value !== null && value !== undefined
+      ? Number.isInteger(Number(value))
+        ? Number(value).toLocaleString()
+        : Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })
+      : "—";
+
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-1">
+    <div className="flex h-full flex-col items-center justify-center gap-2">
       <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
         {mapping.label}
       </span>
       <span className="font-mono text-3xl font-bold tabular-nums text-foreground">
-        {value !== null && value !== undefined
-          ? Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })
-          : "—"}
+        {formatted}
       </span>
       {unit && (
-        <span className="text-xs text-muted-foreground">{unit}</span>
+        <span className="text-xs text-muted-foreground/90">{unit}</span>
       )}
     </div>
   );

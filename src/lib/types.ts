@@ -73,10 +73,11 @@ export interface MetricStats {
   total_count: number;
 }
 
-export type TimeRange = "1h" | "24h" | "7d" | "30d";
+export type TimeRange = "1h" | "6h" | "24h" | "7d" | "30d";
 
 export const TIME_RANGE_CONFIG: Record<TimeRange, { label: string; seconds: number; intervalSeconds: number }> = {
   "1h": { label: "1 Hour", seconds: 3600, intervalSeconds: 60 },
+  "6h": { label: "6 Hours", seconds: 21600, intervalSeconds: 300 },
   "24h": { label: "24 Hours", seconds: 86400, intervalSeconds: 300 },
   "7d": { label: "7 Days", seconds: 604800, intervalSeconds: 3600 },
   "30d": { label: "30 Days", seconds: 2592000, intervalSeconds: 14400 },

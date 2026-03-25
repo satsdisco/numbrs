@@ -53,14 +53,16 @@ export default function GaugePanel({ summary, field, max, unit }: Props) {
     return "hsl(142, 71%, 45.3%)"; // success
   };
 
+  const color = getColor();
+
   return (
     <div className="flex h-full flex-col items-center justify-center">
-      <svg viewBox="0 0 150 110" className="w-full max-w-[160px]">
+      <svg viewBox="0 0 150 120" className="w-full max-w-[180px]">
         {/* Background arc */}
         <path
           d={describeArc(startAngle, endAngle)}
           fill="none"
-          stroke="hsl(240, 3.7%, 15.9%)"
+          stroke="hsl(240, 3.7%, 18%)"
           strokeWidth={strokeWidth}
           strokeLinecap="round"
         />
@@ -69,31 +71,67 @@ export default function GaugePanel({ summary, field, max, unit }: Props) {
           <path
             d={describeArc(startAngle, Math.min(valueAngle, endAngle))}
             fill="none"
-            stroke={getColor()}
+            stroke={color}
             strokeWidth={strokeWidth}
             strokeLinecap="round"
           />
         )}
-        {/* Value text */}
+        {/* Percentage label at bottom-left */}
         <text
-          x={cx}
-          y={cy + 5}
+          x={cx - radius + 4}
+          y={cy + radius - 8}
           textAnchor="middle"
-          className="font-mono"
-          fill="hsl(0, 0%, 98%)"
-          fontSize="20"
-          fontWeight="700"
+          fill="hsl(240, 5%, 50%)"
+          fontSize="8"
+          fontFamily="JetBrains Mono, monospace"
         >
-          {value !== null ? Math.round(value) : "—"}
+          0
         </text>
+        {/* Max label at bottom-right */}
+        <text
+          x={cx + radius - 4}
+          y={cy + radius - 8}
+          textAnchor="middle"
+          fill="hsl(240, 5%, 50%)"
+          fontSize="8"
+          fontFamily="JetBrains Mono, monospace"
+        >
+          {max}
+        </text>
+        {/* Value text — large and prominent */}
         <text
           x={cx}
-          y={cy + 20}
+          y={cy + 8}
           textAnchor="middle"
-          fill="hsl(240, 5%, 64.9%)"
-          fontSize="10"
+          fill={color}
+          fontSize="26"
+          fontWeight="700"
+          fontFamily="JetBrains Mono, monospace"
         >
-          {unit || ""}
+          {value !== null ? (Number.isInteger(value) ? value : value.toFixed(1)) : "—"}
+        </text>
+        {unit && (
+          <text
+            x={cx}
+            y={cy + 24}
+            textAnchor="middle"
+            fill="hsl(240, 5%, 64.9%)"
+            fontSize="10"
+            fontFamily="JetBrains Mono, monospace"
+          >
+            {unit}
+          </text>
+        )}
+        {/* Pct below */}
+        <text
+          x={cx}
+          y={cy + 38}
+          textAnchor="middle"
+          fill="hsl(240, 5%, 45%)"
+          fontSize="9"
+          fontFamily="JetBrains Mono, monospace"
+        >
+          {pct.toFixed(1)}%
         </text>
       </svg>
     </div>

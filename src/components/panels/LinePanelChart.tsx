@@ -33,7 +33,7 @@ export default function LinePanelChart({ data, unit }: Props) {
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 15.9%)" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 20%)" vertical={false} />
         <XAxis
           dataKey="label"
           tick={{ fill: "hsl(240, 5%, 64.9%)", fontSize: 9, fontFamily: "JetBrains Mono" }}
@@ -65,7 +65,7 @@ export default function LinePanelChart({ data, unit }: Props) {
           type="monotone"
           dataKey="avg_value"
           stroke="hsl(263.4, 70%, 50.4%)"
-          strokeWidth={1.5}
+          strokeWidth={2}
           dot={false}
           activeDot={{ r: 3, fill: "hsl(263.4, 70%, 50.4%)" }}
         />

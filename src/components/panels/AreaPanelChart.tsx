@@ -35,11 +35,11 @@ export default function AreaPanelChart({ data, unit }: Props) {
       <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
         <defs>
           <linearGradient id="panelAreaFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="hsl(197, 71%, 52%)" stopOpacity={0.25} />
-            <stop offset="100%" stopColor="hsl(197, 71%, 52%)" stopOpacity={0} />
+            <stop offset="0%" stopColor="hsl(197, 71%, 52%)" stopOpacity={0.45} />
+            <stop offset="100%" stopColor="hsl(197, 71%, 52%)" stopOpacity={0.05} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 15.9%)" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 20%)" vertical={false} />
         <XAxis
           dataKey="label"
           tick={{ fill: "hsl(240, 5%, 64.9%)", fontSize: 9, fontFamily: "JetBrains Mono" }}
@@ -71,8 +71,9 @@ export default function AreaPanelChart({ data, unit }: Props) {
           type="monotone"
           dataKey="avg_value"
           stroke="hsl(197, 71%, 52%)"
-          strokeWidth={1.5}
+          strokeWidth={2}
           fill="url(#panelAreaFill)"
+          dot={false}
         />
       </AreaChart>
     </ResponsiveContainer>
