@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Tv2,
   Music2,
+  Settings2,
 } from "lucide-react";
 
 function NumbrsLogo({ className }: { className?: string }) {
