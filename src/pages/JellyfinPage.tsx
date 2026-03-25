@@ -315,26 +315,30 @@ export default function JellyfinPage() {
               {visibleRecent.map((e: any) => (
                 <div
                   key={e.id}
-                  className="flex items-center gap-2 rounded-md border border-border/50 bg-background/30 px-3 py-2"
+                  className="rounded-md border border-border/50 bg-background/30 px-3 py-2.5"
                 >
-                  <span className="font-mono text-[10px] text-muted-foreground shrink-0 w-20">
-                    {formatDistanceToNow(new Date(e.date_played), { addSuffix: true })}
-                  </span>
-                  <Link
-                    to={`/jellyfin/user/${encodeURIComponent(e.username || "Unknown")}`}
-                    className="text-xs font-medium text-foreground hover:text-primary transition-colors shrink-0 w-20 truncate"
-                  >
-                    {e.username || "Unknown"}
-                  </Link>
-                  <EventTypeBadge eventType={e.event_type} />
-                  <span className="flex-1 truncate text-xs text-foreground">
+                  {/* Title — prominent, full width */}
+                  <p className="text-sm font-medium text-foreground truncate mb-1">
                     {formatJellyfinTitle(e)}
-                  </span>
-                  {e.media_type && (
-                    <span className="rounded px-1.5 py-0.5 font-mono text-[10px] font-medium shrink-0 bg-muted/40 text-muted-foreground">
-                      {e.media_type}
+                  </p>
+                  {/* Meta row */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {formatDistanceToNow(new Date(e.date_played), { addSuffix: true })}
                     </span>
-                  )}
+                    <Link
+                      to={`/jellyfin/user/${encodeURIComponent(e.username || "Unknown")}`}
+                      className="text-[10px] font-medium text-primary hover:underline"
+                    >
+                      {e.username || "Unknown"}
+                    </Link>
+                    <EventTypeBadge eventType={e.event_type} />
+                    {e.media_type && (
+                      <span className="rounded px-1.5 py-0.5 font-mono text-[10px] font-medium bg-muted/40 text-muted-foreground">
+                        {e.media_type}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
