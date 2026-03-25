@@ -20,6 +20,9 @@ import {
   Bot,
   ExternalLink,
   BookOpen,
+  MoreHorizontal,
+  Compass,
+  Settings,
 } from "lucide-react";
 
 function NumbrsLogo({ className }: { className?: string }) {
@@ -51,10 +54,20 @@ const navItems = [
 ];
 
 const bottomNavItems = [
-  { path: "/dashboards", label: "Dashboards", icon: LayoutGrid },
+  { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/relays", label: "Relays", icon: Radio },
+  { path: "/claude", label: "Claude", icon: Bot },
   { path: "/uptime", label: "Uptime", icon: Activity },
+];
+
+const moreNavItems = [
+  { path: "/plex", label: "Plex", icon: Tv2 },
+  { path: "/jellyfin", label: "Jellyfin", icon: Music2 },
   { path: "/alerts", label: "Alerts", icon: Bell },
+  { path: "/integrations", label: "Integrations", icon: Plug },
+  { path: "/api-keys", label: "API Keys", icon: Key },
+  { path: "/explore", label: "Explore", icon: Compass },
+  { path: "/settings", label: "Settings", icon: Settings },
 ];
 
 function SidebarAvatar() {
@@ -175,6 +188,10 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  // True if the current route is one of the "More" items
+  const isInMore = moreNavItems.some((item) => pathname === item.path);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -230,7 +247,63 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {item.label}
           </Link>
         ))}
+        {/* More button */}
+        <button
+          onClick={() => setMoreOpen(true)}
+          className={cn(
+            "flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] px-2 text-[10px] font-medium transition-colors",
+            isInMore ? "text-primary" : "text-muted-foreground hover:text-foreground"
+          )}
+          aria-label="More"
+        >
+          <MoreHorizontal className="h-5 w-5" />
+          More
+        </button>
       </nav>
+
+      {/* More bottom sheet */}
+      {moreOpen && (
+        <div className="lg:hidden">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-50 bg-black/60"
+            onClick={() => setMoreOpen(false)}
+          />
+          {/* Sheet */}
+          <div
+            className="fixed bottom-0 inset-x-0 z-50 bg-sidebar rounded-t-2xl border-t border-border"
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          >
+            {/* Drag handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+            </div>
+            {/* Header */}
+            <div className="px-5 py-2">
+              <p className="text-sm font-semibold text-foreground">More</p>
+            </div>
+            {/* 2-column grid */}
+            <div className="grid grid-cols-2 gap-2.5 px-4 pb-6 pt-1">
+              {moreNavItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setMoreOpen(false)}
+                  className={cn(
+                    "flex flex-col items-center gap-2 p-4 rounded-xl border transition-colors",
+                    pathname === item.path
+                      ? "bg-primary/10 border-primary/30 text-primary"
+                      : "bg-card border-border text-foreground active:bg-muted"
+                  )}
+                >
+                  <item.icon className="h-6 w-6" />
+                  <span className="text-xs font-medium">{item.label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
