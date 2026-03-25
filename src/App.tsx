@@ -19,6 +19,7 @@ import UptimePage from "@/pages/UptimePage";
 import IntegrationsPage from "@/pages/IntegrationsPage";
 import JellyfinPage from "@/pages/JellyfinPage";
 import PlexPage from "@/pages/PlexPage";
+import SetupPage from "@/pages/SetupPage";
 import NotFound from "@/pages/NotFound";
 import Onboarding, { isOnboardingComplete } from "@/components/Onboarding";
 
@@ -49,6 +50,7 @@ function ProtectedRoutes() {
         <Route path="/relays/:id" element={<RelayDetailPage />} />
         <Route path="/uptime" element={<UptimePage />} />
         <Route path="/integrations" element={<IntegrationsPage />} />
+        <Route path="/setup" element={<SetupPage />} />
         <Route path="/api-keys" element={<ApiKeysPage />} />
         <Route path="/alerts" element={<AlertsPage />} />
         <Route path="/jellyfin" element={<JellyfinPage />} />
