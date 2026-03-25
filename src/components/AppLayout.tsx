@@ -14,6 +14,17 @@ import {
   Plug,
   Menu,
 } from "lucide-react";
+
+function NumbrsLogo({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <rect x="120" y="110" width="42" height="175" fill="#fafafa"/>
+      <rect x="162" y="110" width="80" height="42" fill="#fafafa"/>
+      <rect x="242" y="110" width="42" height="175" fill="#fafafa"/>
+      <circle cx="332" cy="283" r="38" fill="#7c3aed"/>
+    </svg>
+  );
+}
 import { truncatePubkey } from "@/lib/nostr";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
@@ -45,8 +56,8 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   return (
     <>
       <div className="flex items-center gap-2 border-b border-border px-4 py-4">
-        <Activity className="h-5 w-5 text-primary" />
-        <span className="text-sm font-semibold text-foreground tracking-tight">numbrs</span>
+        <NumbrsLogo className="h-6 w-6" />
+        <span className="text-sm font-semibold text-foreground tracking-tight font-mono">numbrs</span>
       </div>
 
       <nav className="flex-1 space-y-1 px-2 py-3">
@@ -107,8 +118,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Mobile top header */}
       <header className="lg:hidden fixed top-0 inset-x-0 z-30 flex items-center justify-between h-14 px-4 border-b border-border bg-sidebar">
         <div className="flex items-center gap-2">
-          <Activity className="h-5 w-5 text-primary" />
-          <span className="text-sm font-semibold text-foreground tracking-tight">numbrs</span>
+          <NumbrsLogo className="h-6 w-6" />
+          <span className="text-sm font-semibold text-foreground tracking-tight font-mono">numbrs</span>
         </div>
         <button
           onClick={() => setMobileOpen(true)}

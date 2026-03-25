@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" fill="none">
+  <!-- n letter -->
+  <rect x="120" y="110" width="42" height="175" fill="#fafafa"/>
+  <rect x="162" y="110" width="80" height="42" fill="#fafafa"/>
+  <rect x="242" y="110" width="42" height="175" fill="#fafafa"/>
+  <!-- purple dot -->
+  <circle cx="332" cy="283" r="38" fill="#7c3aed"/>
+</svg>
