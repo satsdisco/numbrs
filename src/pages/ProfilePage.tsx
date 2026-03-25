@@ -16,34 +16,50 @@ interface NostrProfile {
   banner?: string;
 }
 
-async function fetchNostrProfile(pubkeyHex: string): Promise<NostrProfile | null> {
-  // Try purplepag.es first (HTTP, fast)
+async function fetchNostrProfile(pubkeyHex: string, supabase: any): Promise<NostrProfile | null> {
+  // 1. Check Supabase profiles table first (instant, no relay needed)
   try {
-    const res = await fetch(`https://purplepag.es/${pubkeyHex}`, { signal: AbortSignal.timeout(5000) });
-    if (res.ok) {
-      const event = await res.json();
-      if (event?.content) {
-        const profile = JSON.parse(event.content);
-        if (profile.picture) localStorage.setItem("numbrs-nostr-picture", profile.picture);
-        if (profile.name) localStorage.setItem("numbrs-nostr-name", profile.name);
-        return profile;
-      }
+    const { data: prof } = await supabase
+      .from("profiles")
+      .select("nostr_picture, nostr_name")
+      .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
+      .maybeSingle();
+    if (prof?.nostr_picture) {
+      localStorage.setItem("numbrs-nostr-picture", prof.nostr_picture);
+      if (prof.nostr_name) localStorage.setItem("numbrs-nostr-name", prof.nostr_name);
+      return { picture: prof.nostr_picture, name: prof.nostr_name };
     }
   } catch {}
 
-  // Fallback: try primal.net NIP-05 style lookup
+  // 2. Fallback: fetch from nostr relay via WebSocket (nostr-tools SimplePool)
   try {
-    const res = await fetch(`https://primal.net/api/user/${pubkeyHex}`, { signal: AbortSignal.timeout(5000) });
-    if (res.ok) {
-      const data = await res.json();
-      const picture = data?.picture || data?.image;
-      const name = data?.name || data?.display_name;
-      if (picture) {
-        const profile = { picture, name, about: data?.about, nip05: data?.nip05 };
-        localStorage.setItem("numbrs-nostr-picture", picture);
-        if (name) localStorage.setItem("numbrs-nostr-name", name);
-        return profile;
+    const { SimplePool } = await import("nostr-tools/pool");
+    const pool = new SimplePool();
+    const relays = ["wss://relay.damus.io", "wss://relay.nostr.band"];
+    
+    const event = await Promise.race([
+      pool.get(relays, { kinds: [0], authors: [pubkeyHex] }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 6000)),
+    ]);
+    
+    pool.close(relays);
+    
+    if (event && (event as any).content) {
+      const profile = JSON.parse((event as any).content) as NostrProfile;
+      if (profile.picture) {
+        localStorage.setItem("numbrs-nostr-picture", profile.picture);
+        // Save to Supabase so next load is instant
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from("profiles").upsert({
+            user_id: user.id,
+            nostr_picture: profile.picture,
+            nostr_name: profile.name || null,
+          }, { onConflict: "user_id" }).select();
+        }
       }
+      if (profile.name) localStorage.setItem("numbrs-nostr-name", profile.name);
+      return profile;
     }
   } catch {}
 
@@ -71,7 +87,7 @@ export default function ProfilePage() {
 
   const { data: nostrProfile, isLoading: profileLoading } = useQuery({
     queryKey: ["nostr-profile", pubkey],
-    queryFn: () => fetchNostrProfile(pubkey!),
+    queryFn: () => fetchNostrProfile(pubkey!, supabase),
     enabled: !!pubkey,
     staleTime: 5 * 60 * 1000,
   });
