@@ -29,6 +29,8 @@ export interface PanelConfig {
   stat_field?: "avg" | "p50" | "p95" | "min" | "max" | "latest" | "count" | "sum";
   /** For gauge panels — max value for the gauge */
   gauge_max?: number;
+  /** For gauge panels — when false, high values are good (e.g. uptime). Default: true (high = bad). */
+  gauge_invert_colors?: boolean;
 }
 
 export interface PanelLayout {

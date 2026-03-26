@@ -130,6 +130,7 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
           field={config.stat_field || "avg"}
           max={config.gauge_max || 1000}
           unit={config.unit}
+          invertColors={config.gauge_invert_colors ?? true}
         />
       );
     default:

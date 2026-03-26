@@ -12,7 +12,8 @@ const FIELD_MAP: Record<string, { key: string; label: string }> = {
   max: { key: "max_val", label: "MAX" },
   latest: { key: "latest_val", label: "LATEST" },
   count: { key: "total_count", label: "COUNT" },
-  sum: { key: "total_count", label: "TOTAL" },
+  // TODO: replace with a real sum field when the RPC supports it
+  sum: { key: "total_count", label: "DATAPOINTS" },
 };
 
 export default function StatPanel({ summary, field, unit }: Props) {
