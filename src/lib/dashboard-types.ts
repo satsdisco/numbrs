@@ -11,7 +11,7 @@ export interface DashboardRow {
   updated_at: string;
 }
 
-export type PanelType = "line" | "area" | "stat" | "gauge";
+export type PanelType = "line" | "area" | "bar" | "stat" | "gauge";
 
 export type DataSourceMode = "relay" | "global" | "custom";
 
@@ -54,6 +54,7 @@ export interface PanelRow {
 export const PANEL_TYPE_OPTIONS: { value: PanelType; label: string; description: string }[] = [
   { value: "line", label: "Line Chart", description: "Time-series line chart" },
   { value: "area", label: "Area Chart", description: "Filled area chart" },
+  { value: "bar", label: "Bar Chart", description: "Vertical bar chart" },
   { value: "stat", label: "Stat Number", description: "Single big number" },
   { value: "gauge", label: "Gauge", description: "Circular gauge meter" },
 ];
@@ -61,6 +62,7 @@ export const PANEL_TYPE_OPTIONS: { value: PanelType; label: string; description:
 export const DEFAULT_PANEL_LAYOUTS: Record<PanelType, PanelLayout> = {
   line: { x: 0, y: 0, w: 6, h: 4 },
   area: { x: 0, y: 0, w: 6, h: 4 },
+  bar: { x: 0, y: 0, w: 6, h: 4 },
   stat: { x: 0, y: 0, w: 3, h: 2 },
   gauge: { x: 0, y: 0, w: 3, h: 3 },
 };
