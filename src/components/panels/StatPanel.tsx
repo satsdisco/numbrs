@@ -1,7 +1,10 @@
+import { LineChart, Line, ResponsiveContainer } from "recharts";
+
 interface Props {
   summary: any;
   field: string;
   unit?: string;
+  sparklineData?: { bucket: string; avg_value: number }[];
 }
 
 const FIELD_MAP: Record<string, { key: string; label: string }> = {
@@ -16,7 +19,7 @@ const FIELD_MAP: Record<string, { key: string; label: string }> = {
   sum: { key: "total_count", label: "DATAPOINTS" },
 };
 
-export default function StatPanel({ summary, field, unit }: Props) {
+export default function StatPanel({ summary, field, unit, sparklineData }: Props) {
   const mapping = FIELD_MAP[field] || FIELD_MAP.avg;
   const value = summary?.[mapping.key];
 
@@ -27,8 +30,26 @@ export default function StatPanel({ summary, field, unit }: Props) {
         : Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })
       : "—";
 
+  const hasSparkline = sparklineData && sparklineData.length > 1;
+
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2">
+    <div className="relative flex h-full flex-col items-center justify-center gap-2">
+      {hasSparkline && (
+        <div className="pointer-events-none absolute inset-0 opacity-20">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={sparklineData} margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+              <Line
+                type="monotone"
+                dataKey="avg_value"
+                stroke="hsl(263.4, 70%, 50.4%)"
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
       <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
         {mapping.label}
       </span>

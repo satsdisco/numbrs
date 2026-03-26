@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Plus, Pencil, Lock, Check, Share2, ExternalLink } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Lock, Check, Share2, ExternalLink, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Responsive, WidthProvider } from "react-grid-layout";
@@ -37,12 +37,21 @@ import "react-resizable/css/styles.css";
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
+const REFRESH_INTERVALS: Record<string, number | null> = {
+  off: null,
+  "10s": 10_000,
+  "30s": 30_000,
+  "1m": 60_000,
+  "5m": 300_000,
+};
+
 export default function DashboardBuilderPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const [range, setRange] = useState<TimeRange>("24h");
+  const [refreshInterval, setRefreshInterval] = useState<string>("off");
   const [globalRelayId, setGlobalRelayId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [addPanelOpen, setAddPanelOpen] = useState(false);
@@ -61,6 +70,15 @@ export default function DashboardBuilderPage() {
       setGlobalRelayId(relays[0].id);
     }
   }, [relays]);
+
+  useEffect(() => {
+    const ms = REFRESH_INTERVALS[refreshInterval];
+    if (!ms) return;
+    const timer = setInterval(() => {
+      queryClient.invalidateQueries();
+    }, ms);
+    return () => clearInterval(timer);
+  }, [refreshInterval, queryClient]);
 
   const { data: dashboard, isLoading: dbLoading } = useQuery({
     queryKey: ["dashboard", id],
@@ -238,6 +256,26 @@ export default function DashboardBuilderPage() {
             </div>
           )}
           <TimeRangeSelector value={range} onChange={setRange} />
+          <div className="flex items-center gap-1">
+            <RefreshCw
+              className={cn(
+                "h-3.5 w-3.5 text-muted-foreground",
+                refreshInterval !== "off" && "animate-spin text-primary"
+              )}
+            />
+            <Select value={refreshInterval} onValueChange={setRefreshInterval}>
+              <SelectTrigger className="h-8 w-20 text-xs font-mono">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="off" className="text-xs font-mono">Off</SelectItem>
+                <SelectItem value="10s" className="text-xs font-mono">10s</SelectItem>
+                <SelectItem value="30s" className="text-xs font-mono">30s</SelectItem>
+                <SelectItem value="1m" className="text-xs font-mono">1m</SelectItem>
+                <SelectItem value="5m" className="text-xs font-mono">5m</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Button
             variant="outline"
             size="sm"

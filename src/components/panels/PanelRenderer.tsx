@@ -28,6 +28,7 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
   const isGlobal = config.data_source === "global" || config.data_source === "custom";
   const isChart = panel.panel_type === "line" || panel.panel_type === "area";
   const isStat = panel.panel_type === "stat" || panel.panel_type === "gauge";
+  const isStatOnly = panel.panel_type === "stat";
   const wantsLatest = config.stat_field === "latest";
 
   // For global metrics, resolve metric_id from key
@@ -41,14 +42,14 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
   const { data: relayTsData, isLoading: relayTsLoading } = useQuery({
     queryKey: ["panel-ts", panel.id, relayId, metricKey, range],
     queryFn: () => fetchRelayTimeseries(relayId!, metricKey, range),
-    enabled: !isGlobal && !!relayId && isChart,
+    enabled: !isGlobal && !!relayId && (isChart || isStatOnly),
   });
 
   // Global timeseries
   const { data: globalTsData, isLoading: globalTsLoading } = useQuery({
     queryKey: ["panel-global-ts", panel.id, metricDef?.id, range],
     queryFn: () => fetchGenericTimeseries(metricDef!.id, range),
-    enabled: isGlobal && !!metricDef?.id && isChart,
+    enabled: isGlobal && !!metricDef?.id && (isChart || isStatOnly),
   });
 
   // Relay-scoped summary
@@ -121,6 +122,7 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
           summary={metricSummary}
           field={config.stat_field || "p50"}
           unit={config.unit}
+          sparklineData={tsData}
         />
       );
     case "gauge":
