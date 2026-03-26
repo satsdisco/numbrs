@@ -11,6 +11,7 @@ import type { PanelRow } from "@/lib/dashboard-types";
 import type { TimeRange } from "@/lib/types";
 import LinePanelChart from "./LinePanelChart";
 import AreaPanelChart from "./AreaPanelChart";
+import BarPanelChart from "./BarPanelChart";
 import StatPanel from "./StatPanel";
 import GaugePanel from "./GaugePanel";
 
@@ -26,7 +27,7 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
   const metricKey = config.metric_key || "relay_latency_connect_ms";
   const relayId = config.relay_id || globalRelayId || undefined;
   const isGlobal = config.data_source === "global" || config.data_source === "custom";
-  const isChart = panel.panel_type === "line" || panel.panel_type === "area";
+  const isChart = panel.panel_type === "line" || panel.panel_type === "area" || panel.panel_type === "bar";
   const isStat = panel.panel_type === "stat" || panel.panel_type === "gauge";
   const isStatOnly = panel.panel_type === "stat";
   const wantsLatest = config.stat_field === "latest";
@@ -116,6 +117,8 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
       return <LinePanelChart data={tsData || []} unit={config.unit} />;
     case "area":
       return <AreaPanelChart data={tsData || []} unit={config.unit} />;
+    case "bar":
+      return <BarPanelChart data={tsData || []} unit={config.unit} />;
     case "stat":
       return (
         <StatPanel
