@@ -1,3 +1,4 @@
+import { useId } from "react";
 import {
   Area,
   AreaChart,
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function AreaPanelChart({ data, unit }: Props) {
+  const gradientId = useId();
   if (!data.length) {
     return (
       <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
@@ -44,7 +46,7 @@ export default function AreaPanelChart({ data, unit }: Props) {
     <ResponsiveContainer width="100%" height="100%">
       <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
         <defs>
-          <linearGradient id={`areaFill-${unit || "default"}`} x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`areaFill-${gradientId}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="hsl(197, 71%, 52%)" stopOpacity={0.45} />
             <stop offset="100%" stopColor="hsl(197, 71%, 52%)" stopOpacity={0.05} />
           </linearGradient>
@@ -82,7 +84,7 @@ export default function AreaPanelChart({ data, unit }: Props) {
           dataKey="avg_value"
           stroke="hsl(197, 71%, 52%)"
           strokeWidth={2}
-          fill={`url(#areaFill-${unit || "default"})`}
+          fill={`url(#areaFill-${gradientId})`}
           dot={false}
         />
       </AreaChart>

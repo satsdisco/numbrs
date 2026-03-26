@@ -17,6 +17,7 @@ import type { TimeRange } from "@/lib/types";
 import TimeRangeSelector from "@/components/TimeRangeSelector";
 import PanelCard from "@/components/panels/PanelCard";
 import AddPanelDialog from "@/components/panels/AddPanelDialog";
+import EditPanelDialog from "@/components/panels/EditPanelDialog";
 import ShareDialog from "@/components/ShareDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +46,7 @@ export default function DashboardBuilderPage() {
   const [globalRelayId, setGlobalRelayId] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [addPanelOpen, setAddPanelOpen] = useState(false);
+  const [editingPanel, setEditingPanel] = useState<PanelRow | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
@@ -87,6 +89,16 @@ export default function DashboardBuilderPage() {
       queryClient.invalidateQueries({ queryKey: ["panels", id] });
       toast.success("Panel removed");
     },
+  });
+
+  const updatePanelMutation = useMutation({
+    mutationFn: ({ panelId, updates }: { panelId: string; updates: Parameters<typeof updatePanel>[1] }) =>
+      updatePanel(panelId, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["panels", id] });
+      toast.success("Panel updated");
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   const renameMutation = useMutation({
@@ -285,6 +297,7 @@ export default function DashboardBuilderPage() {
                 globalRelayId={globalRelayId}
                 isEditing={isEditing}
                 onDelete={() => deletePanelMutation.mutate(panel.id)}
+                onSettings={() => setEditingPanel(panel)}
               />
             </div>
           ))}
@@ -355,6 +368,18 @@ export default function DashboardBuilderPage() {
           });
         }}
       />
+
+      {/* Edit panel dialog */}
+      {editingPanel && (
+        <EditPanelDialog
+          open={!!editingPanel}
+          onClose={() => setEditingPanel(null)}
+          panel={editingPanel}
+          onSave={(updates) => {
+            updatePanelMutation.mutate({ panelId: editingPanel.id, updates });
+          }}
+        />
+      )}
 
       {/* Share dialog */}
       <ShareDialog

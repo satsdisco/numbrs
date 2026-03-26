@@ -3,6 +3,8 @@ interface Props {
   field: string;
   max: number;
   unit?: string;
+  /** When true (default), high values are bad (red). When false, high values are good (green). */
+  invertColors?: boolean;
 }
 
 const FIELD_MAP: Record<string, string> = {
@@ -14,7 +16,7 @@ const FIELD_MAP: Record<string, string> = {
   latest: "latest_val",
 };
 
-export default function GaugePanel({ summary, field, max, unit }: Props) {
+export default function GaugePanel({ summary, field, max, unit, invertColors = true }: Props) {
   const key = FIELD_MAP[field] || "avg_val";
   const rawValue = summary?.[key];
   const value = rawValue !== null && rawValue !== undefined ? Number(rawValue) : null;
@@ -46,11 +48,17 @@ export default function GaugePanel({ summary, field, max, unit }: Props) {
 
   const valueAngle = startAngle + (pct / 100) * totalAngle;
 
-  // Color based on percentage
+  // Color based on percentage — invertColors=true means high is bad (latency gauges)
   const getColor = () => {
-    if (pct > 75) return "hsl(0, 62.8%, 50.6%)"; // destructive
-    if (pct > 50) return "hsl(38, 92%, 50%)"; // warning
-    return "hsl(142, 71%, 45.3%)"; // success
+    if (invertColors) {
+      if (pct > 75) return "hsl(0, 62.8%, 50.6%)"; // destructive
+      if (pct > 50) return "hsl(38, 92%, 50%)"; // warning
+      return "hsl(142, 71%, 45.3%)"; // success
+    } else {
+      if (pct > 75) return "hsl(142, 71%, 45.3%)"; // success
+      if (pct > 50) return "hsl(38, 92%, 50%)"; // warning
+      return "hsl(0, 62.8%, 50.6%)"; // destructive
+    }
   };
 
   const color = getColor();
