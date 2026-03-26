@@ -574,11 +574,11 @@ function OpenClawTab({ range }: { range: Range }) {
   // Separate query for heatmap — 90d, uses created_at
   const { data: heatmapRows = [] } = useQuery({
     queryKey: ["openclaw_heatmap"],
-    queryFn: async (): Promise<{ output_tokens: number; created_at: string }[]> => {
+    queryFn: async (): Promise<{ output_tokens: number; created_at: string; session_started_at: string | null }[]> => {
       const since90 = format(subDays(new Date(), 90), "yyyy-MM-dd");
       const { data } = await supabase
         .from("openclaw_usage")
-        .select("output_tokens, created_at")
+        .select("output_tokens, created_at, session_started_at")
         .gte("date", since90);
       return (data as any[]) || [];
     },
@@ -711,9 +711,11 @@ function OpenClawTab({ range }: { range: Range }) {
     // 7 rows (0=Sun … 6=Sat), 24 cols (0–23h)
     const grid: number[][] = Array.from({ length: 7 }, () => new Array(24).fill(0));
     for (const r of heatmapRows) {
-      if (!r.created_at) continue;
+      // prefer session_started_at (actual session time), fall back to created_at (sync time)
+      const ts = r.session_started_at || r.created_at;
+      if (!ts) continue;
       try {
-        const d = new Date(r.created_at);
+        const d = new Date(ts);
         const dow = d.getDay(); // 0=Sun
         const hour = d.getHours();
         grid[dow][hour] += r.output_tokens || 0;
