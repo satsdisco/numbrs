@@ -1,7 +1,26 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Check, Copy, ChevronDown, ChevronUp, Bot, Info, X } from "lucide-react";
+import { Check, Copy, ChevronDown, ChevronUp, Bot, Info, X, Loader2, AlertCircle, RefreshCw, Zap } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  fetchIntegrations,
+  upsertIntegration,
+  deleteIntegration,
+  toggleIntegration,
+  type UserIntegration,
+} from "@/lib/integrations-api";
 import { cn } from "@/lib/utils";
 
 // ─── Copy button ───────────────────────────────────────────────────────────────
@@ -456,6 +475,438 @@ function ClaudeSection() {
   );
 }
 
+// ─── Server-side integration helpers ──────────────────────────────────────────
+
+function formatSyncTime(ts: string | null) {
+  if (!ts) return "Never synced";
+  const d = new Date(ts);
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return d.toLocaleDateString();
+}
+
+// ─── Bitcoin card ─────────────────────────────────────────────────────────────
+
+function BitcoinCard({ integration }: { integration: UserIntegration | undefined }) {
+  const queryClient = useQueryClient();
+
+  const upsertMutation = useMutation({
+    mutationFn: () => upsertIntegration("bitcoin", {}),
+    onSuccess: () => {
+      toast.success("Bitcoin price tracking enabled");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteIntegration("bitcoin"),
+    onSuccess: () => {
+      toast.success("Bitcoin integration removed");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (active: boolean) => toggleIntegration("bitcoin", active),
+    onSuccess: (_, active) => {
+      toast.success(active ? "Bitcoin tracking enabled" : "Bitcoin tracking paused");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const connected = !!integration;
+  const busy = upsertMutation.isPending || deleteMutation.isPending || toggleMutation.isPending;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
+      <span className="text-2xl shrink-0 mt-0.5">₿</span>
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm text-foreground">Bitcoin Price</span>
+          {connected && (
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${integration.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+              {integration.is_active ? "Active" : "Paused"}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Tracks BTC/USD price automatically. No config needed.
+        </p>
+        {connected && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <RefreshCw className="h-3 w-3" />
+            {formatSyncTime(integration.last_synced_at)}
+          </p>
+        )}
+        {integration?.last_error && (
+          <p className="text-xs text-destructive flex items-start gap-1">
+            <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+            {integration.last_error}
+          </p>
+        )}
+      </div>
+      <div className="shrink-0 flex items-center gap-2">
+        {connected ? (
+          <>
+            <Switch
+              checked={integration.is_active}
+              disabled={busy}
+              onCheckedChange={(v) => toggleMutation.mutate(v)}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => deleteMutation.mutate()}
+              className="text-muted-foreground hover:text-destructive text-xs h-7"
+            >
+              Remove
+            </Button>
+          </>
+        ) : (
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => upsertMutation.mutate()}
+            className="h-7 text-xs"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enable"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── GitHub card ──────────────────────────────────────────────────────────────
+
+function GitHubCard({ integration }: { integration: UserIntegration | undefined }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [username, setUsername] = useState(
+    (integration?.config as any)?.username ?? ""
+  );
+  const [token, setToken] = useState(
+    (integration?.config as any)?.token ?? ""
+  );
+
+  const upsertMutation = useMutation({
+    mutationFn: () =>
+      upsertIntegration("github", { username, ...(token ? { token } : {}) }),
+    onSuccess: () => {
+      toast.success("GitHub connected");
+      setOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteIntegration("github"),
+    onSuccess: () => {
+      toast.success("GitHub disconnected");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const connected = !!integration;
+  const busy = deleteMutation.isPending;
+
+  const handleOpen = () => {
+    setUsername((integration?.config as any)?.username ?? "");
+    setToken((integration?.config as any)?.token ?? "");
+    setOpen(true);
+  };
+
+  return (
+    <>
+      <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
+        <span className="text-2xl shrink-0 mt-0.5">🐙</span>
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm text-foreground">GitHub Stats</span>
+            {connected && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success/15 text-success">
+                Connected
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Tracks stars, forks, commits, and PR activity across your repos.
+          </p>
+          {connected && (
+            <p className="text-xs text-muted-foreground">
+              @{(integration.config as any)?.username}
+              {" · "}
+              <span className="flex items-center gap-1 inline-flex">
+                <RefreshCw className="h-3 w-3" />
+                {formatSyncTime(integration.last_synced_at)}
+              </span>
+            </p>
+          )}
+          {integration?.last_error && (
+            <p className="text-xs text-destructive flex items-start gap-1">
+              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+              {integration.last_error}
+            </p>
+          )}
+        </div>
+        <div className="shrink-0 flex items-center gap-2">
+          {connected ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpen}
+                className="h-7 text-xs"
+              >
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => deleteMutation.mutate()}
+                className="text-muted-foreground hover:text-destructive text-xs h-7"
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Disconnect"}
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" onClick={handleOpen} className="h-7 text-xs">
+              Connect
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Connect GitHub</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="gh-username">GitHub username <span className="text-destructive">*</span></Label>
+              <Input
+                id="gh-username"
+                placeholder="octocat"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="gh-token">
+                Personal access token{" "}
+                <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Input
+                id="gh-token"
+                type="password"
+                placeholder="ghp_…"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Required for private repos and higher rate limits.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!username.trim() || upsertMutation.isPending}
+              onClick={() => upsertMutation.mutate()}
+            >
+              {upsertMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ─── Vercel card ──────────────────────────────────────────────────────────────
+
+function VercelCard({ integration }: { integration: UserIntegration | undefined }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [token, setToken] = useState(
+    (integration?.config as any)?.token ?? ""
+  );
+
+  const upsertMutation = useMutation({
+    mutationFn: () => upsertIntegration("vercel", { token }),
+    onSuccess: () => {
+      toast.success("Vercel connected");
+      setOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteIntegration("vercel"),
+    onSuccess: () => {
+      toast.success("Vercel disconnected");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const connected = !!integration;
+  const busy = deleteMutation.isPending;
+
+  const handleOpen = () => {
+    setToken((integration?.config as any)?.token ?? "");
+    setOpen(true);
+  };
+
+  return (
+    <>
+      <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
+        <span className="text-2xl shrink-0 mt-0.5">▲</span>
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm text-foreground">Vercel</span>
+            {connected && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success/15 text-success">
+                Connected
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Tracks deployments, build times, and project activity across your Vercel projects.
+          </p>
+          {connected && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <RefreshCw className="h-3 w-3" />
+              {formatSyncTime(integration.last_synced_at)}
+            </p>
+          )}
+          {integration?.last_error && (
+            <p className="text-xs text-destructive flex items-start gap-1">
+              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+              {integration.last_error}
+            </p>
+          )}
+        </div>
+        <div className="shrink-0 flex items-center gap-2">
+          {connected ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpen}
+                className="h-7 text-xs"
+              >
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => deleteMutation.mutate()}
+                className="text-muted-foreground hover:text-destructive text-xs h-7"
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Disconnect"}
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" onClick={handleOpen} className="h-7 text-xs">
+              Connect
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Connect Vercel</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="vercel-token">
+                API token <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="vercel-token"
+                type="password"
+                placeholder="vercel_…"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Create one at vercel.com → Account Settings → Tokens.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!token.trim() || upsertMutation.isPending}
+              onClick={() => upsertMutation.mutate()}
+            >
+              {upsertMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ─── Server-side integrations section ─────────────────────────────────────────
+
+function ServerSideIntegrations() {
+  const { data: integrations = [], isLoading } = useQuery({
+    queryKey: ["user-integrations"],
+    queryFn: fetchIntegrations,
+  });
+
+  const byProvider = Object.fromEntries(
+    integrations.map((i) => [i.provider, i])
+  );
+
+  return (
+    <div className="space-y-3">
+      {isLoading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <>
+          <BitcoinCard integration={byProvider["bitcoin"]} />
+          <GitHubCard integration={byProvider["github"]} />
+          <VercelCard integration={byProvider["vercel"]} />
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Quick Start Banner ────────────────────────────────────────────────────────
 
 function QuickStartBanner() {
@@ -508,34 +959,52 @@ export default function IntegrationsPage() {
         </p>
       </div>
 
-      {/* Quick start banner */}
-      <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
-        <div className="flex items-start gap-4">
-          <div className="shrink-0 rounded-lg bg-primary/10 p-2.5">
-            <span className="text-xl">⚡</span>
-          </div>
-          <div className="space-y-2 flex-1">
-            <div className="font-semibold text-sm text-foreground">One endpoint, any metric</div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Push any numeric value to numbrs using your API key. Pick a metric key (like{" "}
-              <code className="font-mono bg-muted/50 px-1 py-0.5 rounded text-[11px]">cpu.usage</code>{" "}
-              or{" "}
-              <code className="font-mono bg-muted/50 px-1 py-0.5 rounded text-[11px]">deploy.count</code>
-              ) and we handle storage, graphing, and alerting. Get your API key from{" "}
-              <span className="text-primary">Settings → API Keys</span>.
-            </p>
-          </div>
+      {/* Server-side integrations */}
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <Zap className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Server-Side Integrations
+          </h2>
         </div>
-        <div className="mt-4">
-          <CodeBlock code={`POST https://numbrs.lol/functions/v1/ingest\nx-api-key: YOUR_KEY\nContent-Type: application/json\n\n{"key": "my.metric", "value": 42}`} />
-        </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          These run automatically — no scripts needed.
+        </p>
+        <ServerSideIntegrations />
       </div>
 
-      {/* Integration cards */}
+      {/* Manual integrations */}
       <div>
-        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
-          Available integrations
+        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+          Manual Integrations
         </h2>
+        <p className="text-xs text-muted-foreground mb-3">
+          Push data from scripts, CI/CD, or your own code.
+        </p>
+
+        {/* Quick start */}
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 mb-4">
+          <div className="flex items-start gap-4">
+            <div className="shrink-0 rounded-lg bg-primary/10 p-2.5">
+              <span className="text-xl">⚡</span>
+            </div>
+            <div className="space-y-2 flex-1">
+              <div className="font-semibold text-sm text-foreground">One endpoint, any metric</div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Push any numeric value to numbrs using your API key. Pick a metric key (like{" "}
+                <code className="font-mono bg-muted/50 px-1 py-0.5 rounded text-[11px]">cpu.usage</code>{" "}
+                or{" "}
+                <code className="font-mono bg-muted/50 px-1 py-0.5 rounded text-[11px]">deploy.count</code>
+                ) and we handle storage, graphing, and alerting. Get your API key from{" "}
+                <span className="text-primary">Settings → API Keys</span>.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4">
+            <CodeBlock code={`POST https://numbrs.lol/functions/v1/ingest\nx-api-key: YOUR_KEY\nContent-Type: application/json\n\n{"key": "my.metric", "value": 42}`} />
+          </div>
+        </div>
+
         <div className="space-y-3">
           {INTEGRATIONS.map((integration, i) => (
             <motion.div
