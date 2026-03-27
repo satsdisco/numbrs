@@ -23,6 +23,7 @@ MISSING=()
 [[ -z "${NUMBRS_SUPABASE_SERVICE_KEY:-}" ]] && MISSING+=("NUMBRS_SUPABASE_SERVICE_KEY")
 [[ -z "${JELLYFIN_URL:-}" ]] && MISSING+=("JELLYFIN_URL")
 [[ -z "${JELLYFIN_KEY:-}" ]] && MISSING+=("JELLYFIN_KEY")
+[[ -z "${NUMBRS_OWNER_ID:-}" ]] && MISSING+=("NUMBRS_OWNER_ID")
 
 if [[ ${#MISSING[@]} -gt 0 ]]; then
   echo "ERROR: Missing required environment variables: ${MISSING[*]}" >&2
@@ -307,7 +308,7 @@ JURL = os.environ.get("JELLYFIN_URL", "http://localhost:8096")
 JKEY = os.environ.get("JELLYFIN_KEY", "")
 SB_KEY = os.environ.get("SB_KEY_JELLY") or os.environ.get("NUMBRS_SUPABASE_SERVICE_KEY", "")
 SB_URL = os.environ.get("NUMBRS_SUPABASE_URL", "")
-OWNER_ID = "REDACTED_OWNER_ID"
+OWNER_ID = os.environ.get("NUMBRS_OWNER_ID", "")
 
 def fetch_j(path):
     req = urllib.request.Request(f"{JURL}{path}", headers={"X-Emby-Token": JKEY})
@@ -403,7 +404,7 @@ from datetime import datetime, timezone, timedelta
 PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
 SB_URL = os.environ.get("NUMBRS_SUPABASE_URL", "")
 SB_KEY = os.environ.get("SB_KEY_CLAUDE", os.environ.get("NUMBRS_SUPABASE_SERVICE_KEY", ""))
-OWNER_ID = "REDACTED_OWNER_ID"
+OWNER_ID = os.environ.get("NUMBRS_OWNER_ID", "")
 
 def project_name(dir_name):
     n = dir_name
@@ -476,7 +477,7 @@ from datetime import datetime, timedelta
 
 SB_URL = os.environ.get("NUMBRS_SUPABASE_URL", "")
 SB_KEY = os.environ.get("NUMBRS_SUPABASE_SERVICE_KEY", "")
-OWNER_ID = "REDACTED_OWNER_ID"
+OWNER_ID = os.environ.get("NUMBRS_OWNER_ID", "")
 SESSIONS_DIR = os.path.expanduser("~/.openclaw/agents/main/sessions")
 cutoff = (datetime.now() - timedelta(hours=2)).timestamp()
 
