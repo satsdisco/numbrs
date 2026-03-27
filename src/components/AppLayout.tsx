@@ -32,7 +32,7 @@ function NumbrsLogo({ className }: { className?: string }) {
       <rect x="120" y="110" width="42" height="175" fill="#fafafa"/>
       <rect x="162" y="110" width="80" height="42" fill="#fafafa"/>
       <rect x="242" y="110" width="42" height="175" fill="#fafafa"/>
-      <circle cx="332" cy="283" r="38" fill="#7c3aed"/>
+      <circle cx="332" cy="283" r="38" fill="hsl(var(--primary))"/>
     </svg>
   );
 }
@@ -55,6 +55,7 @@ const navItems = [
   { path: "/integrations", label: "Integrations", icon: Plug },
   { path: "/explore", label: "Explore", icon: Globe },
   { path: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { path: "/settings", label: "Settings", icon: Settings },
 ];
 
 const bottomNavItems = [
