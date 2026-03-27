@@ -43,7 +43,7 @@ function Stat({
   className?: string;
 }) {
   const content = (
-    <div className={cn("min-w-0", className)}>
+    <div className={cn("min-w-0 min-h-[44px] flex flex-col justify-center", className)}>
       <span className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground leading-none">
         {label}
         {tooltip && <Info className="h-2.5 w-2.5 opacity-50" />}
@@ -190,7 +190,7 @@ function RelayCard({
       </div>
 
       {/* Row 1: Latency + Uptime */}
-      <div className={cn("grid grid-cols-3 gap-x-3 gap-y-3 mb-3", isOffline && "opacity-50")}>
+      <div className={cn("grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-3 mb-3", isOffline && "opacity-50")}>
         <Stat label="Connect P50" value={formatMs(h.connect_p50)} />
         <Stat label="Connect P95" value={formatMs(h.connect_p95)} />
         <Stat
@@ -201,7 +201,7 @@ function RelayCard({
       </div>
 
       {/* Row 2: Event latency + Failures */}
-      <div className={cn("grid grid-cols-3 gap-x-3 gap-y-3 mb-3", isOffline && "opacity-50")}>
+      <div className={cn("grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-3 mb-3", isOffline && "opacity-50")}>
         <Stat label="Event P50" value={formatMs(h.event_p50)} />
         <Stat label="Event P95" value={formatMs(h.event_p95)} />
         <Stat
@@ -219,7 +219,7 @@ function RelayCard({
       </div>
 
       {/* Row 3: Derived metrics */}
-      <div className={cn("grid grid-cols-3 gap-x-3 border-t border-border pt-3", isOffline && "opacity-50")}>
+      <div className={cn("grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-3 border-t border-border pt-3", isOffline && "opacity-50")}>
         <Stat
           label="Volatility"
           value={

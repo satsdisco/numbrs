@@ -1390,61 +1390,100 @@ function ClaudeCodeTab({ range }: { range: Range }) {
             {topSessionsLoading ? "Loading…" : "No data for this range"}
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs font-mono">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left text-[10px] uppercase tracking-wider text-muted-foreground pb-2 pr-3">
-                    Date
-                  </th>
-                  <th className="text-left text-[10px] uppercase tracking-wider text-muted-foreground pb-2 pr-3">
-                    Project
-                  </th>
-                  <th className="text-right text-[10px] uppercase tracking-wider text-muted-foreground pb-2 pr-3">
-                    Output
-                  </th>
-                  <th className="text-right text-[10px] uppercase tracking-wider text-muted-foreground pb-2 pr-3">
-                    Tools
-                  </th>
-                  <th className="text-left text-[10px] uppercase tracking-wider text-muted-foreground pb-2">
-                    Model
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {topSessionRows.map((row, i) => {
-                  let dateLabel: string;
-                  try {
-                    dateLabel = format(new Date(row.date + "T12:00:00"), "MMM d");
-                  } catch {
-                    dateLabel = row.date;
-                  }
-                  return (
-                    <tr key={row.session_id || i} className="hover:bg-muted/30 transition-colors">
-                      <td className="py-2 pr-3 text-muted-foreground">{dateLabel}</td>
-                      <td className="py-2 pr-3">
-                        <span
-                          className="capitalize"
-                          style={{ color: projectColor(row.project || "other", i) }}
-                        >
-                          {row.project || "—"}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3 text-right text-foreground">
-                        {formatTokens(row.output_tokens || 0)}
-                      </td>
-                      <td className="py-2 pr-3 text-right text-muted-foreground">
-                        {(row.tool_calls || 0).toLocaleString()}
-                      </td>
-                      <td className="py-2 text-muted-foreground">
-                        {row.model ? shortModelName(row.model) : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* Mobile card list */}
+            <div className="md:hidden space-y-2">
+              {topSessionRows.map((row, i) => {
+                let dateLabel: string;
+                try {
+                  dateLabel = format(new Date(row.date + "T12:00:00"), "MMM d");
+                } catch {
+                  dateLabel = row.date;
+                }
+                return (
+                  <div key={row.session_id || i} className="rounded-md border border-border bg-muted/20 p-3 font-mono text-xs space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className="capitalize font-medium"
+                        style={{ color: projectColor(row.project || "other", i) }}
+                      >
+                        {row.project || "—"}
+                      </span>
+                      <span className="text-muted-foreground">{dateLabel}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground">Output</span>
+                      <span className="text-foreground">{formatTokens(row.output_tokens || 0)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground">Tools</span>
+                      <span className="text-muted-foreground">{(row.tool_calls || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground">Model</span>
+                      <span className="text-muted-foreground">{row.model ? shortModelName(row.model) : "—"}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-xs font-mono">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="text-left text-[10px] uppercase tracking-wider text-muted-foreground pb-2 pr-3">
+                      Date
+                    </th>
+                    <th className="text-left text-[10px] uppercase tracking-wider text-muted-foreground pb-2 pr-3">
+                      Project
+                    </th>
+                    <th className="text-right text-[10px] uppercase tracking-wider text-muted-foreground pb-2 pr-3">
+                      Output
+                    </th>
+                    <th className="text-right text-[10px] uppercase tracking-wider text-muted-foreground pb-2 pr-3">
+                      Tools
+                    </th>
+                    <th className="text-left text-[10px] uppercase tracking-wider text-muted-foreground pb-2">
+                      Model
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {topSessionRows.map((row, i) => {
+                    let dateLabel: string;
+                    try {
+                      dateLabel = format(new Date(row.date + "T12:00:00"), "MMM d");
+                    } catch {
+                      dateLabel = row.date;
+                    }
+                    return (
+                      <tr key={row.session_id || i} className="hover:bg-muted/30 transition-colors">
+                        <td className="py-2 pr-3 text-muted-foreground">{dateLabel}</td>
+                        <td className="py-2 pr-3">
+                          <span
+                            className="capitalize"
+                            style={{ color: projectColor(row.project || "other", i) }}
+                          >
+                            {row.project || "—"}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-3 text-right text-foreground">
+                          {formatTokens(row.output_tokens || 0)}
+                        </td>
+                        <td className="py-2 pr-3 text-right text-muted-foreground">
+                          {(row.tool_calls || 0).toLocaleString()}
+                        </td>
+                        <td className="py-2 text-muted-foreground">
+                          {row.model ? shortModelName(row.model) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

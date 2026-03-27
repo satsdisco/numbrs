@@ -65,6 +65,7 @@ const bottomNavItems = [
 ];
 
 const moreNavItems = [
+  { path: "/dashboards", label: "Dashboards", icon: LayoutGrid },
   { path: "/plex", label: "Plex", icon: Tv2 },
   { path: "/jellyfin", label: "Jellyfin", icon: Music2 },
   { path: "/alerts", label: "Alerts", icon: Bell },

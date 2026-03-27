@@ -154,18 +154,24 @@ export default function DashboardBuilderPage() {
   );
 
   const gridLayouts = useMemo(() => {
-    if (!panels) return { lg: [] };
-    return {
-      lg: panels.map((p) => ({
-        i: p.id,
-        x: p.layout.x,
-        y: p.layout.y,
-        w: p.layout.w,
-        h: p.layout.h,
-        minW: 2,
-        minH: 2,
-      })),
-    };
+    if (!panels) return { lg: [], sm: [] };
+    const lgLayout = panels.map((p) => ({
+      i: p.id,
+      x: p.layout.x,
+      y: p.layout.y,
+      w: p.layout.w,
+      h: p.layout.h,
+      minW: 2,
+      minH: 2,
+    }));
+    // sm: stack panels full-width in sequential order (x=0, w=4 fills sm col width)
+    let smY = 0;
+    const smLayout = panels.map((p) => {
+      const item = { i: p.id, x: 0, y: smY, w: 4, h: p.layout.h, minW: 1, minH: 2 };
+      smY += p.layout.h;
+      return item;
+    });
+    return { lg: lgLayout, sm: smLayout };
   }, [panels]);
 
   if (dbLoading || panelsLoading) {
