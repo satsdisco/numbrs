@@ -485,12 +485,17 @@ def channel_map():
     mapping = {}
     try:
         data = json.load(open(f"{SESSIONS_DIR}/sessions.json"))
-        for key, sessions in data.items():
-            ch = key.replace("agent:main:", "")
-            if isinstance(sessions, list):
-                for s in sessions:
+        for key, val in data.items():
+            if isinstance(val, dict) and val.get("sessionId"):
+                sid = val["sessionId"]
+                # Use displayName or label if available, else derive from key
+                ch = val.get("displayName") or val.get("label") or key.replace("agent:main:", "")
+                mapping[sid] = ch
+            elif isinstance(val, list):
+                ch = key.replace("agent:main:", "")
+                for s in val:
                     if isinstance(s, dict) and s.get("sessionId"):
-                        mapping[s["sessionId"]] = ch
+                        mapping[s["sessionId"]] = s.get("displayName") or ch
     except: pass
     return mapping
 
@@ -504,7 +509,7 @@ for jsonl in glob.glob(f"{SESSIONS_DIR}/*.jsonl"):
     stats = {"session_id": session_id, "channel": ch_map.get(session_id, "main"),
              "messages": 0, "input_tokens": 0, "output_tokens": 0,
              "cache_read_tokens": 0, "cache_write_tokens": 0,
-             "cost_usd": 0.0, "date": None, "session_started_at": None, "owner_id": OWNER_ID}
+             "cost_usd": 0.0, "date": None, "owner_id": OWNER_ID}
     model_tokens = defaultdict(int)
 
     with open(jsonl) as f:
@@ -521,7 +526,7 @@ for jsonl in glob.glob(f"{SESSIONS_DIR}/*.jsonl"):
                 cost = usage.get("cost", {})
                 if not stats["date"] and d.get("timestamp"):
                     stats["date"] = d["timestamp"][:10]
-                    stats["session_started_at"] = d["timestamp"]
+                    # session_started_at not in schema — skip
                 m = model.replace("-20250514","").replace("-20241022","") if model else "unknown"
                 model_tokens[m] += usage.get("output", 0)
                 stats["messages"] += 1
