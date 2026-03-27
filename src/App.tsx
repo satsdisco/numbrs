@@ -29,6 +29,8 @@ import NotFound from "@/pages/NotFound";
 import Onboarding, { isOnboardingComplete } from "@/components/Onboarding";
 import LeaderboardPage from "@/pages/LeaderboardPage";
 import EmbedPanelPage from "@/pages/EmbedPanelPage";
+import DocsApiPage from "@/pages/DocsApiPage";
+import DocsAgentsPage from "@/pages/DocsAgentsPage";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +69,8 @@ function ProtectedRoutes() {
         <Route path="/claude" element={<ClaudePage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/docs/api" element={<DocsApiPage />} />
+        <Route path="/docs/agents" element={<DocsAgentsPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>

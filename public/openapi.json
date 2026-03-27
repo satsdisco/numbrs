@@ -1,0 +1,532 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "numbrs API",
+    "description": "REST API for numbrs — personal infrastructure monitoring. All endpoints require an `X-API-KEY` header. Get your API key at https://numbrs.lol/api-keys.",
+    "version": "1.0.0",
+    "contact": {
+      "url": "https://numbrs.lol"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://numbrs.lol",
+      "description": "Production"
+    }
+  ],
+  "security": [
+    { "ApiKeyAuth": [] }
+  ],
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-KEY",
+        "description": "API key created at https://numbrs.lol/api-keys"
+      }
+    },
+    "schemas": {
+      "Relay": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "example": "550e8400-e29b-41d4-a716-446655440000" },
+          "user_id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string", "example": "My Relay" },
+          "url": { "type": "string", "example": "wss://relay.example.com" },
+          "region": { "type": "string", "nullable": true, "example": "us-east" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Dashboard": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "example": "550e8400-e29b-41d4-a716-446655440001" },
+          "user_id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string", "example": "Relay Health" },
+          "description": { "type": "string", "nullable": true, "example": "Overview of my relay performance" },
+          "is_public": { "type": "boolean", "example": false },
+          "share_token": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Panel": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "dashboard_id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string", "example": "Connect Latency" },
+          "panel_type": { "type": "string", "enum": ["line", "area", "bar", "stat", "gauge", "table", "heatmap"] },
+          "config": {
+            "type": "object",
+            "properties": {
+              "metric_key": { "type": "string", "example": "relay_latency_connect_ms" },
+              "data_source": { "type": "string", "enum": ["relay", "global", "custom"] },
+              "unit": { "type": "string", "example": "ms" },
+              "stat_field": { "type": "string", "enum": ["avg", "p50", "p95", "min", "max", "latest", "count", "sum"] },
+              "gauge_max": { "type": "number" }
+            }
+          },
+          "layout": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "integer" },
+              "y": { "type": "integer" },
+              "w": { "type": "integer" },
+              "h": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "AlertRule": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "user_id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string", "example": "Relay Latency High" },
+          "metric_key": { "type": "string", "example": "relay_latency_connect_ms" },
+          "condition": { "type": "string", "enum": ["gt", "lt"], "example": "gt" },
+          "threshold": { "type": "number", "example": 1000 },
+          "relay_id": { "type": "string", "format": "uuid", "nullable": true },
+          "is_active": { "type": "boolean", "example": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "UptimeMonitor": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "user_id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string", "example": "My API" },
+          "url": { "type": "string", "example": "https://api.example.com/health" },
+          "interval_seconds": { "type": "integer", "example": 60 },
+          "is_active": { "type": "boolean", "example": true },
+          "last_checked_at": { "type": "string", "format": "date-time", "nullable": true },
+          "last_status": { "type": "string", "enum": ["up", "down", "unknown"], "nullable": true },
+          "last_latency_ms": { "type": "number", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": { "type": "string", "example": "Not found" }
+        }
+      }
+    }
+  },
+  "tags": [
+    { "name": "Relays", "description": "Manage Nostr relay monitoring targets" },
+    { "name": "Dashboards", "description": "Create and manage metric dashboards" },
+    { "name": "Alerts", "description": "Alert rules for metric thresholds" },
+    { "name": "Monitors", "description": "HTTP/WSS uptime monitors" },
+    { "name": "Account", "description": "User profile and stats" },
+    { "name": "Ingest", "description": "Push metric datapoints into numbrs" }
+  ],
+  "paths": {
+    "/api/relays": {
+      "get": {
+        "tags": ["Relays"],
+        "summary": "List relays",
+        "description": "Returns all relays for the authenticated user.",
+        "responses": {
+          "200": {
+            "description": "List of relays",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Relay" } },
+                "example": [
+                  { "id": "550e8400-e29b-41d4-a716-446655440000", "name": "nos.lol", "url": "wss://nos.lol", "region": null, "created_at": "2026-01-01T00:00:00Z" }
+                ]
+              }
+            }
+          },
+          "401": { "description": "Invalid or missing API key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      },
+      "post": {
+        "tags": ["Relays"],
+        "summary": "Add a relay",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "url"],
+                "properties": {
+                  "name": { "type": "string", "example": "nos.lol" },
+                  "url": { "type": "string", "example": "wss://nos.lol" },
+                  "region": { "type": "string", "example": "us-east" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Relay created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Relay" } } } },
+          "400": { "description": "Missing required fields" },
+          "401": { "description": "Invalid or missing API key" }
+        }
+      }
+    },
+    "/api/relays/{id}": {
+      "patch": {
+        "tags": ["Relays"],
+        "summary": "Update a relay",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "url": { "type": "string" },
+                  "region": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated relay", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Relay" } } } },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Relays"],
+        "summary": "Delete a relay",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Deleted", "content": { "application/json": { "schema": { "type": "object", "properties": { "deleted": { "type": "boolean" } } } } } },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/dashboards": {
+      "get": {
+        "tags": ["Dashboards"],
+        "summary": "List dashboards",
+        "responses": {
+          "200": { "description": "List of dashboards", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Dashboard" } } } } },
+          "401": { "description": "Invalid or missing API key" }
+        }
+      },
+      "post": {
+        "tags": ["Dashboards"],
+        "summary": "Create a dashboard",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "example": "My Dashboard" },
+                  "description": { "type": "string", "example": "Custom metrics overview" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Dashboard created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Dashboard" } } } },
+          "400": { "description": "Missing required fields" }
+        }
+      }
+    },
+    "/api/dashboards/from-template": {
+      "post": {
+        "tags": ["Dashboards"],
+        "summary": "Create dashboard from template",
+        "description": "Creates a dashboard pre-populated with panels for a specific use case.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["template"],
+                "properties": {
+                  "template": {
+                    "type": "string",
+                    "enum": ["relay-health", "bitaxe", "system-health", "media"],
+                    "example": "relay-health",
+                    "description": "relay-health: Nostr relay monitoring | bitaxe: Bitcoin mining stats | system-health: CPU/RAM/disk | media: Plex/Jellyfin"
+                  },
+                  "name": { "type": "string", "description": "Override the default dashboard name", "example": "My Relay Dashboard" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Dashboard with panels created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/Dashboard" },
+                    { "type": "object", "properties": { "panels": { "type": "array", "items": { "$ref": "#/components/schemas/Panel" } } } }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "description": "Unknown template" }
+        }
+      }
+    },
+    "/api/dashboards/{id}": {
+      "delete": {
+        "tags": ["Dashboards"],
+        "summary": "Delete a dashboard",
+        "description": "Deletes the dashboard and all its panels.",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/alerts": {
+      "get": {
+        "tags": ["Alerts"],
+        "summary": "List alert rules",
+        "responses": {
+          "200": { "description": "List of alert rules", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/AlertRule" } } } } },
+          "401": { "description": "Invalid or missing API key" }
+        }
+      },
+      "post": {
+        "tags": ["Alerts"],
+        "summary": "Create an alert rule",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "metric", "condition", "threshold"],
+                "properties": {
+                  "name": { "type": "string", "example": "High Latency Alert" },
+                  "metric": { "type": "string", "example": "relay_latency_connect_ms" },
+                  "condition": { "type": "string", "enum": ["gt", "lt"], "example": "gt" },
+                  "threshold": { "type": "number", "example": 1000 },
+                  "relay_id": { "type": "string", "format": "uuid", "nullable": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Alert created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AlertRule" } } } },
+          "400": { "description": "Missing required fields" }
+        }
+      }
+    },
+    "/api/alerts/{id}": {
+      "patch": {
+        "tags": ["Alerts"],
+        "summary": "Update an alert rule",
+        "description": "Update any field including `enabled` (maps to `is_active`) to pause/resume alerting.",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "threshold": { "type": "number" },
+                  "condition": { "type": "string", "enum": ["gt", "lt"] },
+                  "enabled": { "type": "boolean", "description": "Alias for is_active" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Updated alert rule", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AlertRule" } } } },
+          "404": { "description": "Not found" }
+        }
+      },
+      "delete": {
+        "tags": ["Alerts"],
+        "summary": "Delete an alert rule",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/monitors": {
+      "get": {
+        "tags": ["Monitors"],
+        "summary": "List uptime monitors",
+        "responses": {
+          "200": { "description": "List of monitors", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/UptimeMonitor" } } } } },
+          "401": { "description": "Invalid or missing API key" }
+        }
+      },
+      "post": {
+        "tags": ["Monitors"],
+        "summary": "Create an uptime monitor",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "url"],
+                "properties": {
+                  "name": { "type": "string", "example": "My API" },
+                  "url": { "type": "string", "example": "https://api.example.com/health" },
+                  "type": { "type": "string", "enum": ["http", "wss"], "default": "http" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Monitor created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UptimeMonitor" } } } },
+          "400": { "description": "Missing required fields" }
+        }
+      }
+    },
+    "/api/monitors/{id}": {
+      "delete": {
+        "tags": ["Monitors"],
+        "summary": "Delete an uptime monitor",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "responses": {
+          "200": { "description": "Deleted" },
+          "404": { "description": "Not found" }
+        }
+      }
+    },
+    "/api/me": {
+      "get": {
+        "tags": ["Account"],
+        "summary": "Get account info",
+        "description": "Returns the authenticated user's profile and resource counts.",
+        "responses": {
+          "200": {
+            "description": "Account info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user_id": { "type": "string", "format": "uuid" },
+                    "stats": {
+                      "type": "object",
+                      "properties": {
+                        "relays": { "type": "integer" },
+                        "dashboards": { "type": "integer" },
+                        "alerts": { "type": "integer" },
+                        "monitors": { "type": "integer" }
+                      }
+                    },
+                    "api_keys": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string", "format": "uuid" },
+                          "name": { "type": "string" },
+                          "created_at": { "type": "string", "format": "date-time" },
+                          "last_used_at": { "type": "string", "format": "date-time", "nullable": true }
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+                  "stats": { "relays": 3, "dashboards": 2, "alerts": 5, "monitors": 1 },
+                  "api_keys": [{ "id": "abc123", "name": "My Key", "created_at": "2026-01-01T00:00:00Z", "last_used_at": "2026-03-27T12:00:00Z" }]
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid or missing API key" }
+        }
+      }
+    },
+    "/api/ingest": {
+      "post": {
+        "tags": ["Ingest"],
+        "summary": "Push metric datapoints",
+        "description": "Ingests one or more datapoints. Metrics and relays are auto-created if they don't exist.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  { "$ref": "#/components/schemas/IngestItem" },
+                  { "type": "array", "items": { "$ref": "#/components/schemas/IngestItem" } }
+                ]
+              },
+              "examples": {
+                "single": {
+                  "summary": "Single datapoint",
+                  "value": { "key": "system.cpu_pct", "value": 42.5 }
+                },
+                "batch": {
+                  "summary": "Batch with relay",
+                  "value": [
+                    { "metric_key": "relay_latency_connect_ms", "value": 120, "relay_url": "wss://nos.lol" },
+                    { "metric_key": "relay_up", "value": 1, "relay_url": "wss://nos.lol" }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ingestion result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ingested": { "type": "integer", "example": 2 },
+                    "errors": { "type": "array", "items": { "type": "string" } }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid payload" },
+          "401": { "description": "Invalid or missing API key" }
+        }
+      }
+    }
+  },
+  "x-schemas-extra": {
+    "IngestItem": {
+      "type": "object",
+      "required": ["value"],
+      "properties": {
+        "key": { "type": "string", "description": "Metric key (alias for metric_key)", "example": "system.cpu_pct" },
+        "metric_key": { "type": "string", "description": "Metric key", "example": "relay_latency_connect_ms" },
+        "value": { "type": "number", "example": 42.5 },
+        "relay_url": { "type": "string", "description": "Associate with a relay by URL (auto-created if new)", "example": "wss://nos.lol" },
+        "recorded_at": { "type": "string", "format": "date-time", "description": "Timestamp (defaults to now)" },
+        "tags": { "type": "object", "description": "Optional dimensions/labels" }
+      }
+    }
+  }
+}
