@@ -95,7 +95,7 @@ export default function LeaderboardPage() {
     });
 
   const minutesAgo = dataUpdatedAt
-    ? Math.floor((now - dataUpdatedAt) / 60_000)
+    ? Math.max(0, Math.floor((now - dataUpdatedAt) / 60_000))
     : null;
   const lastUpdatedLabel =
     minutesAgo === null
@@ -164,7 +164,7 @@ export default function LeaderboardPage() {
                     P95 Latency
                   </th>
                   <th className="px-4 py-3 text-right font-mono text-xs text-muted-foreground font-medium">
-                    Last Seen
+                    Last Probe
                   </th>
                 </tr>
               </thead>
@@ -187,15 +187,17 @@ export default function LeaderboardPage() {
                     const avgLat = health?.connect_avg ?? null;
                     const p95Lat = health?.connect_p95 ?? null;
 
-                    // Last seen: use relay's updated_at as a proxy
-                    const lastSeen = relay.updated_at
-                      ? new Date(relay.updated_at).toLocaleDateString(undefined, {
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "—";
+                    // Last probe: relative time from relay's updated_at
+                    const lastSeen = (() => {
+                      if (!relay.updated_at) return "—";
+                      const diffMs = now - new Date(relay.updated_at).getTime();
+                      const diffMins = Math.floor(diffMs / 60_000);
+                      if (diffMins < 1) return "just now";
+                      if (diffMins < 60) return `${diffMins}m ago`;
+                      const diffHrs = Math.floor(diffMins / 60);
+                      if (diffHrs < 24) return `${diffHrs}h ago`;
+                      return `${Math.floor(diffHrs / 24)}d ago`;
+                    })();
 
                     return (
                       <tr
