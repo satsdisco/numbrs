@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { truncatePubkey, pubkeyToNpub } from "@/lib/nostr";
+import { pubkeyToNpub } from "@/lib/nostr";
 import { Copy, Check, LogOut, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -203,7 +203,7 @@ export default function ProfilePage() {
                   Pubkey (hex)
                 </span>
                 <p className="font-mono text-metric-sm text-muted-foreground truncate">
-                  {truncatePubkey(pubkey)}
+                  {pubkey}
                 </p>
               </div>
               <CopyButton text={pubkey} label="Pubkey" />

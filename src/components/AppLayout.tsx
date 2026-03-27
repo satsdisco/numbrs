@@ -36,7 +36,7 @@ function NumbrsLogo({ className }: { className?: string }) {
     </svg>
   );
 }
-import { truncatePubkey } from "@/lib/nostr";
+import { pubkeyToNpub } from "@/lib/nostr";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
@@ -172,7 +172,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
         <div className="flex items-center justify-between px-1">
           <span className="truncate text-metric-sm text-muted-foreground font-mono">
             {user?.user_metadata?.pubkey
-              ? truncatePubkey(user.user_metadata.pubkey)
+              ? (() => { const n = pubkeyToNpub(user.user_metadata.pubkey); return n.slice(0, 10) + "…" + n.slice(-6); })()
               : user?.email}
           </span>
           <button
