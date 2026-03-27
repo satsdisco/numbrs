@@ -109,9 +109,9 @@ export function getTrend(
 }
 
 export const TREND_ICONS: Record<Trend, string> = {
-  improving: "↘",
+  improving: "↗",
   stable: "→",
-  degrading: "↗",
+  degrading: "↘",
   unknown: "—",
 };
 
