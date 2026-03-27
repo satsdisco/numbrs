@@ -100,17 +100,19 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
   // Get timeseries data from either source
   const tsData = isGlobal ? globalTsData : relayTsData;
 
-  // Build a summary-like object for global stats panels
+  // Build a summary-like object for global stats panels.
+  // Preserve null for stat fields when there are no datapoints so that
+  // StatPanel renders "—" (No data) instead of "0" for untracked metrics.
   const metricSummary = isGlobal
     ? globalStats
       ? {
           metric_key: metricKey,
-          avg_val: globalStats.avg_val ?? 0,
-          min_val: globalStats.min_val ?? 0,
-          max_val: globalStats.max_val ?? 0,
-          p50_val: globalStats.p50_val ?? 0,
-          p95_val: globalStats.p95_val ?? 0,
-          latest_val: latestValue ?? globalStats.max_val ?? 0,
+          avg_val: globalStats.avg_val ?? null,
+          min_val: globalStats.min_val ?? null,
+          max_val: globalStats.max_val ?? null,
+          p50_val: globalStats.p50_val ?? null,
+          p95_val: globalStats.p95_val ?? null,
+          latest_val: latestValue ?? globalStats.max_val ?? null,
           total_count: globalStats.total_count ?? 0,
         }
       : undefined
