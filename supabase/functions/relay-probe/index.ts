@@ -75,11 +75,47 @@ async function probeRelay(url: string): Promise<ProbeResult> {
 }
 
 /**
+ * Deliver a Slack notification for a triggered alert.
+ */
+async function notifySlack(webhookUrl: string, payload: {
+  ruleName: string;
+  metricKey: string;
+  condition: string;
+  threshold: number;
+  value: number;
+  relayName?: string;
+}): Promise<void> {
+  const metricLabels: Record<string, string> = {
+    relay_latency_connect_ms: "Connect Latency",
+    relay_latency_first_event_ms: "Event Latency",
+    relay_up: "Uptime",
+  };
+  const conditionLabels: Record<string, string> = { gt: "exceeds", lt: "drops below" };
+  const metricLabel = metricLabels[payload.metricKey] ?? payload.metricKey;
+  const condLabel = conditionLabels[payload.condition] ?? payload.condition;
+  const relayStr = payload.relayName ? ` on *${payload.relayName}*` : "";
+
+  const text = `🚨 *numbrs alert: ${payload.ruleName}*${relayStr}\n${metricLabel} ${condLabel} ${payload.threshold} (current: ${payload.value.toFixed(1)})`;
+
+  try {
+    await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+  } catch (err) {
+    console.error("Slack notification error:", err);
+  }
+}
+
+/**
  * Check alert rules against probe results and create alert events.
+ * Also delivers Slack notifications to the rule owner's active channels.
  */
 async function checkAlertRules(
   supabase: any,
   relayId: string,
+  relayName: string,
   result: ProbeResult
 ) {
   try {
@@ -103,6 +139,7 @@ async function checkAlertRules(
     };
 
     const alertEvents: any[] = [];
+    const triggeredRules: any[] = [];
 
     for (const rule of rules) {
       // Skip if rule is for a different relay
@@ -124,6 +161,7 @@ async function checkAlertRules(
           threshold: rule.threshold,
           condition: rule.condition,
         });
+        triggeredRules.push({ rule, value });
       }
     }
 
@@ -135,6 +173,34 @@ async function checkAlertRules(
         console.error("Alert event insert error:", insertErr);
       } else {
         console.log(`Triggered ${alertEvents.length} alert(s) for relay ${relayId}`);
+      }
+
+      // Deliver Slack notifications for each triggered rule
+      for (const { rule, value } of triggeredRules) {
+        try {
+          const { data: channels } = await supabase
+            .from("notification_channels")
+            .select("config")
+            .eq("user_id", rule.user_id)
+            .eq("type", "slack")
+            .eq("is_active", true);
+
+          for (const channel of channels ?? []) {
+            const webhookUrl = channel.config?.webhook_url;
+            if (webhookUrl) {
+              await notifySlack(webhookUrl, {
+                ruleName: rule.name,
+                metricKey: rule.metric_key,
+                condition: rule.condition,
+                threshold: rule.threshold,
+                value,
+                relayName,
+              });
+            }
+          }
+        } catch (notifyErr) {
+          console.error("Notification delivery error:", notifyErr);
+        }
       }
     }
   } catch (err) {
@@ -228,7 +294,7 @@ serve(async (req) => {
         }
 
         // Check alert rules for this relay's probe results
-        await checkAlertRules(supabase, relay.id, result);
+        await checkAlertRules(supabase, relay.id, relay.name, result);
 
         return {
           relay: relay.name,

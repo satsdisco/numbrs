@@ -85,6 +85,75 @@ export async function acknowledgeAlertEvent(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// ─── Notification channels ────────────────────────────────────────────────────
+
+export interface NotificationChannel {
+  id: string;
+  user_id: string;
+  type: "slack";
+  name: string;
+  config: { webhook_url: string };
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function fetchNotificationChannels(): Promise<NotificationChannel[]> {
+  const { data, error } = await supabase
+    .from("notification_channels")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as unknown as NotificationChannel[]) || [];
+}
+
+export async function upsertSlackChannel(
+  webhookUrl: string,
+  name = "Slack"
+): Promise<NotificationChannel> {
+  // Replace existing slack channel for this user (only one Slack channel per user for now)
+  const { data: existing } = await supabase
+    .from("notification_channels")
+    .select("id")
+    .eq("type", "slack")
+    .maybeSingle();
+
+  if (existing?.id) {
+    const { data, error } = await supabase
+      .from("notification_channels")
+      .update({ config: { webhook_url: webhookUrl }, name, is_active: true, updated_at: new Date().toISOString() } as any)
+      .eq("id", existing.id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as unknown as NotificationChannel;
+  }
+
+  const { data, error } = await supabase
+    .from("notification_channels")
+    .insert({ type: "slack", name, config: { webhook_url: webhookUrl } } as any)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as unknown as NotificationChannel;
+}
+
+export async function deleteNotificationChannel(id: string): Promise<void> {
+  const { error } = await supabase.from("notification_channels").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function testSlackWebhook(webhookUrl: string): Promise<void> {
+  const res = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: "✅ numbrs alert test — Slack webhook is working!" }),
+  });
+  if (!res.ok) throw new Error(`Slack returned ${res.status}`);
+}
+
+// ─── Alert metrics ────────────────────────────────────────────────────────────
+
 export const ALERT_METRICS = [
   { key: "relay_latency_connect_ms", label: "Connect Latency", unit: "ms", relayScoped: true },
   { key: "relay_latency_first_event_ms", label: "Event Latency", unit: "ms", relayScoped: true },

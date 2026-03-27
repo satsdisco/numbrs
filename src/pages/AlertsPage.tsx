@@ -7,15 +7,21 @@ import {
   updateAlertRule,
   fetchAlertEvents,
   acknowledgeAlertEvent,
+  fetchNotificationChannels,
+  upsertSlackChannel,
+  deleteNotificationChannel,
+  testSlackWebhook,
   ALERT_METRICS,
   CONDITION_LABELS,
   type AlertRule,
   type AlertEvent,
+  type NotificationChannel,
 } from "@/lib/alerts-api";
 import { fetchRelays } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -31,7 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Bell, Plus, Trash2, Check, AlertTriangle, Clock, Info } from "lucide-react";
+import { Bell, Plus, Trash2, Check, AlertTriangle, Clock, Info, Webhook, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -79,6 +85,11 @@ export default function AlertsPage() {
     },
   });
 
+  const { data: channels } = useQuery({
+    queryKey: ["notification-channels"],
+    queryFn: fetchNotificationChannels,
+  });
+
   const unacknowledgedCount = events?.filter((e) => !e.acknowledged).length ?? 0;
 
   return (
@@ -112,6 +123,14 @@ export default function AlertsPage() {
                 {unacknowledgedCount}
               </span>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="channels" className="gap-1.5">
+            <Webhook className="h-3.5 w-3.5" /> Channels
+            {channels?.length ? (
+              <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-mono">
+                {channels.length}
+              </span>
+            ) : null}
           </TabsTrigger>
         </TabsList>
 
@@ -221,6 +240,10 @@ export default function AlertsPage() {
             </div>
           )}
         </TabsContent>
+
+        <TabsContent value="channels" className="mt-4">
+          <NotificationChannelsPanel channels={channels ?? []} />
+        </TabsContent>
       </Tabs>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
@@ -312,6 +335,154 @@ function RuleCard({
     </motion.div>
   );
 }
+
+// ─── Notification Channels Panel ─────────────────────────────────────────────
+
+function NotificationChannelsPanel({ channels }: { channels: NotificationChannel[] }) {
+  const queryClient = useQueryClient();
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [channelName, setChannelName] = useState("Slack");
+  const [testing, setTesting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  const saveMutation = useMutation({
+    mutationFn: () => upsertSlackChannel(webhookUrl.trim(), channelName.trim() || "Slack"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notification-channels"] });
+      toast.success("Slack webhook saved");
+      setWebhookUrl("");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteNotificationChannel,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notification-channels"] });
+      toast.success("Channel removed");
+      setDeleteTarget(null);
+    },
+  });
+
+  const handleTest = async () => {
+    const url = webhookUrl.trim();
+    if (!url) { toast.error("Enter a webhook URL first"); return; }
+    setTesting(true);
+    try {
+      await testSlackWebhook(url);
+      toast.success("Test message sent to Slack!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send test message");
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const slackChannel = channels.find((c) => c.type === "slack");
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-lg border border-border bg-card p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Webhook className="h-4 w-4 text-primary" />
+          <span className="font-mono text-sm font-semibold text-foreground">Slack Webhook</span>
+          {slackChannel && (
+            <span className="rounded-full bg-success/15 text-success text-[10px] font-mono px-2 py-0.5 border border-success/30">
+              Connected
+            </span>
+          )}
+        </div>
+
+        {slackChannel && (
+          <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">{slackChannel.name}</p>
+              <p className="text-xs text-muted-foreground font-mono truncate">
+                {slackChannel.config.webhook_url.replace(/\/[^/]+$/, "/…")}
+              </p>
+            </div>
+            <button
+              onClick={() => setDeleteTarget(slackChannel.id)}
+              className="ml-3 shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1 block">Slack Webhook URL</Label>
+            <Input
+              placeholder="https://hooks.slack.com/services/..."
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1 block">Display name</Label>
+            <Input
+              placeholder="Slack"
+              value={channelName}
+              onChange={(e) => setChannelName(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={!webhookUrl.trim() || testing}
+              onClick={handleTest}
+            >
+              {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              Test
+            </Button>
+            <Button
+              size="sm"
+              className="gap-1.5"
+              disabled={!webhookUrl.trim() || saveMutation.isPending}
+              onClick={() => saveMutation.mutate()}
+            >
+              {saveMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              {slackChannel ? "Update" : "Save"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-border bg-muted/30 p-3 text-xs text-muted-foreground flex gap-2">
+          <Info className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>
+            When an alert rule fires, numbrs will POST a message to your Slack webhook.
+            Webhooks are stored securely and only sent from the server-side relay probe.
+          </span>
+        </div>
+      </div>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this channel?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Alerts will no longer be delivered to this Slack webhook.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { if (deleteTarget) deleteMutation.mutate(deleteTarget); }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+// ─── Create Alert Dialog ──────────────────────────────────────────────────────
 
 function CreateAlertDialog({
   open,
