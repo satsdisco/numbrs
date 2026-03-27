@@ -1,12 +1,34 @@
 #!/bin/bash
 # numbrs-collector.sh — Mac mini health + Jellyfin metrics → numbrs
 # Runs every 5 min via cron
+#
+# Required environment variables (set in scripts/.env or export before running):
+#   NUMBRS_API_KEY, NUMBRS_INGEST, NUMBRS_SUPABASE_SERVICE_KEY,
+#   JELLYFIN_URL, JELLYFIN_KEY
+#
+# Usage: source scripts/.env && bash scripts/numbrs-collector.sh
 
-NUMBRS_API_KEY="REDACTED_NUMBRS_API_KEY"
-NUMBRS_INGEST="https://untlhymtrpkmiutwkpyh.supabase.co/functions/v1/ingest"
-NUMBRS_SUPABASE_SERVICE_KEY="REDACTED_SUPABASE_SERVICE_KEY"
-JELLYFIN_URL="http://localhost:8096"
-JELLYFIN_KEY="REDACTED_JELLYFIN_KEY"
+# Load .env if present
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+  set -a
+  source "$SCRIPT_DIR/.env"
+  set +a
+fi
+
+# Validate required variables
+MISSING=()
+[[ -z "${NUMBRS_API_KEY:-}" ]] && MISSING+=("NUMBRS_API_KEY")
+[[ -z "${NUMBRS_INGEST:-}" ]] && MISSING+=("NUMBRS_INGEST")
+[[ -z "${NUMBRS_SUPABASE_SERVICE_KEY:-}" ]] && MISSING+=("NUMBRS_SUPABASE_SERVICE_KEY")
+[[ -z "${JELLYFIN_URL:-}" ]] && MISSING+=("JELLYFIN_URL")
+[[ -z "${JELLYFIN_KEY:-}" ]] && MISSING+=("JELLYFIN_KEY")
+
+if [[ ${#MISSING[@]} -gt 0 ]]; then
+  echo "ERROR: Missing required environment variables: ${MISSING[*]}" >&2
+  echo "Copy scripts/.env.example to scripts/.env and fill in values." >&2
+  exit 1
+fi
 
 push() {
   local key="$1"
@@ -135,8 +157,8 @@ if [ -n "$VT" ]; then
 import json, urllib.request, sys
 
 VT = "$VT"
-INGEST = "https://untlhymtrpkmiutwkpyh.supabase.co/functions/v1/ingest"
-NUMBRS_KEY = "REDACTED_NUMBRS_API_KEY"
+INGEST = "$NUMBRS_INGEST"
+NUMBRS_KEY = "$NUMBRS_API_KEY"
 TEAM = "team_vUSmyYIKj6RowEoobVetZiko"
 
 projects = {
@@ -194,7 +216,7 @@ import websocket, json, threading, urllib.request
 BENDER_HEX = "e1832d86685f04e32eb66062e1ba6e629d6d488c9c3a521311a436e034f7c28a"
 SATSDISCO_HEX = "47276eb163fc54b3733930ab5cfd5fa94687a1953871a873ad4faee91e8a5f38"
 RELAY = "wss://relay.damus.io"
-INGEST = "https://untlhymtrpkmiutwkpyh.supabase.co/functions/v1/ingest"
+INGEST = "$NUMBRS_INGEST"
 KEY = "$NUMBRS_API_KEY"
 
 def push(k, v, name):
@@ -233,8 +255,8 @@ NOSTR_WS
 
 # ── Plex Media Server ─────────────────────────────────────────────────────────
 
-PLEX_TOKEN="REDACTED_PLEX_TOKEN"
-PLEX_URL="https://REDACTED_PLEX_URL"
+PLEX_TOKEN="${PLEX_TOKEN:-}"
+PLEX_URL="${PLEX_URL:-}"
 
 # Active streams
 PLEX_STREAMS=$(curl -s "$PLEX_URL/sessions?X-Plex-Token=$PLEX_TOKEN" -H "Accept: application/json" \
@@ -247,7 +269,7 @@ import urllib.request, json
 
 TOKEN = "$PLEX_TOKEN"
 URL = "$PLEX_URL"
-INGEST = "https://untlhymtrpkmiutwkpyh.supabase.co/functions/v1/ingest"
+INGEST = "$NUMBRS_INGEST"
 KEY = "$NUMBRS_API_KEY"
 
 def push(k, v, name, unit=""):
@@ -281,10 +303,10 @@ python3 << 'JELLY_PY'
 import urllib.request, json, os
 from datetime import datetime, timedelta, timezone
 
-JURL = "http://localhost:8096"
-JKEY = "REDACTED_JELLYFIN_KEY"
+JURL = "$JELLYFIN_URL"
+JKEY = "$JELLYFIN_KEY"
 SB_KEY = os.environ.get("SB_KEY_JELLY") or os.environ.get("NUMBRS_SUPABASE_SERVICE_KEY", "")
-SB_URL = "https://untlhymtrpkmiutwkpyh.supabase.co"
+SB_URL = os.environ.get("NUMBRS_SUPABASE_URL", "")
 OWNER_ID = "REDACTED_OWNER_ID"
 
 def fetch_j(path):
@@ -379,7 +401,7 @@ import json, os, glob, urllib.request
 from datetime import datetime, timezone, timedelta
 
 PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
-SB_URL = "https://untlhymtrpkmiutwkpyh.supabase.co"
+SB_URL = os.environ.get("NUMBRS_SUPABASE_URL", "")
 SB_KEY = os.environ.get("SB_KEY_CLAUDE", os.environ.get("NUMBRS_SUPABASE_SERVICE_KEY", ""))
 OWNER_ID = "REDACTED_OWNER_ID"
 
@@ -452,7 +474,7 @@ import json, os, glob, urllib.request
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-SB_URL = "https://untlhymtrpkmiutwkpyh.supabase.co"
+SB_URL = os.environ.get("NUMBRS_SUPABASE_URL", "")
 SB_KEY = os.environ.get("NUMBRS_SUPABASE_SERVICE_KEY", "")
 OWNER_ID = "REDACTED_OWNER_ID"
 SESSIONS_DIR = os.path.expanduser("~/.openclaw/agents/main/sessions")
