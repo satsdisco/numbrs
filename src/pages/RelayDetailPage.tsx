@@ -203,6 +203,7 @@ export default function RelayDetailPage() {
               label: "Volatility",
               value: volatility,
               className: VOLATILITY_COLORS[volatility],
+              tooltip: "Volatility measures how consistent connect latency is. Low = stable, Medium = some variance, High = erratic response times even when the relay is reachable. Calculated as stddev ÷ mean (low < 20%, medium < 50%, high ≥ 50%).",
             },
             {
               label: "Trend",
@@ -210,21 +211,34 @@ export default function RelayDetailPage() {
               className: TREND_COLORS[trend],
             },
             { label: "Checks", value: String(h.total_checks) },
-          ].map((item) => (
-            <div key={item.label} className="rounded-lg border border-border bg-card p-3">
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                {item.label}
-              </span>
-              <div
-                className={cn(
-                  "font-mono text-sm tabular-nums mt-1",
-                  (item as any).className || "text-foreground"
-                )}
-              >
-                {item.value}
+          ].map((item) =>
+            (item as any).tooltip ? (
+              <Tooltip key={item.label}>
+                <TooltipTrigger asChild>
+                  <div className="rounded-lg border border-border bg-card p-3">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      {item.label}
+                    </span>
+                    <div className={cn("font-mono text-sm tabular-nums mt-1", (item as any).className || "text-foreground")}>
+                      {item.value}
+                    </div>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-64 text-xs">
+                  {(item as any).tooltip}
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <div key={item.label} className="rounded-lg border border-border bg-card p-3">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {item.label}
+                </span>
+                <div className={cn("font-mono text-sm tabular-nums mt-1", (item as any).className || "text-foreground")}>
+                  {item.value}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          )}
         </div>
       )}
 

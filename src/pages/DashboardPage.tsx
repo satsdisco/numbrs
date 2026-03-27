@@ -213,7 +213,7 @@ function RelayCard({
               {volatility === "unknown" ? "—" : volatility}
             </span>
           }
-          tooltip="Latency stability: coefficient of variation of connect latency (low < 20%, medium < 50%, high > 50%)"
+          tooltip="Volatility measures how consistent connect latency is. Low = stable, Medium = some variance, High = erratic response times even when the relay is reachable. Calculated as stddev ÷ mean (low < 20%, medium < 50%, high ≥ 50%)."
         />
         <Stat
           label="Trend"
