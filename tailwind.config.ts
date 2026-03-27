@@ -97,10 +97,15 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        "live-pulse": {
+          "0%, 100%": { opacity: "1", transform: "scale(1)" },
+          "50%": { opacity: "0.4", transform: "scale(0.75)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "live-pulse": "live-pulse 1.5s ease-in-out infinite",
       },
       transitionTimingFunction: {
         "smooth": "cubic-bezier(0.25, 0.1, 0.25, 1)",
