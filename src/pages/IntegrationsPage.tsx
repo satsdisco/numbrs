@@ -881,9 +881,10 @@ function VercelCard({ integration }: { integration: UserIntegration | undefined 
 // ─── Server-side integrations section ─────────────────────────────────────────
 
 function ServerSideIntegrations() {
-  const { data: integrations = [], isLoading } = useQuery({
+  const { data: integrations = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["user-integrations"],
     queryFn: fetchIntegrations,
+    retry: 1,
   });
 
   const byProvider = Object.fromEntries(
@@ -895,6 +896,18 @@ function ServerSideIntegrations() {
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : isError ? (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-card py-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            Could not load server-side integrations. Please refresh.
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="text-xs text-primary hover:underline"
+          >
+            Retry
+          </button>
         </div>
       ) : (
         <>
