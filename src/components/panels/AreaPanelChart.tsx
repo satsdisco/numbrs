@@ -7,16 +7,25 @@ import {
   Tooltip,
   XAxis,
   YAxis,
+  ReferenceLine,
 } from "recharts";
 import { TimeseriesBucket } from "@/lib/types";
 import { format } from "date-fns";
 
+interface Annotation {
+  id: string;
+  label: string;
+  timestamp: string;
+  color?: string;
+}
+
 interface Props {
   data: TimeseriesBucket[];
   unit?: string;
+  annotations?: Annotation[];
 }
 
-export default function AreaPanelChart({ data, unit }: Props) {
+export default function AreaPanelChart({ data, unit, annotations }: Props) {
   const gradientId = useId();
   if (!data.length) {
     return (
@@ -87,6 +96,27 @@ export default function AreaPanelChart({ data, unit }: Props) {
           fill={`url(#areaFill-${gradientId})`}
           dot={false}
         />
+        {annotations?.map((ann) => {
+          const ts = new Date(ann.timestamp).getTime();
+          const nearest = chartData.reduce((prev, cur) =>
+            Math.abs(cur.time - ts) < Math.abs(prev.time - ts) ? cur : prev
+          );
+          return (
+            <ReferenceLine
+              key={ann.id}
+              x={nearest.label}
+              stroke={ann.color ?? "hsl(263.4, 70%, 50.4%)"}
+              strokeDasharray="4 2"
+              label={{
+                value: ann.label.slice(0, 20),
+                position: "insideTopRight",
+                fill: ann.color ?? "hsl(263.4, 70%, 50.4%)",
+                fontSize: 9,
+                fontFamily: "JetBrains Mono",
+              }}
+            />
+          );
+        })}
       </AreaChart>
     </ResponsiveContainer>
   );

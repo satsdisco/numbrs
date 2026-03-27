@@ -26,6 +26,8 @@ import ProfilePage from "@/pages/ProfilePage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
 import Onboarding, { isOnboardingComplete } from "@/components/Onboarding";
+import LeaderboardPage from "@/pages/LeaderboardPage";
+import EmbedPanelPage from "@/pages/EmbedPanelPage";
 
 const queryClient = new QueryClient();
 
@@ -86,6 +88,8 @@ const App = () => (
           <Routes>
             <Route path="/explore" element={<ExplorePage />} />
             <Route path="/shared/:token" element={<SharedDashboardPage />} />
+            <Route path="/leaderboard" element={<LeaderboardPage />} />
+            <Route path="/embed/panel/:panelId" element={<EmbedPanelPage />} />
             <Route path="/auth" element={<AuthRoutes />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { fetchRelays, fetchRelayHealth, triggerProbe } from "@/lib/api";
@@ -274,6 +274,14 @@ export default function DashboardPage() {
     enabled: !!relays && relays.length > 0,
   });
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["relays"] });
+      queryClient.invalidateQueries({ queryKey: ["relay-health"] });
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [queryClient]);
+
   const probeMutation = useMutation({
     mutationFn: triggerProbe,
     onSuccess: (data) => {
@@ -297,6 +305,10 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-success">
+            <span className="h-2 w-2 rounded-full bg-success animate-live-pulse" />
+            <span className="font-mono text-xs">Live</span>
+          </div>
           <TimeRangeSelector value={range} onChange={setRange} />
           <Button
             variant="outline"

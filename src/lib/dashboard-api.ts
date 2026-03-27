@@ -111,6 +111,16 @@ export async function deletePanel(id: string) {
   if (error) throw error;
 }
 
+export async function fetchPanelById(id: string): Promise<PanelRow | null> {
+  const { data, error } = await supabase
+    .from("panels")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data as unknown as PanelRow | null;
+}
+
 export async function updatePanelLayouts(
   panels: { id: string; layout: PanelLayout }[]
 ): Promise<void> {

@@ -14,6 +14,8 @@ import AreaPanelChart from "./AreaPanelChart";
 import BarPanelChart from "./BarPanelChart";
 import StatPanel from "./StatPanel";
 import GaugePanel from "./GaugePanel";
+import TablePanel from "./TablePanel";
+import HeatmapPanel from "./HeatmapPanel";
 
 interface PanelRendererProps {
   panel: PanelRow;
@@ -27,7 +29,7 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
   const metricKey = config.metric_key || "relay_latency_connect_ms";
   const relayId = config.relay_id || globalRelayId || undefined;
   const isGlobal = config.data_source === "global" || config.data_source === "custom";
-  const isChart = panel.panel_type === "line" || panel.panel_type === "area" || panel.panel_type === "bar";
+  const isChart = panel.panel_type === "line" || panel.panel_type === "area" || panel.panel_type === "bar" || panel.panel_type === "table" || panel.panel_type === "heatmap";
   const isStat = panel.panel_type === "stat" || panel.panel_type === "gauge";
   const isStatOnly = panel.panel_type === "stat";
   const wantsLatest = config.stat_field === "latest";
@@ -87,8 +89,10 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="flex h-full animate-pulse items-end gap-1">
+        {[40, 65, 55, 80, 45, 70, 60, 85, 50, 75].map((h, i) => (
+          <div key={i} className="flex-1 rounded-sm bg-muted" style={{ height: `${h}%` }} />
+        ))}
       </div>
     );
   }
@@ -114,11 +118,15 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
 
   switch (panel.panel_type) {
     case "line":
-      return <LinePanelChart data={tsData || []} unit={config.unit} />;
+      return <LinePanelChart data={tsData || []} unit={config.unit} annotations={config.annotations} />;
     case "area":
-      return <AreaPanelChart data={tsData || []} unit={config.unit} />;
+      return <AreaPanelChart data={tsData || []} unit={config.unit} annotations={config.annotations} />;
     case "bar":
       return <BarPanelChart data={tsData || []} unit={config.unit} />;
+    case "table":
+      return <TablePanel data={tsData || []} unit={config.unit} />;
+    case "heatmap":
+      return <HeatmapPanel data={tsData || []} unit={config.unit} metricKey={metricKey} />;
     case "stat":
       return (
         <StatPanel

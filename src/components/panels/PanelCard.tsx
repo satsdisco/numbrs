@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { GripVertical, Settings, Trash2, Info } from "lucide-react";
+import { GripVertical, Settings, Trash2, Info, Code2 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { PanelRow } from "@/lib/dashboard-types";
 import { METRIC_CATALOG } from "@/lib/dashboard-types";
 import type { TimeRange } from "@/lib/types";
 import PanelRenderer from "./PanelRenderer";
+import SkeletonChart from "@/components/SkeletonChart";
 import {
   Tooltip,
   TooltipContent,
@@ -16,6 +18,7 @@ interface Props {
   globalTimeRange: TimeRange;
   globalRelayId?: string | null;
   isEditing: boolean;
+  isLoading?: boolean;
   onDelete?: () => void;
   onSettings?: () => void;
 }
@@ -57,10 +60,15 @@ export default function PanelCard({
   globalTimeRange,
   globalRelayId,
   isEditing,
+  isLoading,
   onDelete,
   onSettings,
 }: Props) {
   const [hovered, setHovered] = useState(false);
+
+  if (isLoading) {
+    return <SkeletonChart />;
+  }
 
   const metricKey = panel.config?.metric_key;
   const statField = panel.config?.stat_field;
@@ -97,6 +105,26 @@ export default function PanelCard({
                 <p className="font-mono text-[10px] text-muted-foreground mb-1">{metricKey}</p>
                 <p>{infoText}</p>
               </TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* Embed button — visible on hover */}
+          {hovered && !isEditing && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => {
+                    const url = window.location.origin + "/embed/panel/" + panel.id;
+                    navigator.clipboard.writeText(url).then(() => {
+                      toast.success("Embed URL copied!");
+                    });
+                  }}
+                  className="rounded p-0.5 text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+                >
+                  <Code2 className="h-3 w-3" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">Copy embed URL</TooltipContent>
             </Tooltip>
           )}
 

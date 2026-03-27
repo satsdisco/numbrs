@@ -64,19 +64,17 @@ export default function RelaysPage() {
           </div>
         </div>
       ) : !relays || relays.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 py-20 text-center">
-          <Radio className="h-10 w-10 text-muted-foreground mb-4" />
-          <h2 className="text-lg font-medium text-foreground mb-2">No relays yet</h2>
-          <p className="text-metric-sm text-muted-foreground mb-2 max-w-sm">
-            Add a Nostr relay to start tracking latency, uptime, and health scores automatically.
-          </p>
-          <p className="text-xs text-muted-foreground mb-6">
-            Want to push custom metrics instead?{" "}
-            <Link to="/integrations" className="text-primary hover:underline">View integrations →</Link>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="mb-4 rounded-full bg-muted p-4">
+            <Radio className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <h3 className="font-mono text-lg font-semibold text-foreground mb-2">No relays monitored</h3>
+          <p className="text-metric-sm text-muted-foreground mb-6 max-w-sm">
+            Add a Nostr relay to start tracking uptime, latency, and performance
           </p>
           <Link to="/relays/new">
             <Button className="gap-1.5">
-              <Plus className="h-4 w-4" /> Add your first relay
+              <Plus className="h-4 w-4" /> Add Relay
             </Button>
           </Link>
         </div>

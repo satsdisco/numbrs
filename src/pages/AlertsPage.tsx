@@ -130,14 +130,16 @@ export default function AlertsPage() {
               ))}
             </div>
           ) : !rules || rules.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 py-16">
-              <Bell className="h-10 w-10 text-muted-foreground mb-4" />
-              <h2 className="text-lg font-medium text-foreground mb-2">No alert rules</h2>
-              <p className="text-sm text-muted-foreground mb-6 max-w-md text-center">
-                Create rules to monitor relay latency, uptime, and more.
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="mb-4 rounded-full bg-muted p-4">
+                <Bell className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <h3 className="font-mono text-lg font-semibold text-foreground mb-2">No alert rules</h3>
+              <p className="text-metric-sm text-muted-foreground mb-6 max-w-sm">
+                Set up alerts to get notified when relays go down or metrics cross thresholds
               </p>
               <Button onClick={() => setShowCreate(true)} className="gap-1.5">
-                <Plus className="h-4 w-4" /> Create Alert Rule
+                <Plus className="h-4 w-4" /> Create Alert
               </Button>
             </div>
           ) : (

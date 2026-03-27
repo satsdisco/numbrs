@@ -23,6 +23,7 @@ import {
   MoreHorizontal,
   Compass,
   Settings,
+  Trophy,
 } from "lucide-react";
 
 function NumbrsLogo({ className }: { className?: string }) {
@@ -51,6 +52,7 @@ const navItems = [
   { path: "/api-keys", label: "API Keys", icon: Key },
   { path: "/integrations", label: "Integrations", icon: Plug },
   { path: "/explore", label: "Explore", icon: Globe },
+  { path: "/leaderboard", label: "Leaderboard", icon: Trophy },
 ];
 
 const bottomNavItems = [

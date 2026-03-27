@@ -203,6 +203,17 @@ export async function triggerProbe() {
   return data;
 }
 
+// ─── All Public Relays (for leaderboard) ───────────────────────────────────────
+
+export async function fetchAllPublicRelays(): Promise<RelayRow[]> {
+  const { data, error } = await supabase
+    .from("relays")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as unknown as RelayRow[]) || [];
+}
+
 // ─── Latest Datapoint (most recent value for a metric) ─────────────────────────
 
 export async function fetchLatestDatapoint(

@@ -11,7 +11,7 @@ export interface DashboardRow {
   updated_at: string;
 }
 
-export type PanelType = "line" | "area" | "bar" | "stat" | "gauge";
+export type PanelType = "line" | "area" | "bar" | "stat" | "gauge" | "table" | "heatmap";
 
 export type DataSourceMode = "relay" | "global" | "custom";
 
@@ -31,6 +31,8 @@ export interface PanelConfig {
   gauge_max?: number;
   /** For gauge panels — when false, high values are good (e.g. uptime). Default: true (high = bad). */
   gauge_invert_colors?: boolean;
+  /** Chart annotations — vertical reference lines at specific timestamps */
+  annotations?: Array<{ id: string; label: string; timestamp: string; color?: string }>;
 }
 
 export interface PanelLayout {
@@ -57,6 +59,8 @@ export const PANEL_TYPE_OPTIONS: { value: PanelType; label: string; description:
   { value: "bar", label: "Bar Chart", description: "Vertical bar chart" },
   { value: "stat", label: "Stat Number", description: "Single big number" },
   { value: "gauge", label: "Gauge", description: "Circular gauge meter" },
+  { value: "table", label: "Table", description: "Raw data table" },
+  { value: "heatmap", label: "Heatmap", description: "Activity/uptime heatmap" },
 ];
 
 export const DEFAULT_PANEL_LAYOUTS: Record<PanelType, PanelLayout> = {
@@ -65,6 +69,8 @@ export const DEFAULT_PANEL_LAYOUTS: Record<PanelType, PanelLayout> = {
   bar: { x: 0, y: 0, w: 6, h: 4 },
   stat: { x: 0, y: 0, w: 3, h: 2 },
   gauge: { x: 0, y: 0, w: 3, h: 3 },
+  table: { x: 0, y: 0, w: 6, h: 4 },
+  heatmap: { x: 0, y: 0, w: 6, h: 3 },
 };
 
 // ─── Metric categories for the panel dialog ─────────────────────────────────

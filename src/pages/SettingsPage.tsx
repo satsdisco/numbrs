@@ -11,6 +11,10 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import SetupPage from "@/pages/SetupPage";
 
+function isValidNpub(value: string): boolean {
+  return value === "" || (value.startsWith("npub1") && value.length >= 60 && value.length <= 70);
+}
+
 const THEME_KEY = "numbrs-theme";
 
 type Theme = "dark" | "light" | "system";
@@ -41,6 +45,9 @@ export default function SettingsPage() {
   const [displayNameInput, setDisplayNameInput] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [npubInput, setNpubInput] = useState(
+    () => user?.user_metadata?.nostr_npub ?? ""
+  );
 
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
@@ -72,6 +79,17 @@ export default function SettingsPage() {
       toast.success("Display name saved");
       queryClient.invalidateQueries({ queryKey: ["profile"] });
     },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const saveNpub = useMutation({
+    mutationFn: async (npub: string) => {
+      const { error } = await supabase.auth.updateUser({
+        data: { nostr_npub: npub },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => toast.success("Nostr npub saved"),
     onError: (err: Error) => toast.error(err.message),
   });
 
@@ -172,6 +190,47 @@ export default function SettingsPage() {
               size="sm"
             >
               Save
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Nostr Alerts */}
+      <div className="rounded-lg border border-border bg-card p-5 space-y-4">
+        <div>
+          <h3 className="text-metric-sm font-semibold text-foreground">Nostr Alerts</h3>
+          <p className="text-metric-sm text-muted-foreground mt-1">
+            When enabled, you will receive Nostr DMs (NIP-04) when alert rules fire.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <div className="flex-1 space-y-1.5">
+            <Label htmlFor="nostr-npub" className="text-metric-sm">
+              Nostr npub (for DM alerts)
+            </Label>
+            <Input
+              id="nostr-npub"
+              value={npubInput}
+              onChange={(e) => setNpubInput(e.target.value)}
+              placeholder="npub1..."
+              className={cn(
+                "bg-background font-mono text-xs",
+                npubInput && !isValidNpub(npubInput) && "border-destructive"
+              )}
+            />
+            {npubInput && !isValidNpub(npubInput) && (
+              <p className="text-[11px] text-destructive">
+                Must start with "npub1" and be approximately 63 characters
+              </p>
+            )}
+          </div>
+          <div className="flex items-end">
+            <Button
+              onClick={() => saveNpub.mutate(npubInput)}
+              disabled={saveNpub.isPending || !isValidNpub(npubInput)}
+              size="sm"
+            >
+              {saveNpub.isPending ? "Saving…" : "Save"}
             </Button>
           </div>
         </div>
