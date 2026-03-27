@@ -934,7 +934,9 @@ function OpenClawTab({ range }: { range: Range }) {
         </p>
 
         {heatmapRows.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No data</p>
+          <p className="text-xs text-muted-foreground">
+            No heatmap data yet — check back after 7+ days of usage.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <div className="min-w-[520px]">
