@@ -67,15 +67,21 @@ const axisStyle = {
   tickLine: false as const,
 };
 
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  play: "Playing",
+  stop: "Played",
+};
+
 function EventTypeBadge({ eventType }: { eventType: string }) {
   const styles: Record<string, string> = {
     play: "bg-green-500/15 text-green-400",
     stop: "bg-muted/60 text-muted-foreground",
   };
   const cls = styles[eventType] ?? "bg-muted/60 text-muted-foreground";
+  const label = EVENT_TYPE_LABELS[eventType] ?? eventType;
   return (
     <span className={cn("rounded px-1.5 py-0.5 font-mono text-[10px] font-medium shrink-0", cls)}>
-      {eventType}
+      {label}
     </span>
   );
 }
