@@ -73,9 +73,11 @@ export interface MetricStats {
   total_count: number;
 }
 
-export type TimeRange = "1h" | "6h" | "24h" | "7d" | "30d";
+export type TimeRange = "live" | "1h" | "6h" | "24h" | "7d" | "30d";
 
 export const TIME_RANGE_CONFIG: Record<TimeRange, { label: string; seconds: number; intervalSeconds: number }> = {
+  // "live" uses the last 15 minutes with per-minute buckets and auto-refreshes
+  "live": { label: "Live", seconds: 900, intervalSeconds: 60 },
   "1h": { label: "1 Hour", seconds: 3600, intervalSeconds: 60 },
   "6h": { label: "6 Hours", seconds: 21600, intervalSeconds: 300 },
   "24h": { label: "24 Hours", seconds: 86400, intervalSeconds: 300 },

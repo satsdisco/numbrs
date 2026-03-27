@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchRelayById,
   fetchRelayHealth,
@@ -40,7 +40,19 @@ const SCORE_BG = {
 export default function RelayDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [range, setRange] = useState<TimeRange>("24h");
+  const queryClient = useQueryClient();
+  const [range, setRange] = useState<TimeRange>("live");
+
+  // Auto-refresh every 30s in Live mode
+  useEffect(() => {
+    if (range !== "live") return;
+    const interval = setInterval(() => {
+      queryClient.invalidateQueries({ queryKey: ["relay-health", id] });
+      queryClient.invalidateQueries({ queryKey: ["relay-summary", id] });
+      queryClient.invalidateQueries({ queryKey: ["relay-ts", id] });
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [range, id, queryClient]);
 
   const { data: relay, isLoading: relayLoading } = useQuery({
     queryKey: ["relay", id],
