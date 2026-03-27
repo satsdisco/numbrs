@@ -6,10 +6,11 @@ import { scoreColor, formatMs, formatPct, type ScoreColor } from "@/lib/health";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Activity, Search, ArrowUpDown, Globe, Zap, Shield, Clock } from "lucide-react";
+import { Activity, Search, ArrowUpDown, Globe, Zap, Shield, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 interface DirectoryRelay {
   relay_id: string;
@@ -49,6 +50,7 @@ const TIME_OPTIONS: { value: TimeRange; label: string }[] = [
 ];
 
 export default function ExplorePage() {
+  const { user } = useAuth();
   const [range, setRange] = useState<TimeRange>("24h");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortField>("health_score");
@@ -104,6 +106,19 @@ export default function ExplorePage() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Back to Dashboard link for authenticated users */}
+      {user && (
+        <div className="mx-auto max-w-6xl px-4 pt-4 sm:px-6 lg:px-8">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors font-mono"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to Dashboard
+          </Link>
+        </div>
+      )}
+
       {/* Hero */}
       <div className="relative overflow-hidden border-b border-border">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/3" />
@@ -184,12 +199,14 @@ export default function ExplorePage() {
               </button>
             ))}
           </div>
-          <Link to="/auth">
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <Zap className="h-3.5 w-3.5" />
-              Sign In
-            </Button>
-          </Link>
+          {!user && (
+            <Link to="/auth">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <Zap className="h-3.5 w-3.5" />
+                Sign In
+              </Button>
+            </Link>
+          )}
         </div>
 
         {/* Table */}

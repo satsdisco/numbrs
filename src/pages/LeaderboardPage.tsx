@@ -5,6 +5,7 @@ import { fetchAllPublicRelays, fetchRelayHealth } from "@/lib/api";
 import type { RelayRow } from "@/lib/types";
 import type { RelayHealthRow } from "@/lib/health";
 import { formatMs, formatPct } from "@/lib/health";
+import { useAuth } from "@/hooks/useAuth";
 
 // ─── Colour helpers ─────────────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ interface LeaderboardRow {
 }
 
 export default function LeaderboardPage() {
+  const { user } = useAuth();
   const [now, setNow] = useState(Date.now());
 
   // Tick every minute to update "last updated" display
@@ -110,6 +112,14 @@ export default function LeaderboardPage() {
       <header className="border-b border-border bg-sidebar">
         <div className="mx-auto max-w-6xl px-6 py-5 flex items-start justify-between gap-4">
           <div>
+            {user && (
+              <Link
+                to="/"
+                className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors font-mono mb-2"
+              >
+                ← Back to Dashboard
+              </Link>
+            )}
             <h1 className="font-mono text-2xl font-bold text-foreground tracking-tight">
               ⚡ Relay Leaderboard
             </h1>
