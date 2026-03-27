@@ -675,7 +675,9 @@ function OpenClawTab({ range }: { range: Range }) {
       agg[m].output_tokens += r.output_tokens || 0;
       agg[m].cost_usd += Number(r.cost_usd) || 0;
     }
-    const sorted = Object.entries(agg).sort(([, a], [, b]) => b.output_tokens - a.output_tokens);
+    const sorted = Object.entries(agg)
+      .filter(([, v]) => v.output_tokens > 0 || v.cost_usd > 0)
+      .sort(([, a], [, b]) => b.output_tokens - a.output_tokens);
     const totalOut = sorted.reduce((s, [, v]) => s + v.output_tokens, 0) || 1;
     return sorted.map(([model, vals]) => ({
       model,
