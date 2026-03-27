@@ -24,6 +24,11 @@ import TimeRangeSelector from "@/components/TimeRangeSelector";
 import TimeseriesChart from "@/components/TimeseriesChart";
 import StatsGrid from "@/components/StatsGrid";
 import { ArrowLeft } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const SCORE_BG = {
@@ -137,14 +142,22 @@ export default function RelayDetailPage() {
                 {relay.name}
               </h1>
               {score !== null && color && (
-                <span
-                  className={cn(
-                    "inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-xs font-bold tabular-nums",
-                    SCORE_BG[color]
-                  )}
-                >
-                  {score}
-                </span>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span
+                      className={cn(
+                        "inline-flex items-center rounded-md border px-2 py-0.5 font-mono text-xs font-bold tabular-nums",
+                        SCORE_BG[color]
+                      )}
+                    >
+                      {score}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-60 text-xs">
+                    Score out of 100 — weighted: Uptime 40%, Connect Latency
+                    30%, Failures 30%. Higher is healthier.
+                  </TooltipContent>
+                </Tooltip>
               )}
               {isUp !== null && (
                 <span

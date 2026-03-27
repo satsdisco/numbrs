@@ -89,8 +89,8 @@ function HealthBadge({ score }: { score: number }) {
         </span>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-60 text-xs">
-        Composite health score (0–100) based on uptime, p95 latency, and failure
-        rate.
+        Score out of 100 — weighted: Uptime 40%, Connect Latency 30%, Failures
+        30%. Higher is healthier.
       </TooltipContent>
     </Tooltip>
   );
