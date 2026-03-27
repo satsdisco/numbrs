@@ -185,10 +185,19 @@ for name, proj_id in projects.items():
         d = json.loads(resp.read())
         deps = d.get("deployments", [])
         count = len(deps)
-        build_times = [(x["ready"] - x["buildingAt"]) / 1000 for x in deps if x.get("buildingAt") and x.get("ready")]
-        avg_build = int(sum(build_times) / len(build_times)) if build_times else 0
+        # Vercel timestamps (buildingAt, ready) are Unix milliseconds.
+        # Divide by 1000 to get seconds, then multiply back to store as ms.
+        # Skip deployments missing either timestamp (e.g. cached/skipped builds).
+        build_times = [
+            (x["ready"] - x["buildingAt"]) / 1000
+            for x in deps
+            if x.get("buildingAt") and x.get("ready") and x["ready"] > x["buildingAt"]
+        ]
         push(f"deploy.{name}.count", count, f"{name} Deploys", "deploys")
-        push(f"build.{name}.duration_ms", avg_build * 1000, f"{name} Avg Build Time", "ms")
+        # Only push build time when we have real data — avoids storing 0ms fallback
+        if build_times:
+            avg_build_ms = int(sum(build_times) / len(build_times)) * 1000
+            push(f"build.{name}.duration_ms", avg_build_ms, f"{name} Avg Build Time", "ms")
     except: pass
 PYEOF
 fi
