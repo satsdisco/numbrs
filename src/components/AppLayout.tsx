@@ -40,6 +40,8 @@ import { pubkeyToNpub } from "@/lib/nostr";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
+// Notifications page and its alt+T shortcut are intentionally not included —
+// feature not yet implemented (see issue #5).
 const navItems = [
   { path: "/", label: "Relay Health", icon: LayoutDashboard },
   { path: "/dashboards", label: "Dashboards", icon: LayoutGrid },
