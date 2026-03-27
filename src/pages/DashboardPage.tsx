@@ -153,12 +153,26 @@ function RelayCard({
   const score = computeHealthScore(h);
   const volatility = getVolatility(h.connect_stddev, h.connect_avg);
   const trend = getTrend(h.connect_p50, h.prev_connect_p50);
+  const up = h.uptime_pct !== null && h.uptime_pct >= 50;
+  const isOffline = !up && h.connect_p50 === null;
 
   return (
     <Link
       to={`/relays/${relay.id}`}
-      className="group rounded-lg border border-border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-card"
+      className={cn(
+        "group rounded-lg border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-card",
+        isOffline
+          ? "border-destructive/20 opacity-60"
+          : "border-border"
+      )}
     >
+      {/* Offline banner */}
+      {isOffline && (
+        <div className="mb-3 -mt-1 flex items-center gap-1.5 rounded-md bg-destructive/10 px-2 py-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+          <span className="text-[11px] font-medium text-destructive">Offline / Unreachable</span>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="min-w-0 flex-1 mr-2">
@@ -176,7 +190,7 @@ function RelayCard({
       </div>
 
       {/* Row 1: Latency + Uptime */}
-      <div className="grid grid-cols-3 gap-x-3 gap-y-3 mb-3">
+      <div className={cn("grid grid-cols-3 gap-x-3 gap-y-3 mb-3", isOffline && "opacity-50")}>
         <Stat label="Connect P50" value={formatMs(h.connect_p50)} />
         <Stat label="Connect P95" value={formatMs(h.connect_p95)} />
         <Stat
@@ -187,7 +201,7 @@ function RelayCard({
       </div>
 
       {/* Row 2: Event latency + Failures */}
-      <div className="grid grid-cols-3 gap-x-3 gap-y-3 mb-3">
+      <div className={cn("grid grid-cols-3 gap-x-3 gap-y-3 mb-3", isOffline && "opacity-50")}>
         <Stat label="Event P50" value={formatMs(h.event_p50)} />
         <Stat label="Event P95" value={formatMs(h.event_p95)} />
         <Stat
@@ -205,7 +219,7 @@ function RelayCard({
       </div>
 
       {/* Row 3: Derived metrics */}
-      <div className="grid grid-cols-3 gap-x-3 border-t border-border pt-3">
+      <div className={cn("grid grid-cols-3 gap-x-3 border-t border-border pt-3", isOffline && "opacity-50")}>
         <Stat
           label="Volatility"
           value={
