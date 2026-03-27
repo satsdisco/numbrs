@@ -263,7 +263,7 @@ export default function RelayDetailPage() {
       {/* Uptime */}
       <section className="space-y-3">
         <h2 className="font-mono text-sm font-medium text-foreground">
-          Uptime (1 = up, 0 = down)
+          Availability Over Time
         </h2>
         <TimeseriesChart data={uptimeTs || []} />
         <StatsGrid stats={toStats(upMetric)} />
