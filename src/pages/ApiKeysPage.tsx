@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Copy, Check } from "lucide-react";
+import { Plus, Trash2, Copy, Check, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ApiKeysPage() {
@@ -13,6 +13,18 @@ export default function ApiKeysPage() {
   const queryClient = useQueryClient();
   const [newKeyName, setNewKeyName] = useState("Default");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+
+  const toggleReveal = (id: string) => {
+    setRevealedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const maskKey = (key: string) => key.slice(0, 8) + "••••••••••••";
 
   const { data: keys, isLoading } = useQuery({
     queryKey: ["api-keys"],
@@ -46,11 +58,11 @@ export default function ApiKeysPage() {
   };
 
   const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
-  const exampleCurl = (key: string) =>
+  const exampleCurl = () =>
     `curl -X POST \\
   https://${projectId}.supabase.co/functions/v1/ingest \\
   -H "Content-Type: application/json" \\
-  -H "X-API-KEY: ${key}" \\
+  -H "X-API-KEY: YOUR_API_KEY" \\
   -d '{
     "metric_key": "relay_latency_connect_ms",
     "relay_url": "wss://relay.damus.io",
@@ -134,8 +146,21 @@ export default function ApiKeysPage() {
                 </div>
               </div>
 
-              <div className="font-mono text-metric-sm text-muted-foreground bg-background rounded px-3 py-2 break-all">
-                {k.key}
+              <div className="flex items-center gap-2">
+                <div className="flex-1 font-mono text-metric-sm text-muted-foreground bg-background rounded px-3 py-2 break-all">
+                  {revealedIds.has(k.id) ? k.key : maskKey(k.key)}
+                </div>
+                <button
+                  onClick={() => toggleReveal(k.id)}
+                  className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                  title={revealedIds.has(k.id) ? "Hide key" : "Show key"}
+                >
+                  {revealedIds.has(k.id) ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
 
               <details className="group">
@@ -143,7 +168,7 @@ export default function ApiKeysPage() {
                   Show example curl command
                 </summary>
                 <pre className="mt-2 overflow-x-auto rounded bg-background p-3 text-[11px] font-mono text-muted-foreground leading-relaxed">
-                  {exampleCurl(k.key)}
+                  {exampleCurl()}
                 </pre>
               </details>
             </div>
