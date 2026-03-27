@@ -456,12 +456,26 @@ for project_dir in glob.glob(f"{PROJECTS_DIR}/*/"):
         except: pass
         if stats["messages"] > 0 and stats["date"]:
             data = json.dumps(stats).encode()
-            req = urllib.request.Request(f"{SB_URL}/rest/v1/claude_usage", data=data,
+            # Try PATCH (update) first; fall back to POST (insert) if not found
+            update_data = {k: v for k, v in stats.items() if k not in ("session_id", "owner_id")}
+            patch_data = json.dumps(update_data).encode()
+            patch_url = f"{SB_URL}/rest/v1/claude_usage?session_id=eq.{stats['session_id']}&owner_id=eq.{OWNER_ID}"
+            patch_req = urllib.request.Request(patch_url, data=patch_data, method="PATCH",
                 headers={"apikey": SB_KEY, "Authorization": f"Bearer {SB_KEY}",
-                         "Content-Type": "application/json", "Prefer": "return=minimal,resolution=merge-duplicates"})
+                         "Content-Type": "application/json", "Prefer": "return=representation"})
             try:
-                urllib.request.urlopen(req)
-                ok += 1
+                import urllib.error
+                resp = urllib.request.urlopen(patch_req)
+                result = json.loads(resp.read().decode())
+                if result:  # PATCH matched a row
+                    ok += 1
+                else:
+                    # Row doesn't exist yet — INSERT
+                    ins_req = urllib.request.Request(f"{SB_URL}/rest/v1/claude_usage", data=data,
+                        headers={"apikey": SB_KEY, "Authorization": f"Bearer {SB_KEY}",
+                                 "Content-Type": "application/json", "Prefer": "return=minimal"})
+                    urllib.request.urlopen(ins_req)
+                    ok += 1
             except: pass
 
 print(f"Claude usage: synced {ok} sessions")
@@ -544,24 +558,28 @@ for jsonl in glob.glob(f"{SESSIONS_DIR}/*.jsonl"):
 
     if stats["messages"] > 0 and stats["date"]:
         update = {k: v for k, v in stats.items() if k not in ("session_id","owner_id")}
-        data = json.dumps(update).encode()
+        patch_data = json.dumps(update).encode()
         url = f"{SB_URL}/rest/v1/openclaw_usage?session_id=eq.{session_id}&owner_id=eq.{OWNER_ID}"
-        req = urllib.request.Request(url, data=data, method="PATCH",
+        patch_req = urllib.request.Request(url, data=patch_data, method="PATCH",
             headers={"apikey": SB_KEY, "Authorization": f"Bearer {SB_KEY}",
-                     "Content-Type": "application/json", "Prefer": "return=minimal"})
+                     "Content-Type": "application/json", "Prefer": "return=representation"})
         try:
-            urllib.request.urlopen(req)
-            ok += 1
-        except:
-            # New session — insert
-            insert_data = json.dumps(stats).encode()
-            ireq = urllib.request.Request(f"{SB_URL}/rest/v1/openclaw_usage", data=insert_data,
-                headers={"apikey": SB_KEY, "Authorization": f"Bearer {SB_KEY}",
-                         "Content-Type": "application/json", "Prefer": "return=minimal"})
-            try:
-                urllib.request.urlopen(ireq)
+            import urllib.error
+            resp = urllib.request.urlopen(patch_req)
+            result = json.loads(resp.read().decode())
+            if result:  # PATCH matched a row — updated
                 ok += 1
-            except: pass
+            else:
+                # Row doesn't exist yet — INSERT
+                insert_data = json.dumps(stats).encode()
+                ireq = urllib.request.Request(f"{SB_URL}/rest/v1/openclaw_usage", data=insert_data,
+                    headers={"apikey": SB_KEY, "Authorization": f"Bearer {SB_KEY}",
+                             "Content-Type": "application/json", "Prefer": "return=minimal"})
+                try:
+                    urllib.request.urlopen(ireq)
+                    ok += 1
+                except: pass
+        except: pass
 
 print(f"OpenClaw usage: synced {ok} sessions")
 PYEOF
