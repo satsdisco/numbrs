@@ -154,11 +154,11 @@ done
 VT=$(cat ~/Library/Application\ Support/com.vercel.cli/auth.json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin)['token'])" 2>/dev/null)
 if [ -n "$VT" ]; then
   python3 << PYEOF
-import json, urllib.request, sys
+import json, urllib.request, sys, os
 
 VT = "$VT"
-INGEST = "$NUMBRS_INGEST"
-NUMBRS_KEY = "$NUMBRS_API_KEY"
+INGEST = os.environ.get("NUMBRS_INGEST", "")
+NUMBRS_KEY = os.environ.get("NUMBRS_API_KEY", "")
 TEAM = "team_vUSmyYIKj6RowEoobVetZiko"
 
 projects = {
@@ -211,13 +211,13 @@ done
 
 # ── Nostr Follower Counts (via WebSocket relay query) ────────────────────────
 python3 << 'NOSTR_WS'
-import websocket, json, threading, urllib.request
+import websocket, json, threading, urllib.request, os
 
 BENDER_HEX = "e1832d86685f04e32eb66062e1ba6e629d6d488c9c3a521311a436e034f7c28a"
 SATSDISCO_HEX = "47276eb163fc54b3733930ab5cfd5fa94687a1953871a873ad4faee91e8a5f38"
 RELAY = "wss://relay.damus.io"
-INGEST = "$NUMBRS_INGEST"
-KEY = "$NUMBRS_API_KEY"
+INGEST = os.environ.get("NUMBRS_INGEST", "")
+KEY = os.environ.get("NUMBRS_API_KEY", "")
 
 def push(k, v, name):
     data = json.dumps({"key": k, "value": v, "name": name, "unit": ""}).encode()
@@ -265,12 +265,12 @@ push "plex.active_streams" "$PLEX_STREAMS" "Plex Active Streams" ""
 
 # Library counts
 python3 << PLEX_PY
-import urllib.request, json
+import urllib.request, json, os
 
-TOKEN = "$PLEX_TOKEN"
-URL = "$PLEX_URL"
-INGEST = "$NUMBRS_INGEST"
-KEY = "$NUMBRS_API_KEY"
+TOKEN = os.environ.get("PLEX_TOKEN", "")
+URL = os.environ.get("PLEX_URL", "")
+INGEST = os.environ.get("NUMBRS_INGEST", "")
+KEY = os.environ.get("NUMBRS_API_KEY", "")
 
 def push(k, v, name, unit=""):
     data = json.dumps({"key": k, "value": v, "name": name, "unit": unit}).encode()
@@ -303,8 +303,8 @@ python3 << 'JELLY_PY'
 import urllib.request, json, os
 from datetime import datetime, timedelta, timezone
 
-JURL = "$JELLYFIN_URL"
-JKEY = "$JELLYFIN_KEY"
+JURL = os.environ.get("JELLYFIN_URL", "http://localhost:8096")
+JKEY = os.environ.get("JELLYFIN_KEY", "")
 SB_KEY = os.environ.get("SB_KEY_JELLY") or os.environ.get("NUMBRS_SUPABASE_SERVICE_KEY", "")
 SB_URL = os.environ.get("NUMBRS_SUPABASE_URL", "")
 OWNER_ID = "REDACTED_OWNER_ID"
