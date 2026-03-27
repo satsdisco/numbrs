@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import { TimeseriesBucket } from "@/lib/types";
 import { format } from "date-fns";
+import { getCSSVar } from "@/contexts/ThemeContext";
 
 interface Annotation {
   id: string;
@@ -46,32 +47,37 @@ export default function LinePanelChart({ data, unit, annotations }: Props) {
     label: format(new Date(d.bucket), dateFormat),
   }));
 
+  const lineColor = `hsl(${getCSSVar("--chart-1")})`;
+  const borderColor = `hsl(${getCSSVar("--border")})`;
+  const mutedFgColor = `hsl(${getCSSVar("--muted-foreground")})`;
+  const cardColor = `hsl(${getCSSVar("--card")})`;
+
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(240, 3.7%, 20%)" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke={borderColor} vertical={false} />
         <XAxis
           dataKey="label"
-          tick={{ fill: "hsl(240, 5%, 64.9%)", fontSize: 9, fontFamily: "JetBrains Mono" }}
+          tick={{ fill: mutedFgColor, fontSize: 9, fontFamily: "JetBrains Mono" }}
           axisLine={false}
           tickLine={false}
           interval={tickInterval}
         />
         <YAxis
-          tick={{ fill: "hsl(240, 5%, 64.9%)", fontSize: 9, fontFamily: "JetBrains Mono" }}
+          tick={{ fill: mutedFgColor, fontSize: 9, fontFamily: "JetBrains Mono" }}
           axisLine={false}
           tickLine={false}
           width={40}
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: "hsl(240, 10%, 6%)",
-            border: "1px solid hsl(240, 3.7%, 15.9%)",
+            backgroundColor: cardColor,
+            border: `1px solid ${borderColor}`,
             borderRadius: "4px",
             fontFamily: "JetBrains Mono",
             fontSize: "11px",
           }}
-          labelStyle={{ color: "hsl(240, 5%, 64.9%)" }}
+          labelStyle={{ color: mutedFgColor }}
           formatter={(value: number) => [
             `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}${unit ? ` ${unit}` : ""}`,
             "avg",
@@ -80,26 +86,27 @@ export default function LinePanelChart({ data, unit, annotations }: Props) {
         <Line
           type="monotone"
           dataKey="avg_value"
-          stroke="hsl(263.4, 70%, 50.4%)"
+          stroke={lineColor}
           strokeWidth={2}
           dot={false}
-          activeDot={{ r: 3, fill: "hsl(263.4, 70%, 50.4%)" }}
+          activeDot={{ r: 3, fill: lineColor }}
         />
         {annotations?.map((ann) => {
           const ts = new Date(ann.timestamp).getTime();
           const nearest = chartData.reduce((prev, cur) =>
             Math.abs(cur.time - ts) < Math.abs(prev.time - ts) ? cur : prev
           );
+          const annotationColor = ann.color ?? lineColor;
           return (
             <ReferenceLine
               key={ann.id}
               x={nearest.label}
-              stroke={ann.color ?? "hsl(263.4, 70%, 50.4%)"}
+              stroke={annotationColor}
               strokeDasharray="4 2"
               label={{
                 value: ann.label.slice(0, 20),
                 position: "insideTopRight",
-                fill: ann.color ?? "hsl(263.4, 70%, 50.4%)",
+                fill: annotationColor,
                 fontSize: 9,
                 fontFamily: "JetBrains Mono",
               }}

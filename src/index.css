@@ -34,6 +34,12 @@
     --chart-3: 142 71% 45.3%;
     --chart-4: 38 92% 50%;
     --chart-5: 0 62.8% 50.6%;
+    --chart-6: 315 80% 60%;
+
+    /* Accent system — RGB components for use with rgb(var(--accent-primary) / alpha) */
+    --accent-primary: 124 58 237;
+    --accent-secondary: 109 40 217;
+    --accent-muted: 76 29 149;
 
     --sidebar-background: 240 10% 5%;
     --sidebar-foreground: 240 5% 64.9%;
