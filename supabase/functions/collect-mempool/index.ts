@@ -37,6 +37,11 @@ serve(async (req) => {
     // Convert hashrate from H/s to EH/s for readability
     const hashrateEHs = hashrate.currentHashrate / 1e18;
 
+    const HALVING_TARGET = 1_050_000;
+    const PREV_HALVING = 840_000;
+    const halvingBlocksRemaining = HALVING_TARGET - blockHeight;
+    const halvingProgressPct = ((blockHeight - PREV_HALVING) / 210_000) * 100;
+
     const metrics = [
       { key: "mempool.fees.fastest", value: fees.fastestFee, name: "Fastest Fee", unit: "sat/vB" },
       { key: "mempool.fees.half_hour", value: fees.halfHourFee, name: "Half-Hour Fee", unit: "sat/vB" },
@@ -48,6 +53,8 @@ serve(async (req) => {
       { key: "mempool.block_height", value: blockHeight, name: "Block Height", unit: "blocks" },
       { key: "mempool.tx_count", value: mempool.count, name: "Mempool TX Count", unit: "txs" },
       { key: "mempool.vsize", value: mempool.vsize, name: "Mempool vSize", unit: "vB" },
+      { key: "mempool.halving_blocks_remaining", value: halvingBlocksRemaining, name: "Halving Blocks Remaining", unit: "blocks" },
+      { key: "mempool.halving_progress_pct", value: halvingProgressPct, name: "Halving Progress", unit: "%" },
     ];
 
     // Find all users with an active mempool integration
