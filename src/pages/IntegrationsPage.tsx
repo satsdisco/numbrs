@@ -1225,6 +1225,34 @@ function WeatherCard({ integration }: { integration: UserIntegration | undefined
   const [longitude, setLongitude] = useState(
     String((integration?.config as any)?.longitude ?? "")
   );
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState("");
+
+  const geocodeLocation = async () => {
+    const q = locationName.trim();
+    if (!q) return;
+    setGeoLoading(true);
+    setGeoError("");
+    try {
+      const res = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`
+      );
+      const data = await res.json();
+      if (data.results?.length) {
+        const { latitude: lat, longitude: lon, name, country } = data.results[0];
+        setLatitude(String(lat));
+        setLongitude(String(lon));
+        setLocationName(`${name}, ${country}`);
+        setGeoError("");
+      } else {
+        setGeoError("Location not found — try a different name");
+      }
+    } catch {
+      setGeoError("Geocoding failed — enter coordinates manually");
+    } finally {
+      setGeoLoading(false);
+    }
+  };
 
   const upsertMutation = useMutation({
     mutationFn: () =>
@@ -1350,17 +1378,43 @@ function WeatherCard({ integration }: { integration: UserIntegration | undefined
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label htmlFor="weather-location">
-                Location name <span className="text-destructive">*</span>
+                Location <span className="text-destructive">*</span>
               </Label>
-              <Input
-                id="weather-location"
-                placeholder="Home"
-                value={locationName}
-                onChange={(e) => setLocationName(e.target.value)}
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="weather-location"
+                  placeholder="Prague, New York, Tokyo..."
+                  value={locationName}
+                  onChange={(e) => setLocationName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      geocodeLocation();
+                    }
+                  }}
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={geoLoading || !locationName.trim()}
+                  onClick={geocodeLocation}
+                  className="h-9 px-3 shrink-0"
+                >
+                  {geoLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    "Lookup"
+                  )}
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Used as a metric key prefix, e.g. <code className="font-mono bg-muted/50 px-1 rounded text-[11px]">weather.home.temperature</code>
+                Type a city name and hit <strong>Lookup</strong> to auto-fill coordinates.
               </p>
+              {geoError && (
+                <p className="text-xs text-destructive">{geoError}</p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -1369,7 +1423,7 @@ function WeatherCard({ integration }: { integration: UserIntegration | undefined
                 </Label>
                 <Input
                   id="weather-lat"
-                  placeholder="40.7128"
+                  placeholder="50.0755"
                   value={latitude}
                   onChange={(e) => setLatitude(e.target.value)}
                 />
@@ -1380,15 +1434,14 @@ function WeatherCard({ integration }: { integration: UserIntegration | undefined
                 </Label>
                 <Input
                   id="weather-lon"
-                  placeholder="-74.0060"
+                  placeholder="14.4378"
                   value={longitude}
                   onChange={(e) => setLongitude(e.target.value)}
                 />
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Find your coordinates at{" "}
-              <span className="text-primary">latlong.net</span> or right-click any location in Google Maps.
+              Coordinates auto-fill from Lookup, or enter manually.
             </p>
           </div>
           <DialogFooter>
