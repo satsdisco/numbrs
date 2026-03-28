@@ -3,8 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { Radio, Activity, BarChart2, Bot, ArrowRight, X } from "lucide-react";
+import { Radio, Activity, BarChart2, Bot, ArrowRight, X, LayoutGrid, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DASHBOARD_TEMPLATES } from "@/lib/dashboard-templates";
+import { upsertIntegration } from "@/lib/integrations-api";
+import { createDashboard, createPanel } from "@/lib/dashboard-api";
+import { useAuth } from "@/hooks/useAuth";
 
 const STORAGE_KEY = "onboarding_complete";
 
@@ -16,7 +20,7 @@ function markOnboardingComplete() {
   localStorage.setItem(STORAGE_KEY, "true");
 }
 
-type Track = "relays" | "uptime" | "custom" | "claude" | null;
+type Track = "dashboard" | "relays" | "uptime" | "custom" | "claude" | null;
 
 interface StepProps {
   onNext: () => void;
@@ -54,6 +58,13 @@ function WelcomeStep({ onNext, onSkip }: StepProps) {
 }
 
 const TRACK_OPTIONS = [
+  {
+    id: "dashboard" as Track,
+    icon: LayoutGrid,
+    emoji: "🟠",
+    title: "Bitcoin & Data Dashboards",
+    description: "One-click dashboards for BTC price, Lightning, market data, weather, and more",
+  },
   {
     id: "relays" as Track,
     icon: Radio,
@@ -119,6 +130,130 @@ function TrackStep({
       >
         Skip for now
       </button>
+    </div>
+  );
+}
+
+const FEATURED_TEMPLATE_IDS = [
+  "bitcoin-maximalist",
+  "sound-money-cockpit",
+  "lightning-dashboard",
+  "weather-station",
+];
+
+const FEATURED_TEMPLATES = DASHBOARD_TEMPLATES.filter(
+  (t) => FEATURED_TEMPLATE_IDS.includes(t.id) && t.requiredIntegrations
+);
+
+function DashboardStep({ onDone }: { onDone: () => void }) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSelect = async (templateId: string) => {
+    const template = FEATURED_TEMPLATES.find((t) => t.id === templateId);
+    if (!template || !user) return;
+
+    setLoading(templateId);
+    setError(null);
+    try {
+      // Enable required integrations
+      if (template.requiredIntegrations) {
+        await Promise.all(
+          template.requiredIntegrations.map((provider) =>
+            upsertIntegration(provider, {})
+          )
+        );
+      }
+
+      // Create dashboard
+      const dashboard = await createDashboard({
+        name: template.name,
+        description: template.description,
+        user_id: user.id,
+      });
+
+      // Create panels
+      await Promise.all(
+        template.panels.map((panel) =>
+          createPanel({
+            dashboard_id: dashboard.id,
+            title: panel.title,
+            panel_type: panel.panel_type,
+            config: panel.config,
+            layout: panel.layout,
+          })
+        )
+      );
+
+      markOnboardingComplete();
+      onDone();
+      navigate(`/dashboards/${dashboard.id}`);
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+      setLoading(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="text-center">
+        <span className="text-3xl">🟠</span>
+        <h2 className="text-base font-semibold text-foreground mt-3">Pick a dashboard template</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          One click — integrations auto-enabled, panels created.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        {FEATURED_TEMPLATES.map((template) => {
+          const isLoading = loading === template.id;
+          return (
+            <button
+              key={template.id}
+              onClick={() => handleSelect(template.id)}
+              disabled={loading !== null}
+              className="w-full flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-left hover:border-primary/40 hover:bg-muted/20 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="text-xl shrink-0">{template.icon}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-foreground">{template.name}</div>
+                <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{template.description}</div>
+                <div className="text-xs text-muted-foreground/60 mt-0.5">
+                  {template.panels.length} panels
+                </div>
+              </div>
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
+              ) : (
+                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {error && (
+        <p className="text-xs text-destructive text-center">{error}</p>
+      )}
+
+      <div className="flex flex-col gap-1.5">
+        <button
+          onClick={() => { onDone(); navigate("/dashboards"); }}
+          disabled={loading !== null}
+          className="text-xs text-primary hover:underline transition-colors py-1 disabled:opacity-50"
+        >
+          Browse all templates →
+        </button>
+        <button
+          onClick={onDone}
+          disabled={loading !== null}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors py-0.5 disabled:opacity-50"
+        >
+          I'll set up later
+        </button>
+      </div>
     </div>
   );
 }
@@ -306,6 +441,17 @@ export default function Onboarding() {
               transition={{ duration: 0.2 }}
             >
               <TrackStep onSelect={handleSelectTrack} onSkip={handleSkip} />
+            </motion.div>
+          )}
+          {step === "detail" && track === "dashboard" && (
+            <motion.div
+              key="dashboard"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+            >
+              <DashboardStep onDone={handleDone} />
             </motion.div>
           )}
           {step === "detail" && track === "relays" && (
