@@ -4,8 +4,9 @@ import { Link } from "react-router-dom";
 import { fetchAllPublicRelays, fetchRelayHealth } from "@/lib/api";
 import type { RelayRow } from "@/lib/types";
 import type { RelayHealthRow } from "@/lib/health";
-import { formatMs, formatPct } from "@/lib/health";
+import { formatMs, formatPct, computeHealthScore } from "@/lib/health";
 import { useAuth } from "@/hooks/useAuth";
+import { ChevronUp, ChevronDown } from "lucide-react";
 
 // ─── Colour helpers ─────────────────────────────────────────────────────────────
 
@@ -25,6 +26,14 @@ function latencyColor(ms: number | null): string {
   return "text-red-400";
 }
 
+function scoreColor(score: number | null): string {
+  if (score === null) return "text-muted-foreground";
+  if (score >= 80) return "text-green-400";
+  if (score >= 60) return "text-yellow-400";
+  if (score >= 40) return "text-orange-400";
+  return "text-red-400";
+}
+
 function rankEmoji(rank: number): string | number {
   if (rank === 1) return "🥇";
   if (rank === 2) return "🥈";
@@ -32,17 +41,64 @@ function rankEmoji(rank: number): string | number {
   return rank;
 }
 
+// ─── Sort helpers ────────────────────────────────────────────────────────────────
+
+type SortCol = "score" | "uptime" | "latency" | "last_probe";
+type SortDir = "asc" | "desc";
+
 // ─── Skeleton row ───────────────────────────────────────────────────────────────
 
 function SkeletonRow() {
   return (
     <tr className="border-b border-border/50 animate-pulse">
-      {[48, 160, 220, 80, 100, 100, 100].map((w, i) => (
+      {[48, 160, 220, 70, 80, 100, 100, 100].map((w, i) => (
         <td key={i} className="px-4 py-3">
           <div className="h-3 rounded bg-muted" style={{ width: w }} />
         </td>
       ))}
     </tr>
+  );
+}
+
+// ─── Sortable header ─────────────────────────────────────────────────────────────
+
+function SortTh({
+  col,
+  label,
+  active,
+  dir,
+  onClick,
+  className = "",
+}: {
+  col: SortCol;
+  label: string;
+  active: boolean;
+  dir: SortDir;
+  onClick: (col: SortCol) => void;
+  className?: string;
+}) {
+  return (
+    <th
+      className={`px-4 py-3 font-mono text-xs font-medium cursor-pointer select-none group ${className}`}
+      onClick={() => onClick(col)}
+    >
+      <span
+        className={`inline-flex items-center gap-1 transition-colors ${
+          active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
+        }`}
+      >
+        {label}
+        {active ? (
+          dir === "desc" ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronUp className="h-3 w-3" />
+          )
+        ) : (
+          <ChevronDown className="h-3 w-3 opacity-0 group-hover:opacity-40" />
+        )}
+      </span>
+    </th>
   );
 }
 
@@ -56,6 +112,8 @@ interface LeaderboardRow {
 export default function LeaderboardPage() {
   const { user } = useAuth();
   const [now, setNow] = useState(Date.now());
+  const [sortCol, setSortCol] = useState<SortCol>("score");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   // Tick every minute to update "last updated" display
   useEffect(() => {
@@ -84,17 +142,48 @@ export default function LeaderboardPage() {
   const healthLoading = healthQueries.some((q) => q.isLoading);
   const isLoading = relaysLoading || (!!relays?.length && healthLoading);
 
-  // Merge and sort by uptime descending
-  const rows: LeaderboardRow[] = (relays ?? [])
-    .map((relay, i) => ({
-      relay,
-      health: (healthQueries[i]?.data as RelayHealthRow | null | undefined) ?? null,
-    }))
-    .sort((a, b) => {
-      const ua = a.health?.uptime_pct ?? -1;
-      const ub = b.health?.uptime_pct ?? -1;
-      return ub - ua;
-    });
+  // Merge rows
+  const baseRows: LeaderboardRow[] = (relays ?? []).map((relay, i) => ({
+    relay,
+    health: (healthQueries[i]?.data as RelayHealthRow | null | undefined) ?? null,
+  }));
+
+  // Sort
+  function handleSort(col: SortCol) {
+    if (col === sortCol) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortCol(col);
+      setSortDir("desc");
+    }
+  }
+
+  const rows = [...baseRows].sort((a, b) => {
+    let va: number, vb: number;
+    switch (sortCol) {
+      case "score":
+        va = a.health ? computeHealthScore(a.health) : -1;
+        vb = b.health ? computeHealthScore(b.health) : -1;
+        break;
+      case "uptime":
+        va = a.health?.uptime_pct ?? -1;
+        vb = b.health?.uptime_pct ?? -1;
+        break;
+      case "latency":
+        // Lower is better — treat null as worst (Infinity)
+        va = a.health?.connect_p50 ?? Infinity;
+        vb = b.health?.connect_p50 ?? Infinity;
+        // For latency, desc = worst first, asc = best first — flip sign vs default
+        return sortDir === "desc" ? vb - va : va - vb;
+      case "last_probe":
+        va = a.relay.updated_at ? new Date(a.relay.updated_at).getTime() : 0;
+        vb = b.relay.updated_at ? new Date(b.relay.updated_at).getTime() : 0;
+        break;
+      default:
+        va = vb = 0;
+    }
+    return sortDir === "desc" ? vb - va : va - vb;
+  });
 
   const minutesAgo = dataUpdatedAt
     ? Math.max(0, Math.floor((now - dataUpdatedAt) / 60_000))
@@ -105,6 +194,13 @@ export default function LeaderboardPage() {
       : minutesAgo === 0
       ? "just now"
       : `${minutesAgo}m ago`;
+
+  const sortProps = (col: SortCol) => ({
+    col,
+    active: sortCol === col,
+    dir: sortDir,
+    onClick: handleSort,
+  });
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -142,7 +238,7 @@ export default function LeaderboardPage() {
         {/* Meta */}
         <div className="mb-4 flex items-center justify-between">
           <p className="text-xs text-muted-foreground font-mono">
-            Showing 24h window — sorted by uptime
+            24h window — click column headers to sort
           </p>
           <p className="text-xs text-muted-foreground font-mono">
             Last updated: {lastUpdatedLabel}
@@ -164,18 +260,29 @@ export default function LeaderboardPage() {
                   <th className="px-4 py-3 text-left font-mono text-xs text-muted-foreground font-medium">
                     URL
                   </th>
-                  <th className="px-4 py-3 text-right font-mono text-xs text-muted-foreground font-medium">
-                    Uptime %
-                  </th>
+                  <SortTh
+                    {...sortProps("score")}
+                    label="Score"
+                    className="text-right"
+                  />
+                  <SortTh
+                    {...sortProps("uptime")}
+                    label="Uptime %"
+                    className="text-right"
+                  />
                   <th className="px-4 py-3 text-right font-mono text-xs text-muted-foreground font-medium">
                     Avg Latency
                   </th>
-                  <th className="px-4 py-3 text-right font-mono text-xs text-muted-foreground font-medium">
-                    P95 Latency
-                  </th>
-                  <th className="px-4 py-3 text-right font-mono text-xs text-muted-foreground font-medium">
-                    Last Probe
-                  </th>
+                  <SortTh
+                    {...sortProps("latency")}
+                    label="P50 Latency"
+                    className="text-right"
+                  />
+                  <SortTh
+                    {...sortProps("last_probe")}
+                    label="Last Probe"
+                    className="text-right"
+                  />
                 </tr>
               </thead>
               <tbody>
@@ -184,7 +291,7 @@ export default function LeaderboardPage() {
                 ) : rows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-4 py-12 text-center text-sm text-muted-foreground"
                     >
                       No relays in the leaderboard yet.
@@ -195,9 +302,9 @@ export default function LeaderboardPage() {
                     const rank = idx + 1;
                     const uptime = health?.uptime_pct ?? null;
                     const avgLat = health?.connect_avg ?? null;
-                    const p95Lat = health?.connect_p95 ?? null;
+                    const p50Lat = health?.connect_p50 ?? null;
+                    const score = health ? computeHealthScore(health) : null;
 
-                    // Last probe: relative time from relay's updated_at
                     const lastSeen = (() => {
                       if (!relay.updated_at) return "—";
                       const diffMs = now - new Date(relay.updated_at).getTime();
@@ -238,14 +345,17 @@ export default function LeaderboardPage() {
                             {relay.url}
                           </span>
                         </td>
+                        <td className={`px-4 py-3 text-right font-mono text-sm font-medium ${scoreColor(score)}`}>
+                          {score !== null ? score : "—"}
+                        </td>
                         <td className={`px-4 py-3 text-right font-mono text-sm font-medium ${uptimeColor(uptime)}`}>
                           {formatPct(uptime)}
                         </td>
                         <td className={`px-4 py-3 text-right font-mono text-sm ${latencyColor(avgLat)}`}>
                           {formatMs(avgLat)}
                         </td>
-                        <td className={`px-4 py-3 text-right font-mono text-sm ${latencyColor(p95Lat)}`}>
-                          {formatMs(p95Lat)}
+                        <td className={`px-4 py-3 text-right font-mono text-sm ${latencyColor(p50Lat)}`}>
+                          {formatMs(p50Lat)}
                         </td>
                         <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground">
                           {lastSeen}
