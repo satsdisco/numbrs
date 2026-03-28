@@ -1236,59 +1236,53 @@ All templates: `POST /api/dashboards/from-template` with `{"template": "<id>"}`.
 | `vercel-site` | Vercel Site | `deploy.count`, `build.duration_ms`, `error.count` |
 | `personal-overview` | Personal Overview | `bitcoin.price_usd`, `nostr.*.followers`, `github.*.stars` |
 | `personal-stats` | Personal Stats | `dev.commits`, `habit.score`, `custom.*` |
+| `claude-usage` | Claude Code Usage | `claude.total_tokens`, `claude.cost_usd`, `claude.sessions` |
 
 ---
 
-## Claude / OpenClaw Usage Tracking
+## Claude Code Usage Tracking
 
-numbrs has a dedicated **Claude** page (`/claude`) for tracking Claude API and OpenClaw usage.
+Track your Claude Code token usage, session counts, and API costs — using the same numbrs API key you already have. No extra credentials needed.
 
-#### claude_usage table
+**Metrics:** `claude.input_tokens`, `claude.output_tokens`, `claude.total_tokens`, `claude.cache_read_tokens`, `claude.cache_write_tokens`, `claude.sessions`, `claude.cost_usd`
 
-| Column | Type | Description |
-|---|---|---|
-| `date` | date | Day (YYYY-MM-DD) |
-| `session_id` | text | Session identifier |
-| `project` | text | Project name |
-| `messages` | integer | Message count |
-| `tool_calls` | integer | Tool calls made |
-| `input_tokens` | integer | Input tokens |
-| `output_tokens` | integer | Output tokens |
-| `cache_read_tokens` | integer | Cache-read tokens |
-| `cache_write_tokens` | integer | Cache-write tokens |
-| `model` | text | Model ID |
-
-#### openclaw_usage table
-
-| Column | Type | Description |
-|---|---|---|
-| `date` | date | Day (YYYY-MM-DD) |
-| `session_id` | text | Session identifier |
-| `channel` | text | Channel (`main`, `slack:*`, `discord:*`) |
-| `model` | text | Model ID |
-| `messages` | integer | Message count |
-| `input_tokens` / `output_tokens` | integer | Token counts |
-| `cost_usd` | numeric | Estimated API cost |
-
-OpenClaw usage is populated automatically. For Claude Code sessions, use the collector:
+### Step 1 — Install the collector
 
 ```bash
-#!/bin/bash
-# claude-collector.sh — Run hourly: 0 * * * * /path/to/claude-collector.sh
-SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
-SUPABASE_KEY="YOUR_ANON_OR_SERVICE_KEY"
+curl -o ~/claude-collector.sh https://numbrs.lol/scripts/claude-collector.sh
+chmod +x ~/claude-collector.sh
+sed -i 's/YOUR_KEY/your-actual-api-key/' ~/claude-collector.sh
+```
 
-USAGE_FILE="$HOME/.claude/usage/$(date +%Y-%m-%d).json"
-[ -f "$USAGE_FILE" ] || exit 0
+Or set the key via environment variable:
+```bash
+export NUMBRS_API_KEY="your-actual-api-key"
+```
 
-jq -c '.[]' "$USAGE_FILE" | while read -r row; do
-  curl -sf -X POST "$SUPABASE_URL/rest/v1/claude_usage" \
-    -H "apikey: $SUPABASE_KEY" \
-    -H "Authorization: Bearer $SUPABASE_KEY" \
-    -H "Content-Type: application/json" \
-    -H "Prefer: resolution=merge-duplicates" \
-    -d "$row"
-done
+The collector reads Claude Code usage logs from `~/.claude/usage/YYYY-MM-DD.json`, aggregates daily totals, and pushes to numbrs. It tracks sync state to avoid duplicate pushes.
+
+### Step 2 — Set up cron (hourly)
+
+```bash
+(crontab -l 2>/dev/null; echo "0 * * * * $HOME/claude-collector.sh") | crontab -
+```
+
+### Step 3 — Create the Claude usage dashboard
+
+```bash
+curl -X POST https://numbrs.lol/api/dashboards/from-template \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"template": "claude-usage"}'
+```
+
+### Step 4 (optional) — Add cost alert
+
+```bash
+curl -X POST https://numbrs.lol/api/alerts \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "High Claude Spend", "metric": "claude.cost_usd", "condition": "gt", "threshold": 50}'
 ```
 
 ---
@@ -1384,6 +1378,7 @@ Pre-built scripts available at `https://numbrs.lol/scripts/`:
 | `pihole-collector.sh` | DNS queries, blocked, blocklist | Every 15 min |
 | `listenbrainz-collector.sh` | Listen counts | Every hour |
 | `calendar-collector.sh` | Calendar events (via gog CLI) | Every 30 min |
+| `claude-collector.sh` | Claude Code tokens, sessions, cost | Every hour |
 | `numbrs-collector.sh` | Full Mac mini health + Jellyfin | Every 5 min |
 
 **Quick install pattern:**

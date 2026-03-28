@@ -78,6 +78,21 @@ const TEMPLATES: Record<string, { name: string; description: string; panels: unk
     ],
   },
 
+  "claude-usage": {
+    name: "Claude Code Usage",
+    description: "Track Claude Code token usage, session counts, and API costs",
+    panels: [
+      { title: "Total Tokens", panel_type: "area", config: { metric_key: "claude.total_tokens", data_source: "custom", unit: "tokens" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
+      { title: "Today's Tokens", panel_type: "stat", config: { metric_key: "claude.total_tokens", data_source: "custom", stat_field: "latest", unit: "tokens" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
+      { title: "Sessions", panel_type: "stat", config: { metric_key: "claude.sessions", data_source: "custom", stat_field: "latest", unit: "" }, layout: { x: 8, y: 2, w: 4, h: 2 } },
+      { title: "Input Tokens", panel_type: "area", config: { metric_key: "claude.input_tokens", data_source: "custom", unit: "tokens" }, layout: { x: 0, y: 4, w: 6, h: 4 } },
+      { title: "Output Tokens", panel_type: "area", config: { metric_key: "claude.output_tokens", data_source: "custom", unit: "tokens" }, layout: { x: 6, y: 4, w: 6, h: 4 } },
+      { title: "Cache Read", panel_type: "stat", config: { metric_key: "claude.cache_read_tokens", data_source: "custom", stat_field: "latest", unit: "tokens" }, layout: { x: 0, y: 8, w: 3, h: 2 } },
+      { title: "Cache Write", panel_type: "stat", config: { metric_key: "claude.cache_write_tokens", data_source: "custom", stat_field: "latest", unit: "tokens" }, layout: { x: 3, y: 8, w: 3, h: 2 } },
+      { title: "Cost (USD)", panel_type: "area", config: { metric_key: "claude.cost_usd", data_source: "custom", unit: "$" }, layout: { x: 6, y: 8, w: 6, h: 4 } },
+    ],
+  },
+
   // ── Full template set (matches dashboard-templates.ts) ─────────────────────
   "relay-overview": {
     name: "Relay Overview",
