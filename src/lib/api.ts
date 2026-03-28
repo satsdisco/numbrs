@@ -55,6 +55,14 @@ export async function createRelay(relay: {
   return data as unknown as RelayRow;
 }
 
+export async function updateRelay(
+  id: string,
+  updates: Partial<Pick<RelayRow, "name" | "url" | "region">>
+): Promise<void> {
+  const { error } = await supabase.from("relays").update(updates as any).eq("id", id);
+  if (error) throw error;
+}
+
 export async function deleteRelay(id: string) {
   const { error } = await supabase.from("relays").delete().eq("id", id);
   if (error) throw error;
