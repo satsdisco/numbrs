@@ -113,6 +113,32 @@ export const METRIC_CATALOG: MetricOption[] = [
   { key: "follower_count", label: "Follower Count", unit: "followers", category: "social", description: "Followers for tracked pubkey", relayScoped: false },
   { key: "engagement_rate", label: "Engagement Rate", unit: "ratio", category: "social", description: "Reactions + reposts per note", relayScoped: false },
   { key: "unique_authors", label: "Unique Authors", unit: "authors", category: "social", description: "Distinct pubkeys in period", relayScoped: false },
+  // Bitcoin
+  { key: "bitcoin.price_usd", label: "BTC Price", unit: "USD", category: "bitcoin", description: "Current Bitcoin price in USD", relayScoped: false },
+  { key: "bitcoin.moscow_time", label: "Moscow Time", unit: "sats/$", category: "bitcoin", description: "Satoshis per US dollar", relayScoped: false },
+  // Mempool
+  { key: "mempool.fees.fastest", label: "Fastest Fee", unit: "sat/vB", category: "bitcoin", description: "Next-block fee rate", relayScoped: false },
+  { key: "mempool.fees.hour", label: "1h Fee", unit: "sat/vB", category: "bitcoin", description: "1-hour confirmation fee rate", relayScoped: false },
+  { key: "mempool.fees.economy", label: "Economy Fee", unit: "sat/vB", category: "bitcoin", description: "Economy fee rate", relayScoped: false },
+  { key: "mempool.hashrate", label: "Hashrate", unit: "EH/s", category: "bitcoin", description: "Network hashrate in exahashes per second", relayScoped: false },
+  { key: "mempool.difficulty", label: "Difficulty", unit: "", category: "bitcoin", description: "Current mining difficulty", relayScoped: false },
+  { key: "mempool.block_height", label: "Block Height", unit: "blocks", category: "bitcoin", description: "Latest Bitcoin block height", relayScoped: false },
+  { key: "mempool.tx_count", label: "Mempool TX Count", unit: "txs", category: "bitcoin", description: "Unconfirmed transactions in mempool", relayScoped: false },
+  { key: "mempool.halving_blocks_remaining", label: "Halving Blocks Left", unit: "blocks", category: "bitcoin", description: "Blocks remaining until next halving", relayScoped: false },
+  { key: "mempool.halving_progress_pct", label: "Halving Progress", unit: "%", category: "bitcoin", description: "Progress toward next halving", relayScoped: false, defaultGaugeMax: 100 },
+  // Lightning Network
+  { key: "lightning.capacity_btc", label: "LN Capacity", unit: "BTC", category: "lightning", description: "Total BTC locked in Lightning channels", relayScoped: false },
+  { key: "lightning.channel_count", label: "LN Channels", unit: "channels", category: "lightning", description: "Number of public Lightning channels", relayScoped: false },
+  { key: "lightning.node_count", label: "LN Nodes", unit: "nodes", category: "lightning", description: "Number of public Lightning nodes", relayScoped: false },
+  // Fear & Greed
+  { key: "fng.value", label: "Fear & Greed", unit: "", category: "markets", description: "Crypto Fear & Greed Index (0-100)", relayScoped: false, defaultGaugeMax: 100 },
+  // CoinGecko
+  { key: "coingecko.btc_dominance", label: "BTC Dominance", unit: "%", category: "markets", description: "Bitcoin market cap dominance", relayScoped: false, defaultGaugeMax: 100 },
+  { key: "coingecko.total_market_cap_usd", label: "Total Market Cap", unit: "USD", category: "markets", description: "Total crypto market capitalization", relayScoped: false },
+  { key: "coingecko.total_volume_24h", label: "24h Volume", unit: "USD", category: "markets", description: "24-hour total trading volume", relayScoped: false },
+  // Weather
+  { key: "weather.temperature", label: "Temperature", unit: "°C", category: "weather", description: "Current temperature", relayScoped: false },
+  { key: "weather.humidity", label: "Humidity", unit: "%", category: "weather", description: "Current relative humidity", relayScoped: false },
 ];
 
 export const METRIC_CATEGORIES = [
@@ -121,6 +147,10 @@ export const METRIC_CATEGORIES = [
   { id: "zaps", label: "💰 Zaps & Lightning", description: "Zap economy metrics" },
   { id: "protocol", label: "📡 Protocol", description: "Event types & NIP stats" },
   { id: "social", label: "👥 Social", description: "Engagement & audience metrics" },
+  { id: "bitcoin", label: "₿ Bitcoin", description: "BTC price, fees, and network stats" },
+  { id: "lightning", label: "⚡ Lightning", description: "Lightning Network stats" },
+  { id: "markets", label: "📈 Markets", description: "Market data and sentiment" },
+  { id: "weather", label: "🌤️ Weather", description: "Weather and environment" },
 ];
 
 // ─── Panel presets / quick-add templates ──────────────────────────────────────
@@ -146,4 +176,20 @@ export const PANEL_PRESETS: PanelPreset[] = [
   { title: "NIP Support Score", panel_type: "gauge", metricKey: "nip_support_score", stat_field: "avg", description: "NIP compatibility score", category: "protocol" },
   { title: "Unique Authors", panel_type: "stat", metricKey: "unique_authors", stat_field: "latest", description: "Distinct publishers in period", category: "social" },
   { title: "Engagement Rate", panel_type: "line", metricKey: "engagement_rate", description: "Reactions + reposts per note", category: "social" },
+  // Bitcoin presets
+  { title: "BTC Price", panel_type: "stat", metricKey: "bitcoin.price_usd", stat_field: "latest", description: "Current Bitcoin price", category: "bitcoin" },
+  { title: "BTC Price Chart", panel_type: "line", metricKey: "bitcoin.price_usd", description: "Bitcoin price over time", category: "bitcoin" },
+  { title: "Moscow Time", panel_type: "stat", metricKey: "bitcoin.moscow_time", stat_field: "latest", description: "Sats per dollar", category: "bitcoin" },
+  { title: "Mempool Fees", panel_type: "bar", metricKey: "mempool.fees.fastest", description: "Current fee rates", category: "bitcoin" },
+  { title: "Hashrate", panel_type: "line", metricKey: "mempool.hashrate", description: "Network hashrate over time", category: "bitcoin" },
+  { title: "Block Height", panel_type: "stat", metricKey: "mempool.block_height", stat_field: "latest", description: "Latest block height", category: "bitcoin" },
+  { title: "Halving Progress", panel_type: "gauge", metricKey: "mempool.halving_progress_pct", stat_field: "latest", description: "Progress to next halving", category: "bitcoin" },
+  // Lightning presets
+  { title: "Lightning Capacity", panel_type: "line", metricKey: "lightning.capacity_btc", description: "Total BTC in Lightning channels", category: "lightning" },
+  { title: "Lightning Nodes", panel_type: "stat", metricKey: "lightning.node_count", stat_field: "latest", description: "Public Lightning nodes", category: "lightning" },
+  // Markets presets
+  { title: "Fear & Greed", panel_type: "gauge", metricKey: "fng.value", stat_field: "latest", description: "Market sentiment 0-100", category: "markets" },
+  { title: "BTC Dominance", panel_type: "gauge", metricKey: "coingecko.btc_dominance", stat_field: "latest", description: "Bitcoin market dominance", category: "markets" },
+  // Weather presets
+  { title: "Temperature", panel_type: "line", metricKey: "weather.temperature", description: "Temperature over time", category: "weather" },
 ];
