@@ -709,6 +709,62 @@ serve(async (req) => {
       }
     }
 
+    // ── Claude Usage ──────────────────────────────────────────────────────────
+    if (resource === "claude-usage") {
+      if (method === "GET" && !id) {
+        const url = new URL(req.url);
+        const since = url.searchParams.get("since");
+        let query = supabase
+          .from("claude_usage")
+          .select("*")
+          .eq("user_id", userId)
+          .order("date", { ascending: false })
+          .limit(100);
+        if (since) query = query.gte("date", since);
+        const { data, error } = await query;
+        if (error) return json({ error: error.message }, 500);
+        return json(data);
+      }
+
+      if (method === "POST" && !id) {
+        const body = await req.json();
+        // Accept single session or array of sessions
+        const sessions = Array.isArray(body) ? body : [body];
+        const rows = sessions.map((s: any) => ({
+          user_id: userId,
+          date: s.date || new Date().toISOString().split("T")[0],
+          session_id: s.session_id || crypto.randomUUID(),
+          project: s.project || "unknown",
+          messages: s.messages || 0,
+          tool_calls: s.tool_calls || 0,
+          input_tokens: s.input_tokens || 0,
+          output_tokens: s.output_tokens || 0,
+          cache_read_tokens: s.cache_read_tokens || 0,
+          cache_write_tokens: s.cache_write_tokens || 0,
+          model: s.model || "unknown",
+        }));
+
+        // Insert rows — use upsert with session_id to avoid duplicates on re-push
+        const { data, error } = await supabase
+          .from("claude_usage")
+          .upsert(rows as never, { onConflict: "user_id,session_id", ignoreDuplicates: false })
+          .select();
+        if (error) {
+          // If unique constraint doesn't exist yet, fall back to plain insert
+          if (error.message.includes("constraint")) {
+            const { data: fallback, error: fbErr } = await supabase
+              .from("claude_usage")
+              .insert(rows as never)
+              .select();
+            if (fbErr) return json({ error: fbErr.message }, 500);
+            return json({ inserted: (fallback as any[])?.length ?? rows.length }, 201);
+          }
+          return json({ error: error.message }, 500);
+        }
+        return json({ inserted: (data as any[])?.length ?? rows.length }, 201);
+      }
+    }
+
     // ── Account ──────────────────────────────────────────────────────────────
     if (resource === "me" && method === "GET") {
       const [relaysRes, dashboardsRes, alertsRes, monitorsRes, keysRes] = await Promise.all([

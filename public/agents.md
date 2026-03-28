@@ -1242,9 +1242,9 @@ All templates: `POST /api/dashboards/from-template` with `{"template": "<id>"}`.
 
 ## Claude Code Usage Tracking
 
-Track your Claude Code token usage, session counts, and API costs — using the same numbrs API key you already have. No extra credentials needed.
+Track your Claude Code token usage, sessions, projects, and model breakdown — using the same numbrs API key you already have. Data appears on the dedicated **Claude page** (`/claude`) with charts, project breakdowns, and ROI analysis.
 
-**Metrics:** `claude.input_tokens`, `claude.output_tokens`, `claude.total_tokens`, `claude.cache_read_tokens`, `claude.cache_write_tokens`, `claude.sessions`, `claude.cost_usd`
+No extra credentials needed. No Supabase setup. Just your numbrs API key.
 
 ### Step 1 — Install the collector
 
@@ -1259,7 +1259,7 @@ Or set the key via environment variable:
 export NUMBRS_API_KEY="your-actual-api-key"
 ```
 
-The collector reads Claude Code usage logs from `~/.claude/usage/YYYY-MM-DD.json`, aggregates daily totals, and pushes to numbrs. It tracks sync state to avoid duplicate pushes.
+The collector reads Claude Code session data from `~/.claude/usage/YYYY-MM-DD.json` and pushes each session (with project, model, token counts, tool calls) to your numbrs account. It uses upsert on `session_id` so re-runs are safe — no duplicates.
 
 ### Step 2 — Set up cron (hourly)
 
@@ -1267,23 +1267,63 @@ The collector reads Claude Code usage logs from `~/.claude/usage/YYYY-MM-DD.json
 (crontab -l 2>/dev/null; echo "0 * * * * $HOME/claude-collector.sh") | crontab -
 ```
 
-### Step 3 — Create the Claude usage dashboard
+### Step 3 — View your data
+
+Go to **https://numbrs.lol/claude** — the dedicated Claude page shows:
+- **Overview** — combined OpenClaw + Claude Code usage, ROI analysis
+- **OpenClaw tab** — usage by model, channel, peak hours heatmap
+- **Claude Code tab** — usage by project, top sessions, token trends
+
+### API: Push Claude usage directly
+
+You can also push session data programmatically without the collector:
 
 ```bash
-curl -X POST https://numbrs.lol/api/dashboards/from-template \
+# Push a single session
+curl -X POST https://numbrs.lol/api/claude-usage \
   -H "X-API-KEY: YOUR_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"template": "claude-usage"}'
-```
+  -d '{
+    "date": "2026-03-28",
+    "session_id": "unique-session-id",
+    "project": "my-project",
+    "messages": 42,
+    "tool_calls": 15,
+    "input_tokens": 50000,
+    "output_tokens": 12000,
+    "cache_read_tokens": 30000,
+    "cache_write_tokens": 5000,
+    "model": "claude-sonnet-4-6"
+  }'
 
-### Step 4 (optional) — Add cost alert
-
-```bash
-curl -X POST https://numbrs.lol/api/alerts \
+# Push multiple sessions at once
+curl -X POST https://numbrs.lol/api/claude-usage \
   -H "X-API-KEY: YOUR_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"name": "High Claude Spend", "metric": "claude.cost_usd", "condition": "gt", "threshold": 50}'
+  -d '[
+    {"date": "2026-03-28", "session_id": "sess-1", "project": "numbrs", "input_tokens": 50000, "output_tokens": 12000, "model": "claude-sonnet-4-6"},
+    {"date": "2026-03-28", "session_id": "sess-2", "project": "myapp", "input_tokens": 80000, "output_tokens": 25000, "model": "claude-sonnet-4-6"}
+  ]'
+
+# Fetch your usage data
+curl https://numbrs.lol/api/claude-usage?since=2026-03-01 \
+  -H "X-API-KEY: YOUR_KEY"
 ```
+
+**Fields:**
+
+| Field | Required | Description |
+|---|---|---|
+| `date` | No | Day (YYYY-MM-DD), defaults to today |
+| `session_id` | No | Unique session ID, auto-generated if omitted |
+| `project` | No | Project name (e.g. "numbrs", "myapp") |
+| `messages` | No | Message count |
+| `tool_calls` | No | Tool calls made |
+| `input_tokens` | No | Input token count |
+| `output_tokens` | No | Output token count |
+| `cache_read_tokens` | No | Cache-read tokens |
+| `cache_write_tokens` | No | Cache-write tokens |
+| `model` | No | Model ID (e.g. "claude-sonnet-4-6") |
 
 ---
 

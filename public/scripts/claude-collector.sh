@@ -4,13 +4,13 @@
 # Or after each session: add to your shell profile
 #
 # Reads Claude Code usage logs from ~/.claude/usage/ and pushes
-# token counts and cost to your numbrs account via the standard API.
+# session data to your numbrs account. Data appears on the /claude page.
 #
 # Required: curl, jq, a numbrs API key
 # Usage data location: ~/.claude/usage/YYYY-MM-DD.json
 
 API_KEY="${NUMBRS_API_KEY:-YOUR_KEY}"
-INGEST_URL="https://numbrs.lol/api/ingest"
+API_URL="https://numbrs.lol/api/claude-usage"
 USAGE_DIR="$HOME/.claude/usage"
 STATE_FILE="$HOME/.claude/.numbrs-sync-state"
 
@@ -19,7 +19,7 @@ USAGE_FILE="$USAGE_DIR/$TODAY.json"
 
 [ -f "$USAGE_FILE" ] || exit 0
 
-# Track what we've already synced to avoid duplicates
+# Track what we've already synced to avoid duplicate pushes
 LAST_SYNCED_SIZE=0
 if [ -f "$STATE_FILE" ]; then
   STORED_DATE=$(jq -r '.date // ""' "$STATE_FILE" 2>/dev/null)
@@ -30,34 +30,37 @@ fi
 
 CURRENT_SIZE=$(wc -c < "$USAGE_FILE" | tr -d ' ')
 if [ "$CURRENT_SIZE" -le "$LAST_SYNCED_SIZE" ]; then
-  exit 0  # No new data
+  exit 0  # No new data since last sync
 fi
 
-# Parse the usage file and aggregate today's totals
-TOTAL_INPUT=$(jq '[.[].input_tokens // 0] | add // 0' "$USAGE_FILE")
-TOTAL_OUTPUT=$(jq '[.[].output_tokens // 0] | add // 0' "$USAGE_FILE")
-TOTAL_CACHE_READ=$(jq '[.[].cache_read_tokens // 0] | add // 0' "$USAGE_FILE")
-TOTAL_CACHE_WRITE=$(jq '[.[].cache_write_tokens // 0] | add // 0' "$USAGE_FILE")
-SESSION_COUNT=$(jq 'length' "$USAGE_FILE")
-TOTAL_COST=$(jq '[.[].cost_usd // 0] | add // 0' "$USAGE_FILE" 2>/dev/null || echo 0)
+# Build the payload — one row per session
+# Claude Code stores usage as a JSON array of session objects
+PAYLOAD=$(jq -c "[.[] | {
+  date: \"$TODAY\",
+  session_id: .session_id,
+  project: (.project // \"unknown\"),
+  messages: (.messages // 0),
+  tool_calls: (.tool_calls // 0),
+  input_tokens: (.input_tokens // 0),
+  output_tokens: (.output_tokens // 0),
+  cache_read_tokens: (.cache_read_tokens // 0),
+  cache_write_tokens: (.cache_write_tokens // 0),
+  model: (.model // \"unknown\")
+}]" "$USAGE_FILE" 2>/dev/null)
 
-# Calculate total tokens
-TOTAL_TOKENS=$((TOTAL_INPUT + TOTAL_OUTPUT))
+if [ -z "$PAYLOAD" ] || [ "$PAYLOAD" = "[]" ]; then
+  exit 0
+fi
 
-# Push aggregated metrics
-curl -sf -X POST "$INGEST_URL" \
+# Push to numbrs — upserts by session_id so re-runs are safe
+RESPONSE=$(curl -sf -w "%{http_code}" -X POST "$API_URL" \
   -H "Content-Type: application/json" \
   -H "X-API-KEY: $API_KEY" \
-  -d "[
-    {\"key\": \"claude.input_tokens\",      \"value\": $TOTAL_INPUT},
-    {\"key\": \"claude.output_tokens\",     \"value\": $TOTAL_OUTPUT},
-    {\"key\": \"claude.total_tokens\",      \"value\": $TOTAL_TOKENS},
-    {\"key\": \"claude.cache_read_tokens\", \"value\": $TOTAL_CACHE_READ},
-    {\"key\": \"claude.cache_write_tokens\",\"value\": $TOTAL_CACHE_WRITE},
-    {\"key\": \"claude.sessions\",          \"value\": $SESSION_COUNT},
-    {\"key\": \"claude.cost_usd\",          \"value\": $TOTAL_COST}
-  ]"
+  -d "$PAYLOAD")
 
-# Update sync state
-mkdir -p "$(dirname "$STATE_FILE")"
-echo "{\"date\": \"$TODAY\", \"size\": $CURRENT_SIZE}" > "$STATE_FILE"
+HTTP_CODE="${RESPONSE: -3}"
+if [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "200" ]; then
+  # Update sync state on success
+  mkdir -p "$(dirname "$STATE_FILE")"
+  echo "{\"date\": \"$TODAY\", \"size\": $CURRENT_SIZE}" > "$STATE_FILE"
+fi
