@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { batchUpsertDatapoints } from "../_shared/batch-upsert.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,9 +13,10 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
     // Fetch BTC price from Coinbase (no auth needed)
     const res = await fetch("https://api.coinbase.com/v2/prices/BTC-USD/spot");
@@ -28,64 +30,10 @@ serve(async (req) => {
       { key: "bitcoin.moscow_time", value: moscowTime, name: "Moscow Time", unit: "sats/$" },
     ];
 
-    // Find all users who have the bitcoin integration active
-    const { data: integrations } = await supabase
-      .from("user_integrations")
-      .select("user_id")
-      .eq("provider", "bitcoin")
-      .eq("is_active", true);
-
-    let synced = 0;
-
-    for (const integration of integrations || []) {
-      for (const m of metrics) {
-        // Find or create the metric for this user
-        let metricId: string;
-        const { data: existing } = await supabase
-          .from("metrics")
-          .select("id")
-          .eq("key", m.key)
-          .eq("user_id", integration.user_id)
-          .maybeSingle();
-
-        if (existing) {
-          metricId = existing.id;
-        } else {
-          const { data: created, error } = await supabase
-            .from("metrics")
-            .insert({
-              key: m.key,
-              name: m.name,
-              user_id: integration.user_id,
-              value_type: "float",
-              category: "custom",
-              unit: m.unit,
-            })
-            .select("id")
-            .single();
-          if (error) continue;
-          metricId = created.id;
-        }
-
-        // Insert datapoint
-        const { error: insertErr } = await supabase.from("datapoints").insert({
-          metric_id: metricId,
-          value: m.value,
-        });
-
-        if (!insertErr) synced++;
-      }
-
-      // Update last_synced_at
-      await supabase
-        .from("user_integrations")
-        .update({ last_synced_at: new Date().toISOString(), last_error: null })
-        .eq("user_id", integration.user_id)
-        .eq("provider", "bitcoin");
-    }
+    const { synced, total } = await batchUpsertDatapoints(supabase, "bitcoin", metrics);
 
     return new Response(
-      JSON.stringify({ price, moscow_time: moscowTime, synced, total: integrations?.length || 0 }),
+      JSON.stringify({ price, moscow_time: moscowTime, synced, total }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {

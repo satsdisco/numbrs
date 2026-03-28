@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { batchUpsertDatapoints } from "../_shared/batch-upsert.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,9 +31,10 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
     // Get all active weather integrations (requires lat/lon config)
     const { data: integrations } = await supabase
@@ -60,7 +62,6 @@ serve(async (req) => {
         continue;
       }
 
-      // Slug-ify the location name for use in metric keys
       const locationSlug = locationName.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
 
       try {
@@ -88,51 +89,12 @@ serve(async (req) => {
           { key: `weather.${locationSlug}.uv_index`, value: c.uv_index, name: `${locationName} UV Index`, unit: "" },
         ];
 
-        let synced = 0;
-        for (const m of metrics) {
-          let metricId: string;
-          const { data: existing } = await supabase
-            .from("metrics")
-            .select("id")
-            .eq("key", m.key)
-            .eq("user_id", integration.user_id)
-            .maybeSingle();
-
-          if (existing) {
-            metricId = existing.id;
-          } else {
-            const { data: created, error } = await supabase
-              .from("metrics")
-              .insert({
-                key: m.key,
-                name: m.name,
-                user_id: integration.user_id,
-                value_type: "float",
-                category: "custom",
-                unit: m.unit,
-              })
-              .select("id")
-              .single();
-            if (error) continue;
-            metricId = created.id;
-          }
-
-          const { error: insertErr } = await supabase.from("datapoints").insert({
-            metric_id: metricId,
-            value: m.value,
-          });
-
-          if (!insertErr) synced++;
-        }
+        const { synced } = await batchUpsertDatapoints(supabase, "weather", metrics, {
+          userIds: [integration.user_id],
+        });
 
         totalSynced += synced;
         results.push({ user_id: integration.user_id, location: locationName, synced });
-
-        await supabase
-          .from("user_integrations")
-          .update({ last_synced_at: new Date().toISOString(), last_error: null })
-          .eq("user_id", integration.user_id)
-          .eq("provider", "weather");
       } catch (err) {
         const msg = (err as Error).message;
         await supabase

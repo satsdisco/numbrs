@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { batchUpsertDatapoints } from "../_shared/batch-upsert.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,11 +23,11 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-    // Get all active FRED integrations (each user supplies their own API key)
     const { data: integrations } = await supabase
       .from("user_integrations")
       .select("user_id, config")
@@ -50,67 +51,30 @@ serve(async (req) => {
         continue;
       }
 
-      let synced = 0;
-
       try {
-        for (const s of SERIES) {
+        // Fetch all FRED series in parallel
+        const fetches = SERIES.map(async (s) => {
           const url =
             `https://api.stlouisfed.org/fred/series/observations` +
             `?series_id=${s.id}&api_key=${apiKey}&sort_order=desc&limit=1&file_type=json`;
-
           const res = await fetch(url);
           if (!res.ok) throw new Error(`FRED API error for ${s.id}: ${res.status}`);
           const data = await res.json();
-
           if (data.error_message) throw new Error(`FRED: ${data.error_message}`);
-
           const obs = data.observations?.[0];
-          if (!obs || obs.value === ".") continue; // series not yet released
-          const value = parseFloat(obs.value);
+          if (!obs || obs.value === ".") return null;
+          return { key: s.key, value: parseFloat(obs.value), name: s.name, unit: s.unit };
+        });
 
-          let metricId: string;
-          const { data: existing } = await supabase
-            .from("metrics")
-            .select("id")
-            .eq("key", s.key)
-            .eq("user_id", integration.user_id)
-            .maybeSingle();
+        const metricsRaw = await Promise.all(fetches);
+        const metrics = metricsRaw.filter(Boolean) as { key: string; value: number; name: string; unit: string }[];
 
-          if (existing) {
-            metricId = existing.id;
-          } else {
-            const { data: created, error } = await supabase
-              .from("metrics")
-              .insert({
-                key: s.key,
-                name: s.name,
-                user_id: integration.user_id,
-                value_type: "float",
-                category: "custom",
-                unit: s.unit,
-              })
-              .select("id")
-              .single();
-            if (error) continue;
-            metricId = created.id;
-          }
-
-          const { error: insertErr } = await supabase.from("datapoints").insert({
-            metric_id: metricId,
-            value,
-          });
-
-          if (!insertErr) synced++;
-        }
+        const { synced } = await batchUpsertDatapoints(supabase, "fred", metrics, {
+          userIds: [integration.user_id],
+        });
 
         totalSynced += synced;
         results.push({ user_id: integration.user_id, synced });
-
-        await supabase
-          .from("user_integrations")
-          .update({ last_synced_at: new Date().toISOString(), last_error: null })
-          .eq("user_id", integration.user_id)
-          .eq("provider", "fred");
       } catch (err) {
         const msg = (err as Error).message;
         await supabase

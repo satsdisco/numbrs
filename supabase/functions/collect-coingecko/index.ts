@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { batchUpsertDatapoints } from "../_shared/batch-upsert.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,9 +13,10 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
     // Fetch global crypto market data — CoinGecko public API, no auth needed
     const res = await fetch("https://api.coingecko.com/api/v3/global");
@@ -27,64 +29,13 @@ serve(async (req) => {
     const activeCryptos = data.active_cryptocurrencies;
 
     const metrics = [
-      { key: "coingecko.btc_dominance",          value: btcDominance,   name: "BTC Dominance",           unit: "%" },
-      { key: "coingecko.total_market_cap_usd",    value: totalMarketCap, name: "Total Market Cap",        unit: "USD" },
-      { key: "coingecko.total_volume_24h",         value: totalVolume24h, name: "24h Total Volume",        unit: "USD" },
-      { key: "coingecko.active_cryptocurrencies",  value: activeCryptos,  name: "Active Cryptocurrencies", unit: "" },
+      { key: "coingecko.btc_dominance",         value: btcDominance,   name: "BTC Dominance",           unit: "%" },
+      { key: "coingecko.total_market_cap_usd",   value: totalMarketCap, name: "Total Market Cap",        unit: "USD" },
+      { key: "coingecko.total_volume_24h",        value: totalVolume24h, name: "24h Total Volume",        unit: "USD" },
+      { key: "coingecko.active_cryptocurrencies", value: activeCryptos,  name: "Active Cryptocurrencies", unit: "" },
     ];
 
-    // Find all users with an active coingecko integration
-    const { data: integrations } = await supabase
-      .from("user_integrations")
-      .select("user_id")
-      .eq("provider", "coingecko")
-      .eq("is_active", true);
-
-    let synced = 0;
-
-    for (const integration of integrations || []) {
-      for (const m of metrics) {
-        let metricId: string;
-        const { data: existing } = await supabase
-          .from("metrics")
-          .select("id")
-          .eq("key", m.key)
-          .eq("user_id", integration.user_id)
-          .maybeSingle();
-
-        if (existing) {
-          metricId = existing.id;
-        } else {
-          const { data: created, error } = await supabase
-            .from("metrics")
-            .insert({
-              key: m.key,
-              name: m.name,
-              user_id: integration.user_id,
-              value_type: "float",
-              category: "custom",
-              unit: m.unit,
-            })
-            .select("id")
-            .single();
-          if (error) continue;
-          metricId = created.id;
-        }
-
-        const { error: insertErr } = await supabase.from("datapoints").insert({
-          metric_id: metricId,
-          value: m.value,
-        });
-
-        if (!insertErr) synced++;
-      }
-
-      await supabase
-        .from("user_integrations")
-        .update({ last_synced_at: new Date().toISOString(), last_error: null })
-        .eq("user_id", integration.user_id)
-        .eq("provider", "coingecko");
-    }
+    const { synced, total } = await batchUpsertDatapoints(supabase, "coingecko", metrics);
 
     return new Response(
       JSON.stringify({
@@ -93,7 +44,7 @@ serve(async (req) => {
         total_volume_24h: totalVolume24h,
         active_cryptocurrencies: activeCryptos,
         synced,
-        total: integrations?.length || 0,
+        total,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { batchUpsertDatapoints } from "../_shared/batch-upsert.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,9 +13,10 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
     // Fetch all data in parallel — mempool.space is public, no auth needed
     const [feesRes, hashrateRes, blockHeightRes, mempoolRes] = await Promise.all([
@@ -43,73 +45,21 @@ serve(async (req) => {
     const halvingProgressPct = ((blockHeight - PREV_HALVING) / 210_000) * 100;
 
     const metrics = [
-      { key: "mempool.fees.fastest", value: fees.fastestFee, name: "Fastest Fee", unit: "sat/vB" },
-      { key: "mempool.fees.half_hour", value: fees.halfHourFee, name: "Half-Hour Fee", unit: "sat/vB" },
-      { key: "mempool.fees.hour", value: fees.hourFee, name: "1-Hour Fee", unit: "sat/vB" },
-      { key: "mempool.fees.economy", value: fees.economyFee, name: "Economy Fee", unit: "sat/vB" },
-      { key: "mempool.fees.minimum", value: fees.minimumFee, name: "Minimum Fee", unit: "sat/vB" },
-      { key: "mempool.hashrate", value: hashrateEHs, name: "Hashrate", unit: "EH/s" },
-      { key: "mempool.difficulty", value: hashrate.currentDifficulty, name: "Difficulty", unit: "" },
-      { key: "mempool.block_height", value: blockHeight, name: "Block Height", unit: "blocks" },
-      { key: "mempool.tx_count", value: mempool.count, name: "Mempool TX Count", unit: "txs" },
-      { key: "mempool.vsize", value: mempool.vsize, name: "Mempool vSize", unit: "vB" },
-      { key: "mempool.halving_blocks_remaining", value: halvingBlocksRemaining, name: "Halving Blocks Remaining", unit: "blocks" },
-      { key: "mempool.halving_progress_pct", value: halvingProgressPct, name: "Halving Progress", unit: "%" },
+      { key: "mempool.fees.fastest",            value: fees.fastestFee,          name: "Fastest Fee",               unit: "sat/vB" },
+      { key: "mempool.fees.half_hour",           value: fees.halfHourFee,         name: "Half-Hour Fee",             unit: "sat/vB" },
+      { key: "mempool.fees.hour",                value: fees.hourFee,             name: "1-Hour Fee",                unit: "sat/vB" },
+      { key: "mempool.fees.economy",             value: fees.economyFee,          name: "Economy Fee",               unit: "sat/vB" },
+      { key: "mempool.fees.minimum",             value: fees.minimumFee,          name: "Minimum Fee",               unit: "sat/vB" },
+      { key: "mempool.hashrate",                 value: hashrateEHs,              name: "Hashrate",                  unit: "EH/s"   },
+      { key: "mempool.difficulty",               value: hashrate.currentDifficulty, name: "Difficulty",             unit: ""       },
+      { key: "mempool.block_height",             value: blockHeight,              name: "Block Height",              unit: "blocks" },
+      { key: "mempool.tx_count",                 value: mempool.count,            name: "Mempool TX Count",          unit: "txs"    },
+      { key: "mempool.vsize",                    value: mempool.vsize,            name: "Mempool vSize",             unit: "vB"     },
+      { key: "mempool.halving_blocks_remaining", value: halvingBlocksRemaining,   name: "Halving Blocks Remaining",  unit: "blocks" },
+      { key: "mempool.halving_progress_pct",     value: halvingProgressPct,       name: "Halving Progress",          unit: "%"      },
     ];
 
-    // Find all users with an active mempool integration
-    const { data: integrations } = await supabase
-      .from("user_integrations")
-      .select("user_id")
-      .eq("provider", "mempool")
-      .eq("is_active", true);
-
-    let synced = 0;
-
-    for (const integration of integrations || []) {
-      for (const m of metrics) {
-        // Find or create the metric
-        let metricId: string;
-        const { data: existing } = await supabase
-          .from("metrics")
-          .select("id")
-          .eq("key", m.key)
-          .eq("user_id", integration.user_id)
-          .maybeSingle();
-
-        if (existing) {
-          metricId = existing.id;
-        } else {
-          const { data: created, error } = await supabase
-            .from("metrics")
-            .insert({
-              key: m.key,
-              name: m.name,
-              user_id: integration.user_id,
-              value_type: "float",
-              category: "custom",
-              unit: m.unit,
-            })
-            .select("id")
-            .single();
-          if (error) continue;
-          metricId = created.id;
-        }
-
-        const { error: insertErr } = await supabase.from("datapoints").insert({
-          metric_id: metricId,
-          value: m.value,
-        });
-
-        if (!insertErr) synced++;
-      }
-
-      await supabase
-        .from("user_integrations")
-        .update({ last_synced_at: new Date().toISOString(), last_error: null })
-        .eq("user_id", integration.user_id)
-        .eq("provider", "mempool");
-    }
+    const { synced, total } = await batchUpsertDatapoints(supabase, "mempool", metrics);
 
     return new Response(
       JSON.stringify({
@@ -118,7 +68,7 @@ serve(async (req) => {
         block_height: blockHeight,
         tx_count: mempool.count,
         synced,
-        total: integrations?.length || 0,
+        total,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
