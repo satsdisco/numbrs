@@ -69,3 +69,62 @@ export async function toggleIntegration(
   if (error) throw error;
   return data as unknown as UserIntegration;
 }
+
+// ─── Latest metric values ────────────────────────────────────────────────────
+
+export async function fetchLatestMetricValues(
+  keys: string[]
+): Promise<Record<string, { value: number; timestamp: string } | null>> {
+  if (keys.length === 0) return {};
+
+  const { data: metrics } = await supabase
+    .from("metrics")
+    .select("id, key")
+    .in("key", keys);
+
+  const result: Record<string, { value: number; timestamp: string } | null> =
+    Object.fromEntries(keys.map((k) => [k, null]));
+
+  if (!metrics?.length) return result;
+
+  await Promise.all(
+    metrics.map(async ({ id, key }: { id: string; key: string }) => {
+      const { data: dp } = await supabase
+        .from("datapoints")
+        .select("value, created_at")
+        .eq("metric_id", id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (dp) result[key] = { value: dp.value, timestamp: dp.created_at };
+    })
+  );
+
+  return result;
+}
+
+// Fetch the first matching metric + its latest datapoint using a LIKE pattern
+// e.g. pattern = 'github.%.stars'
+export async function fetchFirstMetricLike(
+  pattern: string
+): Promise<{ key: string; value: number; timestamp: string } | null> {
+  const { data: metrics } = await supabase
+    .from("metrics")
+    .select("id, key")
+    .ilike("key", pattern)
+    .limit(10);
+
+  if (!metrics?.length) return null;
+
+  for (const { id, key } of metrics as { id: string; key: string }[]) {
+    const { data: dp } = await supabase
+      .from("datapoints")
+      .select("value, created_at")
+      .eq("metric_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (dp) return { key, value: dp.value, timestamp: dp.created_at };
+  }
+  return null;
+}
