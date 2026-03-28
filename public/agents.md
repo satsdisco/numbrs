@@ -265,14 +265,268 @@ curl -X POST https://numbrs.lol/api/monitors \
 
 ---
 
+### GitHub Stats
+
+GitHub repo metrics (stars, forks, open issues) are collected automatically by the server-side `collect-github` function. No collector script needed — just enable the integration in **Settings → Integrations** and specify which repos to track.
+
+Metrics pushed: `github.{owner}.{repo}.stars`, `github.{owner}.{repo}.forks`, `github.{owner}.{repo}.issues`
+
+**Create a GitHub project dashboard:**
+
+```bash
+curl -X POST https://numbrs.lol/api/dashboards/from-template \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"template": "github-project"}'
+```
+
+Or for multiple repos side by side:
+
+```bash
+curl -X POST https://numbrs.lol/api/dashboards/from-template \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"template": "github-projects"}'
+```
+
+---
+
+### Bitcoin Price
+
+BTC price is collected automatically by the server-side `collect-bitcoin` function every few minutes from Coinbase. No collector script needed — enable the integration in **Settings → Integrations**.
+
+Metric pushed: `bitcoin.price_usd`
+
+**Create a personal overview dashboard (includes BTC price):**
+
+```bash
+curl -X POST https://numbrs.lol/api/dashboards/from-template \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"template": "personal-overview"}'
+```
+
+---
+
+### Vercel Deploy Tracking
+
+Vercel sends deploy events via webhook. Configure it in Vercel → Project → Settings → Webhooks.
+
+Webhook URL:
+```
+https://numbrs.lol/api/ingest
+```
+
+Metrics pushed per deploy event: `deploy.count`, `build.duration_ms`, `error.count`
+
+**Create a Vercel site dashboard:**
+
+```bash
+curl -X POST https://numbrs.lol/api/dashboards/from-template \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"template": "vercel-site"}'
+```
+
+---
+
+### Jellyfin Monitoring
+
+Jellyfin metrics are pushed via the system health collector or a dedicated Jellyfin stats script. The `mac-mini-health` template includes Jellyfin panels.
+
+Metrics: `jellyfin.active_streams`, `jellyfin.song_count`, `jellyfin.album_count`, `jellyfin.connected_clients`
+
+```bash
+curl -X POST https://numbrs.lol/api/dashboards/from-template \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"template": "mac-mini-health"}'
+```
+
+---
+
+### Self-Hosted Nostr Relay Stats (Haven / Khatru)
+
+Push DB size and pubkey counts from your self-hosted relay to track growth over time.
+
+Metrics: `relay.relay1.db_size_mb`, `relay.relay2.db_size_mb`, `relay.relay1.pubkeys`, etc.
+
+```bash
+# Example push for a Haven relay
+DB_SIZE=$(du -sm /path/to/relay/db | awk '{print $1}')
+PUBKEYS=$(sqlite3 /path/to/relay/db "SELECT COUNT(DISTINCT pubkey) FROM events")
+
+curl -X POST https://numbrs.lol/api/ingest \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d "[
+    {\"key\": \"relay.relay1.db_size_mb\", \"value\": $DB_SIZE},
+    {\"key\": \"relay.relay1.pubkeys\",    \"value\": $PUBKEYS}
+  ]"
+```
+
+**Create a Nostr relays dashboard:**
+
+```bash
+curl -X POST https://numbrs.lol/api/dashboards/from-template \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"template": "nostr-relays"}'
+```
+
+---
+
+### Uptime Monitoring
+
+Add any HTTP or WebSocket endpoint to be checked automatically every minute by the server-side `uptime-check` function.
+
+```bash
+# HTTP endpoint
+curl -X POST https://numbrs.lol/api/monitors \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My API", "url": "https://api.example.com/health", "type": "http"}'
+
+# WebSocket relay
+curl -X POST https://numbrs.lol/api/monitors \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My Relay", "url": "wss://relay.example.com", "type": "wss"}'
+```
+
+**Create an uptime overview dashboard:**
+
+```bash
+curl -X POST https://numbrs.lol/api/dashboards/from-template \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"template": "uptime-overview"}'
+```
+
+---
+
+### Claude / OpenClaw Usage Tracking
+
+numbrs has a dedicated **Claude** page (`/claude`) that tracks your Claude API and Claude Code (OpenClaw) usage. Data is stored in two Supabase tables: `claude_usage` and `openclaw_usage`.
+
+#### claude_usage table (Claude Code / API usage)
+
+| Column | Type | Description |
+|---|---|---|
+| `date` | date | Day of usage (YYYY-MM-DD) |
+| `session_id` | text | Unique session identifier |
+| `project` | text | Project name |
+| `messages` | integer | Message count in session |
+| `tool_calls` | integer | Tool calls made |
+| `input_tokens` | integer | Input token count |
+| `output_tokens` | integer | Output token count |
+| `cache_read_tokens` | integer | Cache-read token count |
+| `cache_write_tokens` | integer | Cache-write token count |
+| `model` | text | Model ID (e.g. `claude-sonnet-4-6`) |
+| `created_at` | timestamptz | Row creation time |
+
+#### openclaw_usage table (OpenClaw / multi-channel usage)
+
+| Column | Type | Description |
+|---|---|---|
+| `date` | date | Day of usage (YYYY-MM-DD) |
+| `session_id` | text | Unique session identifier |
+| `channel` | text | Channel (`main`, `slack:*`, `discord:*`, etc.) |
+| `model` | text | Model ID |
+| `messages` | integer | Message count |
+| `input_tokens` | integer | Input token count |
+| `output_tokens` | integer | Output token count |
+| `cache_read_tokens` | integer | Cache-read token count |
+| `cache_write_tokens` | integer | Cache-write token count |
+| `cost_usd` | numeric | Estimated API cost in USD |
+| `created_at` | timestamptz | Row creation time |
+
+#### Collector script — push Claude Code session data
+
+The collector reads Claude Code usage (e.g. from `~/.claude/usage/`) and pushes rows directly to Supabase. This requires your Supabase service key or the project anon key with row-level security set up for your user.
+
+```bash
+#!/bin/bash
+# claude-collector.sh
+# Reads daily Claude Code usage and upserts into claude_usage via Supabase REST
+# Run after each session or on a cron: 0 * * * * /path/to/claude-collector.sh
+
+SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
+SUPABASE_KEY="YOUR_ANON_OR_SERVICE_KEY"
+TABLE="claude_usage"
+
+# Adjust path to where Claude Code stores usage logs
+USAGE_FILE="$HOME/.claude/usage/$(date +%Y-%m-%d).json"
+[ -f "$USAGE_FILE" ] || exit 0
+
+# Parse and push each session row
+jq -c '.[]' "$USAGE_FILE" | while read -r row; do
+  curl -sf -X POST "$SUPABASE_URL/rest/v1/$TABLE" \
+    -H "apikey: $SUPABASE_KEY" \
+    -H "Authorization: Bearer $SUPABASE_KEY" \
+    -H "Content-Type: application/json" \
+    -H "Prefer: resolution=merge-duplicates" \
+    -d "$row"
+done
+```
+
+For OpenClaw (multi-channel Claude), the `openclaw_usage` table is populated automatically by the OpenClaw service — no collector script needed if you self-host OpenClaw pointed at the same Supabase project.
+
+---
+
+## Server-Side Integrations (No Collector Needed)
+
+These collectors run automatically as Supabase Edge Functions and require no user-side setup beyond enabling the integration in **Settings → Integrations**:
+
+| Function | What it does | Frequency |
+|---|---|---|
+| `relay-probe` | Probes all your Nostr relays via WebSocket — records connect latency, first-event latency, and uptime | Every ~5 min |
+| `uptime-check` | HTTP/WSS checks for all your uptime monitors | Every ~1 min |
+| `collect-github` | Fetches stars, forks, and open issues for configured repos | Periodic |
+| `collect-bitcoin` | Fetches BTC price from Coinbase | Periodic |
+
+---
+
 ## Available Dashboard Templates
 
-| Template | Description | Key Metrics |
-|---|---|---|
-| `relay-health` | Nostr relay monitoring | Connect latency, event latency, uptime |
-| `bitaxe` | Bitcoin mining stats | Hashrate, temp, shares, power |
-| `system-health` | Server monitoring | CPU, RAM, disk, network |
-| `media` | Plex/Jellyfin analytics | Active streams, library counts |
+All templates are created via `POST /api/dashboards/from-template` with `{"template": "<id>"}`.
+
+### Nostr & Network
+
+| Template ID | Name | Description | Key Metrics |
+|---|---|---|---|
+| `relay-health` | Relay Health | Relay status overview, latency charts, and uptime | `relay_latency_connect_ms`, `relay_latency_first_event_ms`, `relay_up` |
+| `relay-overview` | Relay Overview | Connect latency, event latency, uptime per relay | `relay_latency_connect_ms`, `relay_latency_first_event_ms`, `relay_up` |
+| `network-health` | Network Health | Network-wide throughput, active relays, and latency trends | `network_event_throughput`, `network_relay_count`, `network_avg_latency` |
+| `zap-economy` | Zap Economy | Lightning zap volumes, counts, and averages over time | `zap_volume_sats`, `zap_count`, `zap_avg_size`, `zap_median_size` |
+| `protocol-stats` | Protocol Analytics | Event kinds, propagation times, and NIP compatibility | `event_kind_1_count`, `event_kind_7_count`, `event_propagation_ms`, `nip_support_score` |
+| `nostr-relays` | Nostr Relays | DB size and pubkey counts for self-hosted Haven/Khatru relays | `relay.relay1.db_size_mb`, `relay.relay1.pubkeys`, etc. |
+
+### Infrastructure
+
+| Template ID | Name | Description | Key Metrics |
+|---|---|---|---|
+| `system-health` | System Health | CPU, RAM, and disk usage for your server or desktop | `system.cpu_pct`, `system.ram_pct`, `system.disk_boot_pct`, `system.net_in_mbps` |
+| `mac-mini-health` | Mac Mini Health | CPU, RAM, disk, and Jellyfin stats for a home server | `system.cpu_pct`, `system.ram_pct`, `system.disk_*`, `jellyfin.*` |
+| `uptime-overview` | Uptime Overview | Uptime percentage, latency trends, and incident counts | `uptime.pct`, `uptime.latency_ms`, `uptime.incidents` |
+| `bitaxe` | Bitaxe Miner | Hashrate, temperature, shares, best difficulty, and power | `bitaxe.hashrate_ghs`, `bitaxe.temp_c`, `bitaxe.power_w`, `bitaxe.best_diff` |
+
+### Media
+
+| Template ID | Name | Description | Key Metrics |
+|---|---|---|---|
+| `media` | Media Server | Plex and Jellyfin active streams and library stats | `plex.active_streams`, `plex.library.*`, `jellyfin.active_streams`, `jellyfin.song_count` |
+| `plex-media-server` | Plex Media Server | Active streams and library counts for Plex | `plex.active_streams`, `plex.library.movies.count`, `plex.library.tv_shows.count` |
+
+### Personal & Dev
+
+| Template ID | Name | Description | Key Metrics |
+|---|---|---|---|
+| `github-project` | GitHub Project | Stars, forks, open issues, and PR velocity for a repo | `github.stars`, `github.open_issues`, `github.forks`, `github.prs_merged` |
+| `github-projects` | GitHub Projects | Stars, issues, and forks across multiple repos | `github.user.repo1.stars`, `github.user.repo2.stars`, etc. |
+| `vercel-site` | Vercel Site | Deploy counts, build durations, and error rates | `deploy.count`, `build.duration_ms`, `error.count` |
+| `personal-overview` | Personal Overview | BTC price, Nostr followers, and GitHub stars | `bitcoin.price_usd`, `nostr.account1.followers`, `github.user.repo1.stars` |
+| `personal-stats` | Personal Stats | Track anything — commits, workouts, sleep, habits | `dev.commits`, `dev.streak_days`, `habit.score`, `custom.metric_1` |
 
 ---
 

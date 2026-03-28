@@ -18,6 +18,7 @@ function json(data: unknown, status = 200) {
 // ─── Dashboard Templates ──────────────────────────────────────────────────────
 
 const TEMPLATES: Record<string, { name: string; description: string; panels: unknown[] }> = {
+  // ── Legacy IDs (kept for backwards-compat) ─────────────────────────────────
   "relay-health": {
     name: "Relay Health",
     description: "Relay status overview, latency charts, and uptime",
@@ -74,6 +75,162 @@ const TEMPLATES: Record<string, { name: string; description: string; panels: unk
       { title: "Jellyfin Active Streams", panel_type: "area", config: { metric_key: "jellyfin.active_streams", data_source: "custom", unit: "streams" }, layout: { x: 0, y: 6, w: 8, h: 4 } },
       { title: "Jellyfin Streams", panel_type: "stat", config: { metric_key: "jellyfin.active_streams", data_source: "custom", stat_field: "latest", unit: "" }, layout: { x: 8, y: 6, w: 4, h: 2 } },
       { title: "Jellyfin Songs", panel_type: "stat", config: { metric_key: "jellyfin.song_count", data_source: "custom", stat_field: "latest", unit: "" }, layout: { x: 8, y: 8, w: 4, h: 2 } },
+    ],
+  },
+
+  // ── Full template set (matches dashboard-templates.ts) ─────────────────────
+  "relay-overview": {
+    name: "Relay Overview",
+    description: "Connect latency, event latency, and uptime for your relays",
+    panels: [
+      { title: "Connect Latency", panel_type: "line", config: { metric_key: "relay_latency_connect_ms", data_source: "relay", unit: "ms" }, layout: { x: 0, y: 0, w: 6, h: 4 } },
+      { title: "Event Latency", panel_type: "line", config: { metric_key: "relay_latency_first_event_ms", data_source: "relay", unit: "ms" }, layout: { x: 6, y: 0, w: 6, h: 4 } },
+      { title: "Uptime", panel_type: "gauge", config: { metric_key: "relay_up", data_source: "relay", stat_field: "avg", gauge_max: 1 }, layout: { x: 0, y: 4, w: 4, h: 3 } },
+      { title: "Avg Connect Time", panel_type: "stat", config: { metric_key: "relay_latency_connect_ms", data_source: "relay", stat_field: "avg", unit: "ms" }, layout: { x: 4, y: 4, w: 4, h: 2 } },
+      { title: "P95 Connect Time", panel_type: "stat", config: { metric_key: "relay_latency_connect_ms", data_source: "relay", stat_field: "p95", unit: "ms" }, layout: { x: 8, y: 4, w: 4, h: 2 } },
+    ],
+  },
+  "network-health": {
+    name: "Network Health",
+    description: "Network-wide throughput, active relays, and latency trends",
+    panels: [
+      { title: "Event Throughput", panel_type: "area", config: { metric_key: "network_event_throughput", data_source: "global", unit: "events/s" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
+      { title: "Active Relays", panel_type: "stat", config: { metric_key: "network_relay_count", data_source: "global", stat_field: "latest", unit: "relays" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
+      { title: "Network Avg Latency", panel_type: "stat", config: { metric_key: "network_avg_latency", data_source: "global", stat_field: "avg", unit: "ms" }, layout: { x: 8, y: 2, w: 4, h: 2 } },
+      { title: "Network Latency Trend", panel_type: "line", config: { metric_key: "network_avg_latency", data_source: "global", unit: "ms" }, layout: { x: 0, y: 4, w: 12, h: 4 } },
+    ],
+  },
+  "zap-economy": {
+    name: "Zap Economy",
+    description: "Lightning zap volumes, counts, and averages over time",
+    panels: [
+      { title: "Zap Volume", panel_type: "area", config: { metric_key: "zap_volume_sats", data_source: "global", unit: "sats" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
+      { title: "Total Zaps", panel_type: "stat", config: { metric_key: "zap_count", data_source: "global", stat_field: "latest", unit: "zaps" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
+      { title: "Avg Zap Size", panel_type: "stat", config: { metric_key: "zap_avg_size", data_source: "global", stat_field: "avg", unit: "sats" }, layout: { x: 8, y: 2, w: 4, h: 2 } },
+      { title: "Zap Count Over Time", panel_type: "line", config: { metric_key: "zap_count", data_source: "global", unit: "zaps" }, layout: { x: 0, y: 4, w: 6, h: 4 } },
+      { title: "Median Zap Size", panel_type: "line", config: { metric_key: "zap_median_size", data_source: "global", unit: "sats" }, layout: { x: 6, y: 4, w: 6, h: 4 } },
+    ],
+  },
+  "protocol-stats": {
+    name: "Protocol Analytics",
+    description: "Event kinds, propagation times, and NIP compatibility",
+    panels: [
+      { title: "Text Notes (kind 1)", panel_type: "line", config: { metric_key: "event_kind_1_count", data_source: "global", unit: "events" }, layout: { x: 0, y: 0, w: 6, h: 4 } },
+      { title: "Reactions (kind 7)", panel_type: "line", config: { metric_key: "event_kind_7_count", data_source: "global", unit: "events" }, layout: { x: 6, y: 0, w: 6, h: 4 } },
+      { title: "Event Propagation", panel_type: "area", config: { metric_key: "event_propagation_ms", data_source: "global", unit: "ms" }, layout: { x: 0, y: 4, w: 8, h: 4 } },
+      { title: "NIP Support Score", panel_type: "gauge", config: { metric_key: "nip_support_score", data_source: "global", stat_field: "avg", gauge_max: 100 }, layout: { x: 8, y: 4, w: 4, h: 3 } },
+    ],
+  },
+  "vercel-site": {
+    name: "Vercel Site",
+    description: "Deploy counts, build durations, and error rates for your Vercel projects",
+    panels: [
+      { title: "Deploys", panel_type: "area", config: { metric_key: "deploy.count", data_source: "custom", unit: "deploys" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
+      { title: "Total Deploys", panel_type: "stat", config: { metric_key: "deploy.count", data_source: "custom", stat_field: "sum", unit: "deploys" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
+      { title: "Avg Build Time", panel_type: "stat", config: { metric_key: "build.duration_ms", data_source: "custom", stat_field: "avg", unit: "ms" }, layout: { x: 8, y: 2, w: 4, h: 2 } },
+      { title: "Build Duration Trend", panel_type: "line", config: { metric_key: "build.duration_ms", data_source: "custom", unit: "ms" }, layout: { x: 0, y: 4, w: 6, h: 4 } },
+      { title: "Error Rate", panel_type: "line", config: { metric_key: "error.count", data_source: "custom", unit: "errors" }, layout: { x: 6, y: 4, w: 6, h: 4 } },
+    ],
+  },
+  "github-project": {
+    name: "GitHub Project",
+    description: "Stars, forks, open issues, and PR velocity for your repositories",
+    panels: [
+      { title: "Stars", panel_type: "area", config: { metric_key: "github.stars", data_source: "custom", unit: "stars" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
+      { title: "Total Stars", panel_type: "stat", config: { metric_key: "github.stars", data_source: "custom", stat_field: "latest", unit: "stars" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
+      { title: "Open Issues", panel_type: "stat", config: { metric_key: "github.open_issues", data_source: "custom", stat_field: "latest", unit: "issues" }, layout: { x: 8, y: 2, w: 4, h: 2 } },
+      { title: "Forks", panel_type: "line", config: { metric_key: "github.forks", data_source: "custom", unit: "forks" }, layout: { x: 0, y: 4, w: 6, h: 4 } },
+      { title: "PRs Merged", panel_type: "area", config: { metric_key: "github.prs_merged", data_source: "custom", unit: "PRs" }, layout: { x: 6, y: 4, w: 6, h: 4 } },
+    ],
+  },
+  "uptime-overview": {
+    name: "Uptime Overview",
+    description: "Uptime percentage, latency trends, and incident counts",
+    panels: [
+      { title: "Uptime %", panel_type: "gauge", config: { metric_key: "uptime.pct", data_source: "custom", stat_field: "avg", gauge_max: 100 }, layout: { x: 0, y: 0, w: 4, h: 3 } },
+      { title: "Avg Latency", panel_type: "stat", config: { metric_key: "uptime.latency_ms", data_source: "custom", stat_field: "avg", unit: "ms" }, layout: { x: 4, y: 0, w: 4, h: 2 } },
+      { title: "Incidents", panel_type: "stat", config: { metric_key: "uptime.incidents", data_source: "custom", stat_field: "sum", unit: "incidents" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
+      { title: "Latency Over Time", panel_type: "line", config: { metric_key: "uptime.latency_ms", data_source: "custom", unit: "ms" }, layout: { x: 0, y: 3, w: 12, h: 4 } },
+    ],
+  },
+  "nostr-relays": {
+    name: "Nostr Relays",
+    description: "DB size and pubkey counts for your self-hosted Haven or Khatru relays",
+    panels: [
+      { title: "Relay 1 DB Size", panel_type: "area", config: { metric_key: "relay.relay1.db_size_mb", data_source: "custom", unit: "MB" }, layout: { x: 0, y: 0, w: 6, h: 4 } },
+      { title: "Relay 2 DB Size", panel_type: "area", config: { metric_key: "relay.relay2.db_size_mb", data_source: "custom", unit: "MB" }, layout: { x: 6, y: 0, w: 6, h: 4 } },
+      { title: "Relay 1 DB", panel_type: "stat", config: { metric_key: "relay.relay1.db_size_mb", data_source: "custom", stat_field: "latest", unit: "MB" }, layout: { x: 0, y: 4, w: 3, h: 2 } },
+      { title: "Relay 2 DB", panel_type: "stat", config: { metric_key: "relay.relay2.db_size_mb", data_source: "custom", stat_field: "latest", unit: "MB" }, layout: { x: 3, y: 4, w: 3, h: 2 } },
+      { title: "Relay 1 Pubkeys", panel_type: "stat", config: { metric_key: "relay.relay1.pubkeys", data_source: "custom", stat_field: "latest", unit: "" }, layout: { x: 6, y: 4, w: 3, h: 2 } },
+      { title: "Relay 3 DB", panel_type: "stat", config: { metric_key: "relay.relay3.db_size_mb", data_source: "custom", stat_field: "latest", unit: "MB" }, layout: { x: 9, y: 4, w: 3, h: 2 } },
+    ],
+  },
+  "github-projects": {
+    name: "GitHub Projects",
+    description: "Stars, issues, and forks across your active repos",
+    panels: [
+      { title: "Repo 1 Stars", panel_type: "area", config: { metric_key: "github.user.repo1.stars", data_source: "custom", unit: "⭐" }, layout: { x: 0, y: 0, w: 4, h: 4 } },
+      { title: "Repo 2 Stars", panel_type: "area", config: { metric_key: "github.user.repo2.stars", data_source: "custom", unit: "⭐" }, layout: { x: 4, y: 0, w: 4, h: 4 } },
+      { title: "Repo 3 Stars", panel_type: "area", config: { metric_key: "github.user.repo3.stars", data_source: "custom", unit: "⭐" }, layout: { x: 8, y: 0, w: 4, h: 4 } },
+      { title: "Repo 1 Issues", panel_type: "stat", config: { metric_key: "github.user.repo1.issues", data_source: "custom", stat_field: "latest", unit: "" }, layout: { x: 0, y: 4, w: 4, h: 2 } },
+      { title: "Repo 2 Issues", panel_type: "stat", config: { metric_key: "github.user.repo2.issues", data_source: "custom", stat_field: "latest", unit: "" }, layout: { x: 4, y: 4, w: 4, h: 2 } },
+      { title: "Repo 3 Issues", panel_type: "stat", config: { metric_key: "github.user.repo3.issues", data_source: "custom", stat_field: "latest", unit: "" }, layout: { x: 8, y: 4, w: 4, h: 2 } },
+    ],
+  },
+  "mac-mini-health": {
+    name: "Mac Mini Health",
+    description: "CPU, RAM, disk usage and Jellyfin stats for your home server",
+    panels: [
+      { title: "CPU Usage", panel_type: "area", config: { metric_key: "system.cpu_pct", data_source: "custom", unit: "%" }, layout: { x: 0, y: 0, w: 6, h: 4 } },
+      { title: "RAM Usage", panel_type: "area", config: { metric_key: "system.ram_pct", data_source: "custom", unit: "%" }, layout: { x: 6, y: 0, w: 6, h: 4 } },
+      { title: "CPU %", panel_type: "stat", config: { metric_key: "system.cpu_pct", data_source: "custom", stat_field: "latest", unit: "%" }, layout: { x: 0, y: 4, w: 3, h: 2 } },
+      { title: "RAM %", panel_type: "stat", config: { metric_key: "system.ram_pct", data_source: "custom", stat_field: "latest", unit: "%" }, layout: { x: 3, y: 4, w: 3, h: 2 } },
+      { title: "RAM Used", panel_type: "stat", config: { metric_key: "system.ram_used_mb", data_source: "custom", stat_field: "latest", unit: "MB" }, layout: { x: 6, y: 4, w: 3, h: 2 } },
+      { title: "External Disk", panel_type: "gauge", config: { metric_key: "system.disk_external_pct", data_source: "custom", stat_field: "latest", gauge_max: 100, unit: "%" }, layout: { x: 9, y: 4, w: 3, h: 3 } },
+      { title: "Boot Disk", panel_type: "gauge", config: { metric_key: "system.disk_boot_pct", data_source: "custom", stat_field: "latest", gauge_max: 100, unit: "%" }, layout: { x: 0, y: 6, w: 3, h: 3 } },
+      { title: "Disk Free (GB)", panel_type: "stat", config: { metric_key: "system.disk_external_free_gb", data_source: "custom", stat_field: "latest", unit: "GB" }, layout: { x: 3, y: 6, w: 3, h: 2 } },
+      { title: "Jellyfin Streams", panel_type: "area", config: { metric_key: "jellyfin.active_streams", data_source: "custom", unit: "streams" }, layout: { x: 0, y: 9, w: 6, h: 4 } },
+      { title: "Active Streams", panel_type: "stat", config: { metric_key: "jellyfin.active_streams", data_source: "custom", stat_field: "latest", unit: "" }, layout: { x: 6, y: 9, w: 3, h: 2 } },
+      { title: "Songs in Library", panel_type: "stat", config: { metric_key: "jellyfin.song_count", data_source: "custom", stat_field: "latest", unit: "" }, layout: { x: 9, y: 9, w: 3, h: 2 } },
+      { title: "Albums", panel_type: "stat", config: { metric_key: "jellyfin.album_count", data_source: "custom", stat_field: "latest", unit: "" }, layout: { x: 6, y: 11, w: 3, h: 2 } },
+      { title: "Connected Clients", panel_type: "stat", config: { metric_key: "jellyfin.connected_clients", data_source: "custom", stat_field: "latest", unit: "" }, layout: { x: 9, y: 11, w: 3, h: 2 } },
+    ],
+  },
+  "plex-media-server": {
+    name: "Plex Media Server",
+    description: "Active streams and library counts for your Plex server",
+    panels: [
+      { title: "Active Streams", panel_type: "area", config: { metric_key: "plex.active_streams", data_source: "custom", unit: "streams" }, layout: { x: 0, y: 0, w: 12, h: 4 } },
+      { title: "Streams Now", panel_type: "stat", config: { metric_key: "plex.active_streams", data_source: "custom", stat_field: "latest", unit: "" }, layout: { x: 0, y: 4, w: 3, h: 2 } },
+      { title: "Movies", panel_type: "stat", config: { metric_key: "plex.library.movies.count", data_source: "custom", stat_field: "latest", unit: "titles" }, layout: { x: 3, y: 4, w: 3, h: 2 } },
+      { title: "TV Shows", panel_type: "stat", config: { metric_key: "plex.library.tv_shows.count", data_source: "custom", stat_field: "latest", unit: "shows" }, layout: { x: 6, y: 4, w: 3, h: 2 } },
+      { title: "Music", panel_type: "stat", config: { metric_key: "plex.library.music.count", data_source: "custom", stat_field: "latest", unit: "tracks" }, layout: { x: 9, y: 4, w: 3, h: 2 } },
+      { title: "Audiobooks", panel_type: "stat", config: { metric_key: "plex.library.audiobooks.count", data_source: "custom", stat_field: "latest", unit: "titles" }, layout: { x: 0, y: 6, w: 3, h: 2 } },
+      { title: "Movies Library Trend", panel_type: "area", config: { metric_key: "plex.library.movies.count", data_source: "custom", unit: "titles" }, layout: { x: 0, y: 8, w: 6, h: 4 } },
+      { title: "TV Shows Library Trend", panel_type: "area", config: { metric_key: "plex.library.tv_shows.count", data_source: "custom", unit: "shows" }, layout: { x: 6, y: 8, w: 6, h: 4 } },
+    ],
+  },
+  "personal-overview": {
+    name: "Personal Overview",
+    description: "BTC price, Nostr follower counts, and GitHub project stars — track your presence",
+    panels: [
+      { title: "BTC Price", panel_type: "area", config: { metric_key: "bitcoin.price_usd", data_source: "custom", unit: "USD" }, layout: { x: 0, y: 0, w: 12, h: 4 } },
+      { title: "BTC Price", panel_type: "stat", config: { metric_key: "bitcoin.price_usd", data_source: "custom", stat_field: "latest", unit: "$" }, layout: { x: 0, y: 4, w: 4, h: 2 } },
+      { title: "Nostr Followers (Account 1)", panel_type: "stat", config: { metric_key: "nostr.account1.followers", data_source: "custom", stat_field: "latest", unit: "followers" }, layout: { x: 4, y: 4, w: 4, h: 2 } },
+      { title: "Nostr Followers (Account 2)", panel_type: "stat", config: { metric_key: "nostr.account2.followers", data_source: "custom", stat_field: "latest", unit: "followers" }, layout: { x: 8, y: 4, w: 4, h: 2 } },
+      { title: "Repo 1 Stars", panel_type: "stat", config: { metric_key: "github.user.repo1.stars", data_source: "custom", stat_field: "latest", unit: "⭐" }, layout: { x: 0, y: 6, w: 4, h: 2 } },
+      { title: "Repo 2 Stars", panel_type: "stat", config: { metric_key: "github.user.repo2.stars", data_source: "custom", stat_field: "latest", unit: "⭐" }, layout: { x: 4, y: 6, w: 4, h: 2 } },
+    ],
+  },
+  "personal-stats": {
+    name: "Personal Stats",
+    description: "Track anything about yourself — commits, workouts, sleep, habits",
+    panels: [
+      { title: "Daily Commits", panel_type: "area", config: { metric_key: "dev.commits", data_source: "custom", unit: "commits" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
+      { title: "Streak", panel_type: "stat", config: { metric_key: "dev.streak_days", data_source: "custom", stat_field: "latest", unit: "days" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
+      { title: "Habit Score", panel_type: "gauge", config: { metric_key: "habit.score", data_source: "custom", stat_field: "avg", gauge_max: 100 }, layout: { x: 8, y: 2, w: 4, h: 3 } },
+      { title: "Custom Metric 1", panel_type: "line", config: { metric_key: "custom.metric_1", data_source: "custom", unit: "" }, layout: { x: 0, y: 4, w: 6, h: 4 } },
+      { title: "Custom Metric 2", panel_type: "line", config: { metric_key: "custom.metric_2", data_source: "custom", unit: "" }, layout: { x: 6, y: 4, w: 6, h: 4 } },
     ],
   },
 };

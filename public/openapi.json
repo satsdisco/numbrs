@@ -256,9 +256,27 @@
                 "properties": {
                   "template": {
                     "type": "string",
-                    "enum": ["relay-health", "bitaxe", "system-health", "media"],
+                    "enum": [
+                      "relay-health",
+                      "relay-overview",
+                      "network-health",
+                      "zap-economy",
+                      "protocol-stats",
+                      "nostr-relays",
+                      "bitaxe",
+                      "system-health",
+                      "mac-mini-health",
+                      "uptime-overview",
+                      "media",
+                      "plex-media-server",
+                      "github-project",
+                      "github-projects",
+                      "vercel-site",
+                      "personal-overview",
+                      "personal-stats"
+                    ],
                     "example": "relay-health",
-                    "description": "relay-health: Nostr relay monitoring | bitaxe: Bitcoin mining stats | system-health: CPU/RAM/disk | media: Plex/Jellyfin"
+                    "description": "relay-health / relay-overview: Nostr relay monitoring | network-health: network-wide stats | zap-economy: Lightning zaps | protocol-stats: Nostr event analytics | nostr-relays: self-hosted relay DB/pubkey stats | bitaxe: Bitcoin mining | system-health / mac-mini-health: CPU/RAM/disk | uptime-overview: uptime % and latency | media: Plex+Jellyfin combined | plex-media-server: Plex only | github-project: single repo stats | github-projects: multi-repo | vercel-site: deploy tracking | personal-overview: BTC + Nostr + GitHub | personal-stats: custom personal metrics"
                   },
                   "name": { "type": "string", "description": "Override the default dashboard name", "example": "My Relay Dashboard" }
                 }
