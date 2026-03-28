@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createRelay } from "@/lib/api";
@@ -12,9 +12,38 @@ export default function NewRelayPage() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("wss://");
   const [region, setRegion] = useState("");
+  const [regionLoading, setRegionLoading] = useState(false);
+  const regionUserEdited = useRef(false);
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (regionUserEdited.current) return;
+      let hostname = "";
+      try {
+        hostname = new URL(url).hostname;
+      } catch {
+        return;
+      }
+      if (!hostname) return;
+      setRegionLoading(true);
+      try {
+        const res = await fetch(`http://ip-api.com/json/${hostname}?fields=city,country,countryCode`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.city && data.countryCode && !regionUserEdited.current) {
+          setRegion(`${data.city}, ${data.countryCode}`);
+        }
+      } catch {
+        // leave region empty on error
+      } finally {
+        setRegionLoading(false);
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [url]);
 
   const mutation = useMutation({
     mutationFn: (data: { name: string; url: string; region?: string; user_id: string }) =>
@@ -76,12 +105,20 @@ export default function NewRelayPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="region" className="text-metric-sm">Region (optional)</Label>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="region" className="text-metric-sm">Region (optional)</Label>
+            {regionLoading && (
+              <span className="text-xs text-muted-foreground">Looking up...</span>
+            )}
+          </div>
           <Input
             id="region"
             value={region}
-            onChange={(e) => setRegion(e.target.value)}
-            placeholder="us-east, eu-west, etc."
+            onChange={(e) => {
+              regionUserEdited.current = true;
+              setRegion(e.target.value);
+            }}
+            placeholder="Frankfurt, DE"
             className="bg-background"
           />
         </div>
