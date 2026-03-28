@@ -192,6 +192,116 @@ curl -sX POST https://numbrs.lol/functions/v1/ingest \\
     ],
   },
   {
+    id: "bitaxe",
+    icon: "⛏️",
+    name: "Bitaxe",
+    category: "mining",
+    description: "Monitor your Bitaxe miner — hashrate, temp, shares, efficiency. Runs on any machine on your local network.",
+    language: "bash",
+    snippets: [
+      {
+        label: "1. Set environment variables",
+        code: `export BITAXE_IP="192.168.1.100"   # Your Bitaxe's local IP
+export NUMBRS_URL="https://numbrs.lol/functions/v1/ingest"
+export NUMBRS_KEY="your_api_key"   # From Settings → API Keys`,
+      },
+      {
+        label: "2. Collector script (save as collect-bitaxe.sh)",
+        code: `#!/usr/bin/env bash
+# Bitaxe collector for numbrs — run on any machine that can reach your miner
+DEVICE_IP="\${BITAXE_IP:-192.168.1.100}"
+NUMBRS_URL="\${NUMBRS_URL:-https://numbrs.lol/functions/v1/ingest}"
+NUMBRS_KEY="\${NUMBRS_KEY}"
+
+DATA=$(curl -sf "http://\${DEVICE_IP}/api/system/info") || { echo "Cannot reach Bitaxe"; exit 1; }
+
+HR=$(echo "$DATA" | jq '.hashRate // 0')
+TEMP=$(echo "$DATA" | jq '.temp // 0')
+SA=$(echo "$DATA" | jq '.sharesAccepted // 0')
+SR=$(echo "$DATA" | jq '.sharesRejected // 0')
+BD=$(echo "$DATA" | jq '.bestDiff // 0')
+PW=$(echo "$DATA" | jq '.power // 0')
+UP=$(echo "$DATA" | jq '.uptimeSeconds // 0')
+EFF=$(awk "BEGIN { print ($HR > 0) ? $PW / ($HR / 1000) : 0 }")
+
+curl -sf -X POST "$NUMBRS_URL" \\
+  -H "X-API-KEY: $NUMBRS_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d "[
+    {\\"key\\":\\"mining.bitaxe.hashrate\\",\\"value\\":$HR},
+    {\\"key\\":\\"mining.bitaxe.temperature\\",\\"value\\":$TEMP},
+    {\\"key\\":\\"mining.bitaxe.shares_accepted\\",\\"value\\":$SA},
+    {\\"key\\":\\"mining.bitaxe.shares_rejected\\",\\"value\\":$SR},
+    {\\"key\\":\\"mining.bitaxe.best_diff\\",\\"value\\":$BD},
+    {\\"key\\":\\"mining.bitaxe.power\\",\\"value\\":$PW},
+    {\\"key\\":\\"mining.bitaxe.efficiency\\",\\"value\\":$EFF},
+    {\\"key\\":\\"mining.bitaxe.uptime\\",\\"value\\":$UP}
+  ]"`,
+      },
+      {
+        label: "3. Schedule with cron (every 5 minutes)",
+        code: `chmod +x collect-bitaxe.sh
+crontab -e
+# Add: */5 * * * * /path/to/collect-bitaxe.sh`,
+      },
+    ],
+  },
+  {
+    id: "braiins",
+    icon: "🔥",
+    name: "Braiins Mini Miner",
+    category: "mining",
+    description: "Monitor your Braiins Mini Miner — hashrate, pool stats, efficiency, temp, fan speed.",
+    language: "bash",
+    snippets: [
+      {
+        label: "1. Set environment variables",
+        code: `export BRAIINS_IP="192.168.1.101"   # Your Braiins miner's local IP
+export NUMBRS_URL="https://numbrs.lol/functions/v1/ingest"
+export NUMBRS_KEY="your_api_key"   # From Settings → API Keys`,
+      },
+      {
+        label: "2. Collector script (save as collect-braiins.sh)",
+        code: `#!/usr/bin/env bash
+# Braiins Mini Miner collector for numbrs
+DEVICE_IP="\${BRAIINS_IP:-192.168.1.101}"
+NUMBRS_URL="\${NUMBRS_URL:-https://numbrs.lol/functions/v1/ingest}"
+NUMBRS_KEY="\${NUMBRS_KEY}"
+
+DATA=$(curl -sf "http://\${DEVICE_IP}/cgi-bin/luci/admin/miner/api_status") || { echo "Cannot reach miner"; exit 1; }
+
+HR=$(echo "$DATA" | jq '.summary[0].MHS_av // 0 | . / 1000000')
+TEMP=$(echo "$DATA" | jq '.temps[0].Chip // 0')
+FAN=$(echo "$DATA" | jq '.fans[0].RPM // 0')
+PW=$(echo "$DATA" | jq '.summary[0].Power // 0')
+ACC=$(echo "$DATA" | jq '.summary[0].Accepted // 0')
+REJ=$(echo "$DATA" | jq '.summary[0].Rejected // 0')
+UP=$(echo "$DATA" | jq '.summary[0].Elapsed // 0')
+EFF=$(awk "BEGIN { print ($HR > 0) ? $PW / $HR : 0 }")
+
+curl -sf -X POST "$NUMBRS_URL" \\
+  -H "X-API-KEY: $NUMBRS_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d "[
+    {\\"key\\":\\"mining.braiins.hashrate\\",\\"value\\":$HR},
+    {\\"key\\":\\"mining.braiins.temperature\\",\\"value\\":$TEMP},
+    {\\"key\\":\\"mining.braiins.fan_speed\\",\\"value\\":$FAN},
+    {\\"key\\":\\"mining.braiins.power\\",\\"value\\":$PW},
+    {\\"key\\":\\"mining.braiins.efficiency\\",\\"value\\":$EFF},
+    {\\"key\\":\\"mining.braiins.pool_accepted\\",\\"value\\":$ACC},
+    {\\"key\\":\\"mining.braiins.pool_rejected\\",\\"value\\":$REJ},
+    {\\"key\\":\\"mining.braiins.uptime\\",\\"value\\":$UP}
+  ]"`,
+      },
+      {
+        label: "3. Schedule with cron (every 5 minutes)",
+        code: `chmod +x collect-braiins.sh
+crontab -e
+# Add: */5 * * * * /path/to/collect-braiins.sh`,
+      },
+    ],
+  },
+  {
     id: "github-actions",
     icon: "⚙️",
     name: "GitHub Actions",
@@ -1899,7 +2009,7 @@ function QuickStartBanner() {
 
 // Only show categories that have actual integrations on this page
 const PAGE_CATEGORIES = CATALOG_CATEGORIES.filter((c) =>
-  ["all", "bitcoin", "finance", "weather", "developer", "infrastructure"].includes(c.id)
+  ["all", "bitcoin", "mining", "finance", "weather", "developer", "infrastructure"].includes(c.id)
 );
 
 interface CategoryFilterProps {

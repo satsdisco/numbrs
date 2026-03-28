@@ -23,6 +23,8 @@ export interface CatalogIntegration {
   docsUrl?: string;
   requiresApiKey: boolean;
   free: boolean;
+  /** Bash/shell collector script for client-side integrations */
+  collectorScript?: string;
 }
 
 export interface CatalogCategory {
@@ -36,6 +38,7 @@ export interface CatalogCategory {
 export const CATALOG_CATEGORIES: CatalogCategory[] = [
   { id: "all", label: "All", icon: "✦" },
   { id: "bitcoin", label: "Bitcoin & Lightning", icon: "₿" },
+  { id: "mining", label: "Mining", icon: "⛏️" },
   { id: "weather", label: "Weather & Environment", icon: "🌤️" },
   { id: "finance", label: "Finance & Markets", icon: "📈" },
   { id: "developer", label: "Developer", icon: "🐙" },
@@ -166,6 +169,121 @@ export const INTEGRATION_CATALOG: CatalogIntegration[] = [
       { key: "bisq.volume_btc", name: "Volume (BTC)", unit: "BTC", description: "Daily trade volume" },
       { key: "bisq.trade_count", name: "Trade Count", unit: "trades", description: "Number of completed trades" },
     ],
+  },
+
+  // ── Mining ───────────────────────────────────────────────────────────────────
+
+  {
+    id: "bitaxe",
+    name: "Bitaxe",
+    icon: "⛏️",
+    category: "mining",
+    description: "Hashrate, temperature, shares, best difficulty, and efficiency from your Bitaxe miner.",
+    type: "collector",
+    difficulty: "easy",
+    setupType: "api-key",
+    requiresApiKey: false,
+    free: true,
+    metrics: [
+      { key: "mining.bitaxe.hashrate",        name: "Hashrate",        unit: "GH/s",       description: "Current mining hashrate" },
+      { key: "mining.bitaxe.temperature",      name: "Temperature",     unit: "°C",          description: "Chip temperature" },
+      { key: "mining.bitaxe.shares_accepted",  name: "Shares Accepted", unit: "shares",      description: "Accepted shares submitted to pool" },
+      { key: "mining.bitaxe.shares_rejected",  name: "Shares Rejected", unit: "shares",      description: "Rejected shares submitted to pool" },
+      { key: "mining.bitaxe.best_diff",        name: "Best Difficulty", unit: "difficulty",  description: "Best difficulty share found" },
+      { key: "mining.bitaxe.power",            name: "Power",           unit: "W",           description: "Power consumption" },
+      { key: "mining.bitaxe.efficiency",       name: "Efficiency",      unit: "J/TH",        description: "Power efficiency (joules per terahash)" },
+      { key: "mining.bitaxe.uptime",           name: "Uptime",          unit: "seconds",     description: "Device uptime in seconds" },
+    ],
+    collectorScript: `#!/usr/bin/env bash
+# Bitaxe collector for numbrs
+# Runs on any machine that can reach your Bitaxe over your local network.
+# Schedule with cron: */5 * * * * /path/to/collect-bitaxe.sh
+
+DEVICE_IP="\${BITAXE_IP:-192.168.1.100}"
+NUMBRS_URL="\${NUMBRS_URL:-https://your-project.supabase.co/functions/v1/ingest}"
+NUMBRS_KEY="\${NUMBRS_KEY}"   # Your numbrs API key from Settings → API Keys
+
+DATA=$(curl -sf "http://\${DEVICE_IP}/api/system/info") || { echo "Cannot reach Bitaxe at \${DEVICE_IP}"; exit 1; }
+
+HASHRATE=$(echo "$DATA" | jq -r '.hashRate // 0')
+TEMP=$(echo "$DATA" | jq -r '.temp // 0')
+SHARES_ACC=$(echo "$DATA" | jq -r '.sharesAccepted // 0')
+SHARES_REJ=$(echo "$DATA" | jq -r '.sharesRejected // 0')
+BEST_DIFF=$(echo "$DATA" | jq -r '.bestDiff // 0')
+POWER=$(echo "$DATA" | jq -r '.power // 0')
+UPTIME=$(echo "$DATA" | jq -r '.uptimeSeconds // 0')
+EFFICIENCY=$(awk "BEGIN { print ($HASHRATE > 0) ? $POWER / ($HASHRATE / 1000) : 0 }")
+
+curl -sf -X POST "$NUMBRS_URL" \\
+  -H "X-API-KEY: $NUMBRS_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d "[
+    {\"key\":\"mining.bitaxe.hashrate\",\"value\":$HASHRATE},
+    {\"key\":\"mining.bitaxe.temperature\",\"value\":$TEMP},
+    {\"key\":\"mining.bitaxe.shares_accepted\",\"value\":$SHARES_ACC},
+    {\"key\":\"mining.bitaxe.shares_rejected\",\"value\":$SHARES_REJ},
+    {\"key\":\"mining.bitaxe.best_diff\",\"value\":$BEST_DIFF},
+    {\"key\":\"mining.bitaxe.power\",\"value\":$POWER},
+    {\"key\":\"mining.bitaxe.efficiency\",\"value\":$EFFICIENCY},
+    {\"key\":\"mining.bitaxe.uptime\",\"value\":$UPTIME}
+  ]"
+`,
+  },
+  {
+    id: "braiins",
+    name: "Braiins Mini Miner",
+    icon: "🔥",
+    category: "mining",
+    description: "Hashrate, pool stats, efficiency, temperature, and fan speed from your Braiins Mini Miner.",
+    type: "collector",
+    difficulty: "easy",
+    setupType: "api-key",
+    requiresApiKey: false,
+    free: true,
+    metrics: [
+      { key: "mining.braiins.hashrate",      name: "Hashrate",       unit: "TH/s",   description: "Current mining hashrate" },
+      { key: "mining.braiins.temperature",   name: "Temperature",    unit: "°C",      description: "Chip temperature" },
+      { key: "mining.braiins.fan_speed",     name: "Fan Speed",      unit: "RPM",     description: "Fan rotation speed" },
+      { key: "mining.braiins.power",         name: "Power",          unit: "W",       description: "Power consumption" },
+      { key: "mining.braiins.efficiency",    name: "Efficiency",     unit: "J/TH",    description: "Power efficiency (joules per terahash)" },
+      { key: "mining.braiins.pool_accepted", name: "Pool Accepted",  unit: "shares",  description: "Accepted shares submitted to pool" },
+      { key: "mining.braiins.pool_rejected", name: "Pool Rejected",  unit: "shares",  description: "Rejected shares submitted to pool" },
+      { key: "mining.braiins.uptime",        name: "Uptime",         unit: "seconds", description: "Device uptime in seconds" },
+    ],
+    collectorScript: `#!/usr/bin/env bash
+# Braiins Mini Miner collector for numbrs
+# Runs on any machine that can reach your BMM over your local network.
+# Schedule with cron: */5 * * * * /path/to/collect-braiins.sh
+
+DEVICE_IP="\${BRAIINS_IP:-192.168.1.101}"
+NUMBRS_URL="\${NUMBRS_URL:-https://your-project.supabase.co/functions/v1/ingest}"
+NUMBRS_KEY="\${NUMBRS_KEY}"   # Your numbrs API key from Settings → API Keys
+
+DATA=$(curl -sf "http://\${DEVICE_IP}/cgi-bin/luci/admin/miner/api_status") || { echo "Cannot reach Braiins miner at \${DEVICE_IP}"; exit 1; }
+
+HASHRATE=$(echo "$DATA" | jq -r '.summary[0].MHS_av // 0 | . / 1000000')
+TEMP=$(echo "$DATA" | jq -r '.temps[0].Chip // 0')
+FAN=$(echo "$DATA" | jq -r '.fans[0].RPM // 0')
+POWER=$(echo "$DATA" | jq -r '.summary[0].Power // 0')
+ACCEPTED=$(echo "$DATA" | jq -r '.summary[0].Accepted // 0')
+REJECTED=$(echo "$DATA" | jq -r '.summary[0].Rejected // 0')
+UPTIME=$(echo "$DATA" | jq -r '.summary[0].Elapsed // 0')
+EFFICIENCY=$(awk "BEGIN { print ($HASHRATE > 0) ? $POWER / $HASHRATE : 0 }")
+
+curl -sf -X POST "$NUMBRS_URL" \\
+  -H "X-API-KEY: $NUMBRS_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d "[
+    {\"key\":\"mining.braiins.hashrate\",\"value\":$HASHRATE},
+    {\"key\":\"mining.braiins.temperature\",\"value\":$TEMP},
+    {\"key\":\"mining.braiins.fan_speed\",\"value\":$FAN},
+    {\"key\":\"mining.braiins.power\",\"value\":$POWER},
+    {\"key\":\"mining.braiins.efficiency\",\"value\":$EFFICIENCY},
+    {\"key\":\"mining.braiins.pool_accepted\",\"value\":$ACCEPTED},
+    {\"key\":\"mining.braiins.pool_rejected\",\"value\":$REJECTED},
+    {\"key\":\"mining.braiins.uptime\",\"value\":$UPTIME}
+  ]"
+`,
   },
 
   // ── Weather & Environment ────────────────────────────────────────────────────

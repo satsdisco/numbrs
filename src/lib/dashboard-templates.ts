@@ -359,4 +359,32 @@ export const DASHBOARD_TEMPLATES: DashboardTemplate[] = [
       { title: "Snowfall", panel_type: "stat", config: { metric_key: "weather.home.snowfall", data_source: "custom" as const, stat_field: "latest" as const, unit: "cm" }, layout: { x: 9, y: 6, w: 3, h: 2 } },
     ],
   },
+  {
+    id: "bitaxe-mining",
+    name: "Bitaxe Mining",
+    description: "Hashrate, temperature, efficiency, shares, and power from your Bitaxe miner",
+    icon: "⛏️",
+    panels: [
+      { title: "Hashrate", panel_type: "line", config: { metric_key: "mining.bitaxe.hashrate", data_source: "custom" as const, unit: "GH/s" }, layout: { x: 0, y: 0, w: 6, h: 4 } },
+      { title: "Temperature", panel_type: "line", config: { metric_key: "mining.bitaxe.temperature", data_source: "custom" as const, unit: "°C" }, layout: { x: 6, y: 0, w: 6, h: 4 } },
+      { title: "Best Difficulty", panel_type: "stat", config: { metric_key: "mining.bitaxe.best_diff", data_source: "custom" as const, stat_field: "latest" as const, unit: "difficulty" }, layout: { x: 0, y: 4, w: 4, h: 2 } },
+      { title: "Shares Accepted", panel_type: "stat", config: { metric_key: "mining.bitaxe.shares_accepted", data_source: "custom" as const, stat_field: "latest" as const, unit: "shares" }, layout: { x: 4, y: 4, w: 4, h: 2 } },
+      { title: "Power", panel_type: "stat", config: { metric_key: "mining.bitaxe.power", data_source: "custom" as const, stat_field: "latest" as const, unit: "W" }, layout: { x: 8, y: 4, w: 4, h: 2 } },
+      { title: "Efficiency", panel_type: "gauge", config: { metric_key: "mining.bitaxe.efficiency", data_source: "custom" as const, stat_field: "latest" as const, gauge_max: 100 }, layout: { x: 0, y: 6, w: 6, h: 3 } },
+    ],
+  },
+  {
+    id: "braiins-mining",
+    name: "Braiins Mini Miner",
+    description: "Hashrate, temperature, fan speed, efficiency, and pool stats from your Braiins Mini Miner",
+    icon: "🔥",
+    panels: [
+      { title: "Hashrate", panel_type: "line", config: { metric_key: "mining.braiins.hashrate", data_source: "custom" as const, unit: "TH/s" }, layout: { x: 0, y: 0, w: 6, h: 4 } },
+      { title: "Temperature", panel_type: "line", config: { metric_key: "mining.braiins.temperature", data_source: "custom" as const, unit: "°C" }, layout: { x: 6, y: 0, w: 6, h: 4 } },
+      { title: "Fan Speed", panel_type: "line", config: { metric_key: "mining.braiins.fan_speed", data_source: "custom" as const, unit: "RPM" }, layout: { x: 0, y: 4, w: 4, h: 4 } },
+      { title: "Power", panel_type: "stat", config: { metric_key: "mining.braiins.power", data_source: "custom" as const, stat_field: "latest" as const, unit: "W" }, layout: { x: 4, y: 4, w: 4, h: 2 } },
+      { title: "Efficiency", panel_type: "gauge", config: { metric_key: "mining.braiins.efficiency", data_source: "custom" as const, stat_field: "latest" as const, gauge_max: 100 }, layout: { x: 4, y: 6, w: 4, h: 2 } },
+      { title: "Pool Accepted", panel_type: "stat", config: { metric_key: "mining.braiins.pool_accepted", data_source: "custom" as const, stat_field: "latest" as const, unit: "shares" }, layout: { x: 8, y: 4, w: 4, h: 2 } },
+    ],
+  },
 ];
