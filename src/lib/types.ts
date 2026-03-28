@@ -6,6 +6,7 @@ export interface RelayRow {
   name: string;
   url: string;
   region: string | null;
+  is_public: boolean;
   user_id: string;
   created_at: string;
   updated_at: string;

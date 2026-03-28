@@ -277,12 +277,12 @@ export default function ExplorePage() {
           {user ? (
             <>
               <p className="text-sm text-muted-foreground mb-3">
-                Want to see your relays here? Start monitoring them and they'll appear in the benchmarks.
+                Toggle &ldquo;Public listing&rdquo; on your relays to have them appear here.
               </p>
               <Link to="/relays">
                 <Button variant="outline" size="sm" className="gap-1.5">
                   <PlusCircle className="h-3.5 w-3.5" />
-                  Monitor a Relay
+                  Manage Relays
                 </Button>
               </Link>
             </>

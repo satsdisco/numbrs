@@ -6,7 +6,7 @@ import type { RelayRow } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Trash2, ExternalLink, Radio, Pencil } from "lucide-react";
+import { Plus, Trash2, ExternalLink, Radio, Pencil, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
@@ -53,6 +53,7 @@ function EditRelayDialog({
   const [name, setName] = useState(relay.name);
   const [url, setUrl] = useState(relay.url);
   const [region, setRegion] = useState(relay.region ?? "");
+  const [isPublic, setIsPublic] = useState(relay.is_public);
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -60,6 +61,7 @@ function EditRelayDialog({
         name: name.trim(),
         url: url.trim(),
         region: region.trim() || null,
+        is_public: isPublic,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["relays"] });
@@ -100,6 +102,23 @@ function EditRelayDialog({
               onChange={(e) => setRegion(e.target.value)}
               placeholder="e.g. us-east"
             />
+          </div>
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="edit-is-public"
+              checked={isPublic}
+              onChange={(e) => setIsPublic(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-border accent-primary cursor-pointer"
+            />
+            <div>
+              <label htmlFor="edit-is-public" className="text-sm font-medium cursor-pointer">
+                Public listing
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Show this relay on the Explore page and Leaderboard
+              </p>
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={onClose}>
@@ -162,12 +181,20 @@ export default function RelaysPage() {
     0
   );
 
+  const togglePublicMutation = useMutation({
+    mutationFn: ({ id, is_public }: { id: string; is_public: boolean }) =>
+      updateRelay(id, { is_public }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["relays"] }),
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const tableHead = (
     <thead>
       <tr className="border-b border-border text-muted-foreground">
         <th className="px-4 py-3 text-left font-medium">Name</th>
         <th className="px-4 py-3 text-left font-medium">URL</th>
         <th className="px-4 py-3 text-left font-medium">Region</th>
+        <th className="px-4 py-3 text-left font-medium">Public</th>
         <th className="px-4 py-3 text-left font-medium">Status</th>
         <th className="px-4 py-3 text-left font-medium">Added</th>
         <th className="px-4 py-3 text-right font-medium">Actions</th>
@@ -229,6 +256,7 @@ export default function RelaysPage() {
                     <td className="px-4 py-3"><div className="h-4 w-28 animate-pulse bg-muted rounded" /></td>
                     <td className="px-4 py-3"><div className="h-4 w-52 animate-pulse bg-muted rounded" /></td>
                     <td className="px-4 py-3"><div className="h-4 w-16 animate-pulse bg-muted rounded" /></td>
+                    <td className="px-4 py-3"><div className="h-4 w-6 animate-pulse bg-muted rounded" /></td>
                     <td className="px-4 py-3"><div className="h-4 w-12 animate-pulse bg-muted rounded" /></td>
                     <td className="px-4 py-3"><div className="h-4 w-20 animate-pulse bg-muted rounded" /></td>
                     <td className="px-4 py-3 text-right"><div className="h-4 w-12 animate-pulse bg-muted rounded ml-auto" /></td>
@@ -292,6 +320,22 @@ export default function RelaysPage() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {relay.region || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() =>
+                            togglePublicMutation.mutate({ id: relay.id, is_public: !relay.is_public })
+                          }
+                          title={relay.is_public ? "Public — click to make private" : "Private — click to make public"}
+                          className="transition-colors"
+                        >
+                          <Globe
+                            className={cn(
+                              "h-4 w-4",
+                              relay.is_public ? "text-success" : "text-muted-foreground/40"
+                            )}
+                          />
+                        </button>
                       </td>
                       <td className="px-4 py-3">
                         <StatusPill isUp={isUp} />

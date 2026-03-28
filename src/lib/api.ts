@@ -45,6 +45,7 @@ export async function createRelay(relay: {
   url: string;
   region?: string;
   user_id: string;
+  is_public?: boolean;
 }): Promise<RelayRow> {
   const { data, error } = await supabase
     .from("relays")
@@ -57,7 +58,7 @@ export async function createRelay(relay: {
 
 export async function updateRelay(
   id: string,
-  updates: Partial<Pick<RelayRow, "name" | "url" | "region">>
+  updates: Partial<Pick<RelayRow, "name" | "url" | "region" | "is_public">>
 ): Promise<void> {
   const { error } = await supabase.from("relays").update(updates as any).eq("id", id);
   if (error) throw error;
@@ -240,6 +241,7 @@ export async function fetchAllPublicRelays(): Promise<RelayRow[]> {
   const { data, error } = await supabase
     .from("relays")
     .select("*")
+    .eq("is_public", true)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data as unknown as RelayRow[]) || [];

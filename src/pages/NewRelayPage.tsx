@@ -12,6 +12,7 @@ export default function NewRelayPage() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("wss://");
   const [region, setRegion] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   const [regionLoading, setRegionLoading] = useState(false);
   const regionUserEdited = useRef(false);
   const { user } = useAuth();
@@ -46,7 +47,7 @@ export default function NewRelayPage() {
   }, [url]);
 
   const mutation = useMutation({
-    mutationFn: (data: { name: string; url: string; region?: string; user_id: string }) =>
+    mutationFn: (data: { name: string; url: string; region?: string; user_id: string; is_public: boolean }) =>
       createRelay(data),
     onSuccess: () => {
       toast.success("Relay added");
@@ -68,6 +69,7 @@ export default function NewRelayPage() {
       url: url.trim(),
       region: region.trim() || undefined,
       user_id: user.id,
+      is_public: isPublic,
     });
   };
 
@@ -121,6 +123,24 @@ export default function NewRelayPage() {
             placeholder="Frankfurt, DE"
             className="bg-background"
           />
+        </div>
+
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            id="is-public"
+            checked={isPublic}
+            onChange={(e) => setIsPublic(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-border accent-primary cursor-pointer"
+          />
+          <div>
+            <label htmlFor="is-public" className="text-metric-sm font-medium cursor-pointer">
+              List publicly
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Show this relay on the Explore page and Leaderboard
+            </p>
+          </div>
         </div>
 
         <Button type="submit" className="w-full" disabled={mutation.isPending}>
