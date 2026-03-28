@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Plus, Trash2, ExternalLink, Radio, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 
 // ─── Status pill ───────────────────────────────────────────────────────────────
 
@@ -122,6 +123,10 @@ function EditRelayDialog({
 export default function RelaysPage() {
   const queryClient = useQueryClient();
   const [editTarget, setEditTarget] = useState<RelayRow | null>(null);
+
+  const { pullIndicator } = usePullToRefresh({
+    queryKeys: [["relays"], ["relay-health"]],
+  });
 
   const { data: relays, isLoading } = useQuery({
     queryKey: ["relays"],

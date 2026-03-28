@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { fetchRelays, fetchRelayHealth, triggerProbe } from "@/lib/api";
 import { TimeRange } from "@/lib/types";
 import {
@@ -24,10 +25,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Plus, RefreshCw, Radio, Info, Plug } from "lucide-react";
+import { Plus, RefreshCw, Radio, Info, Plug, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { RelayRow } from "@/lib/types";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 
 // ─── Stat cell with optional tooltip ───────────────────────────────────────────
 
@@ -130,6 +133,9 @@ function RelayCard({
   relay: RelayRow;
   health: RelayHealthRow | null;
 }) {
+  const isMobile = useIsMobile();
+  const [collapsed, setCollapsed] = useState(true);
+
   if (!health || health.total_checks === 0) {
     return (
       <Link
@@ -156,39 +162,8 @@ function RelayCard({
   const up = h.uptime_pct !== null && h.uptime_pct >= 50;
   const isOffline = !up && h.connect_p50 === null;
 
-  return (
-    <Link
-      to={`/relays/${relay.id}`}
-      className={cn(
-        "group rounded-lg border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-card",
-        isOffline
-          ? "border-destructive/20 opacity-60"
-          : "border-border"
-      )}
-    >
-      {/* Offline banner */}
-      {isOffline && (
-        <div className="mb-3 -mt-1 flex items-center gap-1.5 rounded-md bg-destructive/10 px-2 py-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
-          <span className="text-[11px] font-medium text-destructive">Offline / Unreachable</span>
-        </div>
-      )}
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="min-w-0 flex-1 mr-2">
-          <h3 className="font-mono text-sm font-semibold text-foreground truncate">
-            {relay.name}
-          </h3>
-          <p className="text-metric-sm text-muted-foreground truncate mt-0.5">
-            {relay.url}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <HealthBadge score={score} />
-          <StatusBadge h={h} />
-        </div>
-      </div>
-
+  const statsRows = (
+    <>
       {/* Row 1: Latency + Uptime */}
       <div className={cn("grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-3 mb-3", isOffline && "opacity-50")}>
         <Stat label="Connect P50" value={formatMs(h.connect_p50)} />
@@ -254,6 +229,94 @@ function RelayCard({
           tooltip="Contiguous downtime periods longer than 1 minute. Shows count and longest duration."
         />
       </div>
+    </>
+  );
+
+  const cardHeader = (
+    <>
+      {/* Offline banner */}
+      {isOffline && (
+        <div className="mb-3 -mt-1 flex items-center gap-1.5 rounded-md bg-destructive/10 px-2 py-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-destructive shrink-0" />
+          <span className="text-[11px] font-medium text-destructive">Offline / Unreachable</span>
+        </div>
+      )}
+      {/* Header row */}
+      <div
+        className={cn("flex items-start justify-between mb-3", isMobile && "cursor-pointer select-none")}
+        onClick={isMobile ? () => setCollapsed((v) => !v) : undefined}
+      >
+        <div className="min-w-0 flex-1 mr-2">
+          {isMobile ? (
+            <Link
+              to={`/relays/${relay.id}`}
+              className="font-mono text-sm font-semibold text-foreground truncate block hover:text-primary transition-colors"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {relay.name}
+            </Link>
+          ) : (
+            <h3 className="font-mono text-sm font-semibold text-foreground truncate">
+              {relay.name}
+            </h3>
+          )}
+          <p className="text-metric-sm text-muted-foreground truncate mt-0.5">
+            {relay.url}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <HealthBadge score={score} />
+          <StatusBadge h={h} />
+          {isMobile && (
+            <ChevronDown
+              className={cn(
+                "h-4 w-4 text-muted-foreground transition-transform duration-200",
+                !collapsed && "rotate-180"
+              )}
+            />
+          )}
+        </div>
+      </div>
+    </>
+  );
+
+  if (isMobile) {
+    return (
+      <div
+        className={cn(
+          "rounded-lg border bg-card p-5",
+          isOffline ? "border-destructive/20 opacity-60" : "border-border"
+        )}
+      >
+        {cardHeader}
+        <AnimatePresence initial={false}>
+          {!collapsed && (
+            <motion.div
+              key="stats"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              style={{ overflow: "hidden" }}
+            >
+              {statsRows}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      to={`/relays/${relay.id}`}
+      className={cn(
+        "group rounded-lg border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-card",
+        isOffline ? "border-destructive/20 opacity-60" : "border-border"
+      )}
+    >
+      {cardHeader}
+      {statsRows}
     </Link>
   );
 }
@@ -263,6 +326,10 @@ function RelayCard({
 export default function DashboardPage() {
   const [range, setRange] = useState<TimeRange>("24h");
   const queryClient = useQueryClient();
+
+  const { pullIndicator } = usePullToRefresh({
+    queryKeys: [["relays"], ["relay-health"]],
+  });
 
   const { data: relays, isLoading: relaysLoading } = useQuery({
     queryKey: ["relays"],
@@ -309,36 +376,39 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-mono text-xl font-semibold text-foreground">
-            Relay Health
-          </h1>
-          <p className="text-metric-sm text-muted-foreground mt-1">
-            Monitor your Nostr relays in real time
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-success">
-            <span className="h-2 w-2 rounded-full bg-success animate-live-pulse" />
-            <span className="font-mono text-xs">Live</span>
+      {pullIndicator}
+      <div className="sticky top-14 z-20 -mx-6 px-6 py-3 bg-background/95 backdrop-blur-sm border-b border-border/50 lg:static lg:border-0 lg:mx-0 lg:px-0 lg:py-0 lg:bg-transparent">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="font-mono text-xl font-semibold text-foreground">
+              Relay Health
+            </h1>
+            <p className="text-metric-sm text-muted-foreground mt-1">
+              Monitor your Nostr relays in real time
+            </p>
           </div>
-          <TimeRangeSelector value={range} onChange={setRange} />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => probeMutation.mutate()}
-            disabled={probeMutation.isPending || !relays?.length}
-            className="gap-1.5"
-          >
-            <RefreshCw
-              className={cn(
-                "h-3.5 w-3.5",
-                probeMutation.isPending && "animate-spin"
-              )}
-            />
-            Probe Now
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-success">
+              <span className="h-2 w-2 rounded-full bg-success animate-live-pulse" />
+              <span className="font-mono text-xs">Live</span>
+            </div>
+            <TimeRangeSelector value={range} onChange={setRange} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => probeMutation.mutate()}
+              disabled={probeMutation.isPending || !relays?.length}
+              className="gap-1.5"
+            >
+              <RefreshCw
+                className={cn(
+                  "h-3.5 w-3.5",
+                  probeMutation.isPending && "animate-spin"
+                )}
+              />
+              Probe Now
+            </Button>
+          </div>
         </div>
       </div>
 
