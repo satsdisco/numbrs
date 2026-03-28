@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { supabase } from "@/integrations/supabase/client";
 import { Bot } from "lucide-react";
 import { format, subDays, startOfDay } from "date-fns";
@@ -1528,6 +1529,19 @@ export default function ClaudePage() {
   const [tab, setTab] = useState<TabKey>("overview");
   const [range, setRange] = useState<Range>("month");
 
+  const { pullIndicator } = usePullToRefresh({
+    queryKeys: [
+      ["overview_openclaw"],
+      ["overview_code"],
+      ["openclaw_usage"],
+      ["openclaw_heatmap"],
+      ["openclaw_monthly"],
+      ["claude_usage_v2"],
+      ["claude_top_sessions"],
+      ["openclaw_usage_banner"],
+    ],
+  });
+
   const TABS: { key: TabKey; label: string }[] = [
     { key: "overview", label: "Overview" },
     { key: "openclaw", label: "OpenClaw" },
@@ -1536,6 +1550,7 @@ export default function ClaudePage() {
 
   return (
     <div className="space-y-6">
+      {pullIndicator}
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">

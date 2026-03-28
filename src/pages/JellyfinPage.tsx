@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { supabase } from "@/integrations/supabase/client";
 import { Music2 } from "lucide-react";
 import { format, subDays, formatDistanceToNow } from "date-fns";
@@ -96,6 +97,10 @@ function formatJellyfinTitle(e: any): string {
 export default function JellyfinPage() {
   const [range, setRange] = useState<Range>("30d");
   const [showAllRecent, setShowAllRecent] = useState(false);
+
+  const { pullIndicator } = usePullToRefresh({
+    queryKeys: [["jellyfin_events"]],
+  });
 
   const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
   const since = subDays(new Date(), days).toISOString();
@@ -205,6 +210,7 @@ export default function JellyfinPage() {
 
   return (
     <div className="space-y-6">
+      {pullIndicator}
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">

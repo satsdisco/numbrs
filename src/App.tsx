@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { Suspense, lazy } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
@@ -8,7 +9,6 @@ import AppLayout from "@/components/AppLayout";
 import AuthPage from "@/pages/AuthPage";
 import DashboardPage from "@/pages/DashboardPage";
 import DashboardsListPage from "@/pages/DashboardsListPage";
-import DashboardBuilderPage from "@/pages/DashboardBuilderPage";
 import RelayDetailPage from "@/pages/RelayDetailPage";
 import RelaysPage from "@/pages/RelaysPage";
 import NewRelayPage from "@/pages/NewRelayPage";
@@ -16,21 +16,31 @@ import ApiKeysPage from "@/pages/ApiKeysPage";
 import AlertsPage from "@/pages/AlertsPage";
 import ExplorePage from "@/pages/ExplorePage";
 import SharedDashboardPage from "@/pages/SharedDashboardPage";
-import UptimePage from "@/pages/UptimePage";
 import IntegrationsPage from "@/pages/IntegrationsPage";
-import JellyfinPage from "@/pages/JellyfinPage";
-import JellyfinUserPage from "@/pages/JellyfinUserPage";
-import PlexPage from "@/pages/PlexPage";
-import PlexUserPage from "@/pages/PlexUserPage";
-import ClaudePage from "@/pages/ClaudePage";
 import ProfilePage from "@/pages/ProfilePage";
 import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/NotFound";
 import Onboarding, { isOnboardingComplete } from "@/components/Onboarding";
-import LeaderboardPage from "@/pages/LeaderboardPage";
 import EmbedPanelPage from "@/pages/EmbedPanelPage";
-import DocsApiPage from "@/pages/DocsApiPage";
-import DocsAgentsPage from "@/pages/DocsAgentsPage";
+
+const DashboardBuilderPage = lazy(() => import("@/pages/DashboardBuilderPage"));
+const UptimePage = lazy(() => import("@/pages/UptimePage"));
+const JellyfinPage = lazy(() => import("@/pages/JellyfinPage"));
+const JellyfinUserPage = lazy(() => import("@/pages/JellyfinUserPage"));
+const PlexPage = lazy(() => import("@/pages/PlexPage"));
+const PlexUserPage = lazy(() => import("@/pages/PlexUserPage"));
+const ClaudePage = lazy(() => import("@/pages/ClaudePage"));
+const LeaderboardPage = lazy(() => import("@/pages/LeaderboardPage"));
+const DocsApiPage = lazy(() => import("@/pages/DocsApiPage"));
+const DocsAgentsPage = lazy(() => import("@/pages/DocsAgentsPage"));
+
+function PageSpinner() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+    </div>
+  );
+}
 
 const queryClient = new QueryClient();
 
@@ -50,6 +60,7 @@ function ProtectedRoutes() {
   return (
     <AppLayout>
       {!isOnboardingComplete() && <Onboarding />}
+      <Suspense fallback={<PageSpinner />}>
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/dashboards" element={<DashboardsListPage />} />
@@ -73,6 +84,7 @@ function ProtectedRoutes() {
         <Route path="/docs/agents" element={<DocsAgentsPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
     </AppLayout>
   );
 }

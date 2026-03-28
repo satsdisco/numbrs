@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { supabase } from "@/integrations/supabase/client";
 import { Tv2 } from "lucide-react";
 import { format, subDays, formatDistanceToNow } from "date-fns";
@@ -104,6 +105,10 @@ function EventBadge({ event }: { event: string }) {
 export default function PlexPage() {
   const [range, setRange] = useState<Range>("30d");
   const [contentTab, setContentTab] = useState<ContentTab>("Movies");
+
+  const { pullIndicator } = usePullToRefresh({
+    queryKeys: [["plex_events"]],
+  });
 
   const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
   const since = subDays(new Date(), days).toISOString();
@@ -258,6 +263,7 @@ export default function PlexPage() {
 
   return (
     <div className="space-y-6">
+      {pullIndicator}
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">

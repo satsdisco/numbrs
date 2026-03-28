@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { useAuth } from "@/hooks/useAuth";
 import {
   fetchMonitors,
@@ -392,6 +393,10 @@ function AddMonitorDialog({
 
 export default function UptimePage() {
   const { user } = useAuth();
+
+  const { pullIndicator } = usePullToRefresh({
+    queryKeys: [["uptime-monitors"], ["uptime-summary"], ["uptime-events"]],
+  });
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [range, setRange] = useState<UptimeRange>("24h");
@@ -436,7 +441,8 @@ export default function UptimePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {pullIndicator}
+      <div className="sticky top-14 z-20 -mx-6 px-6 py-3 bg-background/95 backdrop-blur-sm border-b border-border/50 lg:static lg:border-0 lg:mx-0 lg:px-0 lg:py-0 lg:bg-transparent flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-mono text-xl font-semibold text-foreground">Uptime</h1>
           <p className="text-metric-sm text-muted-foreground mt-1">

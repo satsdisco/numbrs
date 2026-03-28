@@ -177,6 +177,7 @@ export default function RelaysPage() {
 
   return (
     <div className="space-y-6">
+      {pullIndicator}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-mono text-xl font-semibold text-foreground">Relays</h1>

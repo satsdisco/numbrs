@@ -148,7 +148,7 @@ export default function RelayDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="sticky top-14 z-20 -mx-6 px-6 py-3 bg-background/95 backdrop-blur-sm border-b border-border/50 lg:static lg:border-0 lg:mx-0 lg:px-0 lg:py-0 lg:bg-transparent flex items-start justify-between">
         <div className="flex items-start gap-3">
           <button
             onClick={() => navigate(-1)}
