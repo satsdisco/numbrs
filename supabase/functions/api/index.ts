@@ -259,21 +259,24 @@ async function authenticate(req: Request, supabase: ReturnType<typeof createClie
 
 // ─── Route parsing ────────────────────────────────────────────────────────────
 
-function parsePath(req: Request): { resource: string; id: string | null; sub: string | null } {
+function parsePath(req: Request): { resource: string; id: string | null; sub: string | null; subId: string | null } {
   const url = new URL(req.url);
   const parts = url.pathname.split("/").filter(Boolean);
   // Strip any leading path segments up to and including "api"
   const apiIdx = parts.lastIndexOf("api");
   const route = apiIdx >= 0 ? parts.slice(apiIdx + 1) : parts;
-  // route[0] = resource, route[1] = id or sub-route
+  // route[0] = resource, route[1] = id or sub-route, route[2] = sub-resource, route[3] = sub-id
   const resource = route[0] ?? "";
   const second = route[1] ?? null;
+  const third = route[2] ?? null;
+  const fourth = route[3] ?? null;
   // Distinguish between an ID (UUID-like) and a sub-route (word without hyphens in UUID pattern)
-  const isUUID = second && /^[0-9a-f-]{36}$/i.test(second);
+  const isUUID = (s: string | null) => s && /^[0-9a-f-]{36}$/i.test(s);
   return {
     resource,
-    id: isUUID ? second : null,
-    sub: !isUUID ? second : null,
+    id: isUUID(second) ? second : null,
+    sub: isUUID(second) ? (third ?? null) : (second ?? null),
+    subId: isUUID(fourth) ? fourth : (isUUID(second) && third && isUUID(third) ? third : null),
   };
 }
 
@@ -291,7 +294,7 @@ serve(async (req) => {
   const { userId, error: authError } = await authenticate(req, supabase);
   if (!userId) return json({ error: authError }, 401);
 
-  const { resource, id, sub } = parsePath(req);
+  const { resource, id, sub, subId } = parsePath(req);
   const method = req.method;
 
   try {
@@ -522,6 +525,172 @@ serve(async (req) => {
           .eq("user_id", userId);
         if (error) return json({ error: error.message }, 500);
         return json({ deleted: true });
+      }
+    }
+
+    // ── Panels (sub-resource of dashboards) ────────────────────────────────
+    if (resource === "dashboards" && id && sub === "panels") {
+      // Verify dashboard belongs to user
+      const { data: dash } = await supabase
+        .from("dashboards")
+        .select("id")
+        .eq("id", id)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (!dash) return json({ error: "Dashboard not found" }, 404);
+
+      if (method === "GET" && !subId) {
+        const { data, error } = await supabase
+          .from("panels")
+          .select("*")
+          .eq("dashboard_id", id)
+          .order("created_at", { ascending: true });
+        if (error) return json({ error: error.message }, 500);
+        return json(data);
+      }
+
+      if (method === "POST" && !subId) {
+        const body = await req.json();
+        if (!body.type && !body.panel_type) return json({ error: "type (or panel_type) is required" }, 400);
+        const panelType = body.panel_type || body.type;
+        const layout = body.position || body.layout || { x: 0, y: 0, w: 6, h: 4 };
+        const config = body.config || {};
+        // If metrics array provided, use first as metric_key in config
+        if (body.metrics && Array.isArray(body.metrics) && body.metrics.length > 0 && !config.metric_key) {
+          config.metric_key = body.metrics[0];
+          config.data_source = config.data_source || "custom";
+        }
+        // Map options into config
+        if (body.options) {
+          Object.assign(config, body.options);
+        }
+
+        const { data, error } = await supabase
+          .from("panels")
+          .insert({
+            dashboard_id: id,
+            title: body.title || panelType,
+            panel_type: panelType,
+            config,
+            layout,
+          } as never)
+          .select()
+          .single();
+        if (error) return json({ error: error.message }, 500);
+        return json(data, 201);
+      }
+
+      if (method === "PATCH" && subId) {
+        const body = await req.json();
+        const updates: Record<string, unknown> = {};
+        if (body.title) updates.title = body.title;
+        if (body.panel_type || body.type) updates.panel_type = body.panel_type || body.type;
+        if (body.config) updates.config = body.config;
+        if (body.options) {
+          // Merge options into existing config
+          const { data: existing } = await supabase
+            .from("panels")
+            .select("config")
+            .eq("id", subId)
+            .eq("dashboard_id", id)
+            .maybeSingle();
+          updates.config = { ...(existing?.config as object || {}), ...body.options };
+        }
+        if (body.position || body.layout) updates.layout = body.position || body.layout;
+
+        const { data, error } = await supabase
+          .from("panels")
+          .update(updates as never)
+          .eq("id", subId)
+          .eq("dashboard_id", id)
+          .select()
+          .single();
+        if (error) return json({ error: error.message }, 500);
+        if (!data) return json({ error: "Panel not found" }, 404);
+        return json(data);
+      }
+
+      if (method === "DELETE" && subId) {
+        const { error } = await supabase
+          .from("panels")
+          .delete()
+          .eq("id", subId)
+          .eq("dashboard_id", id);
+        if (error) return json({ error: error.message }, 500);
+        return json({ deleted: true });
+      }
+    }
+
+    // ── Integrations ────────────────────────────────────────────────────────
+    if (resource === "integrations") {
+      if (method === "GET" && !id) {
+        const { data, error } = await supabase
+          .from("user_integrations")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: true });
+        if (error) return json({ error: error.message }, 500);
+        return json(data);
+      }
+
+      if (method === "POST" && !id) {
+        const body = await req.json();
+        if (!body.provider) return json({ error: "provider is required (e.g. 'bitcoin', 'github', 'mempool', 'weather')" }, 400);
+        const config = body.config || {};
+        const { data, error } = await supabase
+          .from("user_integrations")
+          .upsert(
+            { user_id: userId, provider: body.provider, config, is_active: true } as never,
+            { onConflict: "user_id,provider" }
+          )
+          .select()
+          .single();
+        if (error) return json({ error: error.message }, 500);
+        return json(data, 201);
+      }
+
+      if (method === "PATCH" && sub) {
+        // PATCH /integrations/{provider} — update config or toggle
+        const body = await req.json();
+        const updates: Record<string, unknown> = {};
+        if (body.config !== undefined) updates.config = body.config;
+        if (body.is_active !== undefined) updates.is_active = body.is_active;
+        if (body.enabled !== undefined) updates.is_active = body.enabled;
+
+        const { data, error } = await supabase
+          .from("user_integrations")
+          .update(updates as never)
+          .eq("user_id", userId)
+          .eq("provider", sub)
+          .select()
+          .single();
+        if (error) return json({ error: error.message }, 500);
+        if (!data) return json({ error: `Integration "${sub}" not found` }, 404);
+        return json(data);
+      }
+
+      if (method === "DELETE" && sub) {
+        // DELETE /integrations/{provider}
+        const { error } = await supabase
+          .from("user_integrations")
+          .delete()
+          .eq("user_id", userId)
+          .eq("provider", sub);
+        if (error) return json({ error: error.message }, 500);
+        return json({ deleted: true });
+      }
+    }
+
+    // ── Metrics ─────────────────────────────────────────────────────────────
+    if (resource === "metrics") {
+      if (method === "GET" && !id) {
+        const { data, error } = await supabase
+          .from("metrics")
+          .select("id, key, name, unit, category, created_at")
+          .eq("user_id", userId)
+          .order("key", { ascending: true });
+        if (error) return json({ error: error.message }, 500);
+        return json(data);
       }
     }
 

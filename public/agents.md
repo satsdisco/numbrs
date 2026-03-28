@@ -943,6 +943,115 @@ curl -sf -X POST "https://numbrs.lol/api/ingest" \
 
 ---
 
+## Enabling Server-Side Integrations (API)
+
+Server-side integrations (Bitcoin, Mempool, Weather, GitHub, etc.) can be enabled programmatically via the API — no need to visit the UI.
+
+### Enable an Integration
+
+```bash
+# Enable Bitcoin Price (no config needed)
+curl -X POST https://numbrs.lol/api/integrations \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "bitcoin"}'
+
+# Enable Mempool.space (no config needed)
+curl -X POST https://numbrs.lol/api/integrations \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "mempool"}'
+
+# Enable Moscow Time (derived from bitcoin — enable bitcoin first)
+curl -X POST https://numbrs.lol/api/integrations \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "moscow-time"}'
+
+# Enable Halving Countdown (derived from mempool — enable mempool first)
+curl -X POST https://numbrs.lol/api/integrations \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "halving"}'
+
+# Enable Fear & Greed
+curl -X POST https://numbrs.lol/api/integrations \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "fng"}'
+
+# Enable Lightning Network
+curl -X POST https://numbrs.lol/api/integrations \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "lightning"}'
+
+# Enable CoinGecko
+curl -X POST https://numbrs.lol/api/integrations \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "coingecko"}'
+
+# Enable Weather (requires location config)
+curl -X POST https://numbrs.lol/api/integrations \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "weather", "config": {"latitude": 50.08, "longitude": 14.44, "location_name": "Prague"}}'
+
+# Enable GitHub Stats (requires username and optionally specific repos)
+curl -X POST https://numbrs.lol/api/integrations \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "github", "config": {"username": "satsdisco", "repos": ["satsdisco/numbrs", "satsdisco/jellyamp-pwa"]}}'
+
+# Enable FRED (requires free API key from fred.stlouisfed.org)
+curl -X POST https://numbrs.lol/api/integrations \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"provider": "fred", "config": {"api_key": "YOUR_FRED_API_KEY"}}'
+```
+
+### Available Provider IDs
+
+| Provider | Config Required | Notes |
+|---|---|---|
+| `bitcoin` | None | BTC/USD from Coinbase |
+| `mempool` | None | Fees, hashrate, blocks from mempool.space |
+| `moscow-time` | None | Requires `bitcoin` enabled |
+| `halving` | None | Requires `mempool` enabled |
+| `fng` | None | Fear & Greed Index |
+| `lightning` | None | Lightning network stats |
+| `coingecko` | None | BTC dominance, market cap |
+| `weather` | `{"latitude": N, "longitude": N, "location_name": "City"}` | Open-Meteo weather |
+| `github` | `{"username": "...", "repos": ["owner/repo"]}` | GitHub repo stats |
+| `fred` | `{"api_key": "..."}` | US economic data |
+
+### List, Update, Delete Integrations
+
+```bash
+# List all enabled integrations
+curl https://numbrs.lol/api/integrations \
+  -H "X-API-KEY: YOUR_KEY"
+
+# Update config for an integration
+curl -X PATCH https://numbrs.lol/api/integrations/weather \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"config": {"latitude": 48.85, "longitude": 2.35, "location_name": "Paris"}}'
+
+# Disable (without deleting)
+curl -X PATCH https://numbrs.lol/api/integrations/github \
+  -H "X-API-KEY: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"is_active": false}'
+
+# Delete an integration
+curl -X DELETE https://numbrs.lol/api/integrations/weather \
+  -H "X-API-KEY: YOUR_KEY"
+```
+
+---
+
 ## Building Custom Dashboards
 
 Beyond templates, you can build fully custom dashboards via the API.
@@ -956,70 +1065,83 @@ curl -X POST https://numbrs.lol/api/dashboards \
   -d '{"name": "My Custom Dashboard", "description": "Tracking everything I care about"}'
 ```
 
-Returns: `{"id": "dash_abc123", "name": "My Custom Dashboard", ...}`
+Returns a JSON object with `id` (UUID), `name`, etc.
 
 ### Add Panels
 
+Use the dashboard ID from the create response:
+
 ```bash
-# Add a line chart panel
-curl -X POST https://numbrs.lol/api/dashboards/dash_abc123/panels \
+# Add an area chart panel
+curl -X POST https://numbrs.lol/api/dashboards/DASHBOARD_UUID/panels \
   -H "X-API-KEY: YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "type": "line-chart",
+    "panel_type": "area",
     "title": "CPU Usage",
-    "metrics": ["system.cpu_pct"],
-    "position": {"x": 0, "y": 0, "w": 6, "h": 4}
+    "config": {"metric_key": "system.cpu_pct", "data_source": "custom", "unit": "%"},
+    "layout": {"x": 0, "y": 0, "w": 6, "h": 4}
   }'
 
 # Add a stat card
-curl -X POST https://numbrs.lol/api/dashboards/dash_abc123/panels \
+curl -X POST https://numbrs.lol/api/dashboards/DASHBOARD_UUID/panels \
   -H "X-API-KEY: YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "type": "stat",
+    "panel_type": "stat",
     "title": "BTC Price",
-    "metrics": ["bitcoin.price_usd"],
-    "position": {"x": 6, "y": 0, "w": 3, "h": 2},
-    "options": {"prefix": "$", "decimals": 0}
+    "config": {"metric_key": "bitcoin.price_usd", "data_source": "custom", "stat_field": "latest", "unit": "$"},
+    "layout": {"x": 6, "y": 0, "w": 3, "h": 2}
   }'
 
 # Add a gauge
-curl -X POST https://numbrs.lol/api/dashboards/dash_abc123/panels \
+curl -X POST https://numbrs.lol/api/dashboards/DASHBOARD_UUID/panels \
   -H "X-API-KEY: YOUR_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "type": "gauge",
+    "panel_type": "gauge",
     "title": "Disk Usage",
-    "metrics": ["system.disk_boot_pct"],
-    "position": {"x": 9, "y": 0, "w": 3, "h": 2},
-    "options": {"min": 0, "max": 100, "suffix": "%", "thresholds": [70, 90]}
+    "config": {"metric_key": "system.disk_boot_pct", "data_source": "custom", "stat_field": "latest", "gauge_max": 100, "unit": "%"},
+    "layout": {"x": 9, "y": 0, "w": 3, "h": 3}
   }'
 ```
 
+**Shorthand:** You can also use `"type"` instead of `"panel_type"`, and `"metrics": ["key"]` instead of putting `metric_key` in config. The API normalises both.
+
 ### Panel Types
 
-| Type | Description | Good For |
+| panel_type | Description | Good For |
 |---|---|---|
 | `stat` | Single big number with optional trend | BTC price, uptime %, follower count |
-| `line-chart` | Time series line graph | CPU over time, latency trends |
-| `bar-chart` | Vertical bar chart | Daily scrobbles, deploy counts |
+| `line` | Time series line graph | CPU over time, latency trends |
+| `area` | Filled area chart | Hashrate, volume, usage |
 | `gauge` | Circular gauge with thresholds | Disk usage, temperature |
-| `table` | Tabular data | Relay status list, multi-repo stats |
-| `status` | Up/down indicator | Service health, relay uptime |
-| `text` | Markdown text block | Labels, notes, section headers |
+
+### Panel Config Fields
+
+| Field | Description |
+|---|---|
+| `metric_key` | Which metric to display (e.g. `system.cpu_pct`) |
+| `data_source` | `"custom"` for ingest metrics, `"relay"` for relay probe data, `"global"` for network-wide |
+| `stat_field` | For stat/gauge: `"latest"`, `"avg"`, `"sum"`, `"min"`, `"max"`, `"p95"` |
+| `unit` | Display unit (e.g. `"%"`, `"ms"`, `"GH/s"`, `"$"`) |
+| `gauge_max` | For gauges: maximum value (e.g. `100` for percentages) |
+
+### Layout Grid
+
+Dashboards use a 12-column grid. Each panel has `x`, `y`, `w` (width), `h` (height).
 
 ### Update and Delete Panels
 
 ```bash
 # Update a panel
-curl -X PATCH https://numbrs.lol/api/dashboards/dash_abc123/panels/panel_xyz \
+curl -X PATCH https://numbrs.lol/api/dashboards/DASHBOARD_UUID/panels/PANEL_UUID \
   -H "X-API-KEY: YOUR_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"title": "Updated Title", "options": {"decimals": 2}}'
+  -d '{"title": "Updated Title"}'
 
 # Delete a panel
-curl -X DELETE https://numbrs.lol/api/dashboards/dash_abc123/panels/panel_xyz \
+curl -X DELETE https://numbrs.lol/api/dashboards/DASHBOARD_UUID/panels/PANEL_UUID \
   -H "X-API-KEY: YOUR_KEY"
 ```
 
@@ -1030,10 +1152,27 @@ curl -X DELETE https://numbrs.lol/api/dashboards/dash_abc123/panels/panel_xyz \
 curl https://numbrs.lol/api/dashboards \
   -H "X-API-KEY: YOUR_KEY"
 
-# Delete a dashboard
-curl -X DELETE https://numbrs.lol/api/dashboards/dash_abc123 \
+# List panels in a dashboard
+curl https://numbrs.lol/api/dashboards/DASHBOARD_UUID/panels \
+  -H "X-API-KEY: YOUR_KEY"
+
+# Delete a dashboard (also deletes its panels)
+curl -X DELETE https://numbrs.lol/api/dashboards/DASHBOARD_UUID \
   -H "X-API-KEY: YOUR_KEY"
 ```
+
+---
+
+## Listing Your Metrics
+
+To see what metrics exist in your account (useful for building custom dashboards):
+
+```bash
+curl https://numbrs.lol/api/metrics \
+  -H "X-API-KEY: YOUR_KEY"
+```
+
+Returns all metric keys, names, and units. Use these `key` values in panel configs.
 
 ---
 
