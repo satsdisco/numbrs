@@ -5,6 +5,8 @@ export interface DashboardTemplate {
   name: string;
   description: string;
   icon: string;
+  /** Integration catalog IDs required for this template to show data */
+  requiredIntegrations?: string[];
   panels: {
     title: string;
     panel_type: PanelType;
@@ -20,6 +22,7 @@ export const DASHBOARD_TEMPLATES: DashboardTemplate[] = [
     name: "Bitcoin Maximalist",
     description: "The ultimate BTC dashboard — price, Moscow Time, fees, hashrate, halving countdown, Fear & Greed, and Lightning capacity",
     icon: "🟠",
+    requiredIntegrations: ["bitcoin", "mempool", "fng", "lightning"],
     panels: [
       { title: "BTC Price", panel_type: "area", config: { metric_key: "bitcoin.price_usd", data_source: "custom" as const, unit: "USD" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
       { title: "BTC Price", panel_type: "stat", config: { metric_key: "bitcoin.price_usd", data_source: "custom" as const, stat_field: "latest" as const, unit: "$" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
@@ -41,6 +44,7 @@ export const DASHBOARD_TEMPLATES: DashboardTemplate[] = [
     name: "Sound Money Cockpit",
     description: "Bitcoin vs everything — BTC price alongside market dominance, M2 money supply, CPI, and Fed rate",
     icon: "💰",
+    requiredIntegrations: ["bitcoin", "mempool", "coingecko", "fng", "fred"],
     panels: [
       { title: "BTC Price", panel_type: "area", config: { metric_key: "bitcoin.price_usd", data_source: "custom" as const, unit: "USD" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
       { title: "BTC Price", panel_type: "stat", config: { metric_key: "bitcoin.price_usd", data_source: "custom" as const, stat_field: "latest" as const, unit: "$" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
@@ -60,6 +64,7 @@ export const DASHBOARD_TEMPLATES: DashboardTemplate[] = [
     name: "Lightning Network",
     description: "Network capacity, channels, nodes, and growth trends for the Lightning Network",
     icon: "⚡",
+    requiredIntegrations: ["lightning"],
     panels: [
       { title: "Network Capacity", panel_type: "area", config: { metric_key: "lightning.capacity_btc", data_source: "custom" as const, unit: "BTC" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
       { title: "Capacity Now", panel_type: "stat", config: { metric_key: "lightning.capacity_btc", data_source: "custom" as const, stat_field: "latest" as const, unit: "BTC" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
@@ -345,6 +350,7 @@ export const DASHBOARD_TEMPLATES: DashboardTemplate[] = [
     name: "Mempool Dashboard",
     description: "Bitcoin fee rates, block height, hashrate, and mempool stats from mempool.space",
     icon: "⛓️",
+    requiredIntegrations: ["mempool"],
     panels: [
       { title: "Fastest Fee", panel_type: "area", config: { metric_key: "mempool.fees.fastest", data_source: "custom" as const, unit: "sat/vB" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
       { title: "Fastest Fee", panel_type: "stat", config: { metric_key: "mempool.fees.fastest", data_source: "custom" as const, stat_field: "latest" as const, unit: "sat/vB" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
@@ -389,6 +395,7 @@ export const DASHBOARD_TEMPLATES: DashboardTemplate[] = [
     name: "Market Overview",
     description: "BTC dominance, total crypto market cap, M2 money supply, and Fed funds rate",
     icon: "📈",
+    requiredIntegrations: ["coingecko", "fred"],
     panels: [
       { title: "BTC Dominance", panel_type: "area", config: { metric_key: "coingecko.btc_dominance", data_source: "custom" as const, unit: "%" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
       { title: "BTC Dom.", panel_type: "stat", config: { metric_key: "coingecko.btc_dominance", data_source: "custom" as const, stat_field: "latest" as const, unit: "%" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
@@ -405,6 +412,7 @@ export const DASHBOARD_TEMPLATES: DashboardTemplate[] = [
     name: "Weather Station",
     description: "Temperature, rain, snow, wind, and UV index for your location",
     icon: "🌤️",
+    requiredIntegrations: ["weather"],
     panels: [
       { title: "Temperature", panel_type: "area", config: { metric_key: "weather.home.temperature", data_source: "custom" as const, unit: "°C" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
       { title: "Temp Now", panel_type: "stat", config: { metric_key: "weather.home.temperature", data_source: "custom" as const, stat_field: "latest" as const, unit: "°C" }, layout: { x: 8, y: 0, w: 4, h: 2 } },

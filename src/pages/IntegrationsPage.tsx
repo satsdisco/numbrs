@@ -1,7 +1,10 @@
 import { useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { Check, Copy, ChevronDown, ChevronUp, Bot, Info, X, Loader2, AlertCircle, RefreshCw, Zap, Search } from "lucide-react";
+import {
+  Check, Copy, ChevronDown, ChevronUp, Bot, Info, X, Loader2,
+  AlertCircle, RefreshCw, Zap, Search, ExternalLink,
+} from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -14,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import {
   fetchIntegrations,
   upsertIntegration,
@@ -23,7 +27,11 @@ import {
   fetchFirstMetricLike,
   type UserIntegration,
 } from "@/lib/integrations-api";
-import { CATALOG_CATEGORIES } from "@/lib/integration-catalog";
+import {
+  INTEGRATION_CATALOG,
+  CATALOG_CATEGORIES,
+  type CatalogIntegration,
+} from "@/lib/integration-catalog";
 import { cn } from "@/lib/utils";
 
 // ─── Copy button ───────────────────────────────────────────────────────────────
@@ -82,9 +90,82 @@ function CodeBlock({ code, language = "bash" }: { code: string; language?: strin
   );
 }
 
-// ─── Integration card (manual) ────────────────────────────────────────────────
+// ─── formatSyncTime ────────────────────────────────────────────────────────────
 
-interface Integration {
+function formatSyncTime(ts: string | null) {
+  if (!ts) return "Never synced";
+  const d = new Date(ts);
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return d.toLocaleDateString();
+}
+
+// ─── MetricPreview ─────────────────────────────────────────────────────────────
+
+function MetricPreview({
+  keys,
+  formatters,
+}: {
+  keys: string[];
+  formatters?: Record<string, (v: number) => string>;
+}) {
+  const { data } = useQuery({
+    queryKey: ["metric-preview", ...keys],
+    queryFn: () => fetchLatestMetricValues(keys),
+    staleTime: 2 * 60_000,
+    enabled: keys.length > 0,
+  });
+
+  if (!data) return null;
+
+  const parts = keys
+    .filter((k) => data[k] !== null)
+    .map((k) => {
+      const val = data[k]!;
+      const fmt = formatters?.[k];
+      return fmt ? fmt(val.value) : val.value.toLocaleString();
+    });
+
+  if (parts.length === 0) {
+    return <p className="text-[11px] text-muted-foreground/50 italic">No data yet</p>;
+  }
+
+  return (
+    <p className="text-[11px] text-muted-foreground/70">
+      Latest: {parts.join(" · ")}
+    </p>
+  );
+}
+
+function MetricPreviewLike({
+  pattern,
+  format,
+}: {
+  pattern: string;
+  format?: (key: string, value: number) => string;
+}) {
+  const { data } = useQuery({
+    queryKey: ["metric-preview-like", pattern],
+    queryFn: () => fetchFirstMetricLike(pattern),
+    staleTime: 2 * 60_000,
+  });
+
+  if (!data) return null;
+  const label = format ? format(data.key, data.value) : data.value.toLocaleString();
+  return (
+    <p className="text-[11px] text-muted-foreground/70">
+      Latest: {label}
+    </p>
+  );
+}
+
+// ─── Manual integration card (expandable code snippet) ────────────────────────
+
+interface ManualIntegration {
   id: string;
   icon: string;
   name: string;
@@ -94,7 +175,7 @@ interface Integration {
   snippets: { label: string; code: string; language?: string }[];
 }
 
-function IntegrationCard({ integration }: { integration: Integration }) {
+function IntegrationCard({ integration }: { integration: ManualIntegration }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -141,9 +222,9 @@ function IntegrationCard({ integration }: { integration: Integration }) {
   );
 }
 
-// ─── Integration definitions ───────────────────────────────────────────────────
+// ─── Manual integration definitions ────────────────────────────────────────────
 
-const INTEGRATIONS: Integration[] = [
+const INTEGRATIONS: ManualIntegration[] = [
   {
     id: "http-api",
     icon: "🌐",
@@ -590,840 +671,209 @@ function ClaudeSection() {
   );
 }
 
-// ─── CoinGecko card ───────────────────────────────────────────────────────────
+// ─── Config dialogs ─────────────────────────────────────────────────────────────
 
-function CoinGeckoCard({ integration }: { integration: UserIntegration | undefined }) {
-  const queryClient = useQueryClient();
-
-  const upsertMutation = useMutation({
-    mutationFn: () => upsertIntegration("coingecko", {}),
-    onSuccess: () => {
-      toast.success("CoinGecko tracking enabled");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteIntegration("coingecko"),
-    onSuccess: () => {
-      toast.success("CoinGecko integration removed");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const toggleMutation = useMutation({
-    mutationFn: (active: boolean) => toggleIntegration("coingecko", active),
-    onSuccess: (_, active) => {
-      toast.success(active ? "CoinGecko tracking enabled" : "CoinGecko tracking paused");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const connected = !!integration;
-  const busy = upsertMutation.isPending || deleteMutation.isPending || toggleMutation.isPending;
-
-  return (
-    <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
-      <span className="text-2xl shrink-0 mt-0.5">🦎</span>
-      <div className="flex-1 min-w-0 space-y-1.5">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-sm text-foreground">CoinGecko</span>
-          {connected && (
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${integration.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
-              {integration.is_active ? "Active" : "Paused"}
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          BTC dominance, total market cap, 24h volume, and active cryptocurrencies. No config needed.
-        </p>
-        {connected && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <RefreshCw className="h-3 w-3" />
-            {formatSyncTime(integration.last_synced_at)}
-          </p>
-        )}
-        {connected && (
-          <MetricPreview
-            keys={["coingecko.btc_dominance", "coingecko.total_market_cap_usd"]}
-            formatters={{
-              "coingecko.btc_dominance": (v) => `${v.toFixed(1)}% BTC dom`,
-              "coingecko.total_market_cap_usd": (v) => `$${(v / 1e12).toFixed(2)}T mcap`,
-            }}
-          />
-        )}
-        {integration?.last_error && (
-          <p className="text-xs text-destructive flex items-start gap-1">
-            <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-            {integration.last_error}
-          </p>
-        )}
-      </div>
-      <div className="shrink-0 flex items-center gap-2">
-        {connected ? (
-          <>
-            <Switch
-              checked={integration.is_active}
-              disabled={busy}
-              onCheckedChange={(v) => toggleMutation.mutate(v)}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              onClick={() => deleteMutation.mutate()}
-              className="text-muted-foreground hover:text-destructive text-xs h-7"
-            >
-              Remove
-            </Button>
-          </>
-        ) : (
-          <Button
-            size="sm"
-            disabled={busy}
-            onClick={() => upsertMutation.mutate()}
-            className="h-7 text-xs"
-          >
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enable"}
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── FRED card ────────────────────────────────────────────────────────────────
-
-function FREDCard({ integration }: { integration: UserIntegration | undefined }) {
-  const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [apiKey, setApiKey] = useState(
-    (integration?.config as any)?.api_key ?? ""
-  );
-
-  const upsertMutation = useMutation({
-    mutationFn: () => upsertIntegration("fred", { api_key: apiKey }),
-    onSuccess: () => {
-      toast.success("FRED connected");
-      setOpen(false);
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteIntegration("fred"),
-    onSuccess: () => {
-      toast.success("FRED disconnected");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const connected = !!integration;
-  const busy = deleteMutation.isPending;
-
-  const handleOpen = () => {
-    setApiKey((integration?.config as any)?.api_key ?? "");
-    setOpen(true);
-  };
-
-  return (
-    <>
-      <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
-        <span className="text-2xl shrink-0 mt-0.5">🏛️</span>
-        <div className="flex-1 min-w-0 space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm text-foreground">FRED (M2 / CPI)</span>
-            {connected && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success/15 text-success">
-                Connected
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            US M2 money supply, CPI, and Fed funds rate from the Federal Reserve. Free API key required.
-          </p>
-          {connected && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <RefreshCw className="h-3 w-3" />
-              {formatSyncTime(integration.last_synced_at)}
-            </p>
-          )}
-          {integration?.last_error && (
-            <p className="text-xs text-destructive flex items-start gap-1">
-              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-              {integration.last_error}
-            </p>
-          )}
-        </div>
-        <div className="shrink-0 flex items-center gap-2">
-          {connected ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpen}
-                className="h-7 text-xs"
-              >
-                Edit
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={busy}
-                onClick={() => deleteMutation.mutate()}
-                className="text-muted-foreground hover:text-destructive text-xs h-7"
-              >
-                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Disconnect"}
-              </Button>
-            </>
-          ) : (
-            <Button size="sm" onClick={handleOpen} className="h-7 text-xs">
-              Connect
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Connect FRED</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="fred-key">
-                API key <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="fred-key"
-                type="password"
-                placeholder="abcdef1234567890abcdef1234567890"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Free key at{" "}
-                <span className="text-primary">fred.stlouisfed.org/docs/api/api_key.html</span>
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={!apiKey.trim() || upsertMutation.isPending}
-              onClick={() => upsertMutation.mutate()}
-            >
-              {upsertMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Save"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
-// ─── Server-side integration helpers ──────────────────────────────────────────
-
-function formatSyncTime(ts: string | null) {
-  if (!ts) return "Never synced";
-  const d = new Date(ts);
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return d.toLocaleDateString();
-}
-
-// ─── Metric preview ───────────────────────────────────────────────────────────
-
-function MetricPreview({
-  keys,
-  formatters,
+function GitHubDialog({
+  open,
+  onClose,
+  integration,
 }: {
-  keys: string[];
-  formatters?: Record<string, (v: number) => string>;
+  open: boolean;
+  onClose: () => void;
+  integration: UserIntegration | undefined;
 }) {
-  const { data } = useQuery({
-    queryKey: ["metric-preview", ...keys],
-    queryFn: () => fetchLatestMetricValues(keys),
-    staleTime: 2 * 60_000,
-    enabled: keys.length > 0,
-  });
-
-  if (!data) return null;
-
-  const parts = keys
-    .filter((k) => data[k] !== null)
-    .map((k) => {
-      const val = data[k]!;
-      const fmt = formatters?.[k];
-      return fmt ? fmt(val.value) : val.value.toLocaleString();
-    });
-
-  if (parts.length === 0) {
-    return <p className="text-[11px] text-muted-foreground/50 italic">No data yet</p>;
-  }
-
-  return (
-    <p className="text-[11px] text-muted-foreground/70">
-      Latest: {parts.join(" · ")}
-    </p>
-  );
-}
-
-function MetricPreviewLike({
-  pattern,
-  format,
-}: {
-  pattern: string;
-  format?: (key: string, value: number) => string;
-}) {
-  const { data } = useQuery({
-    queryKey: ["metric-preview-like", pattern],
-    queryFn: () => fetchFirstMetricLike(pattern),
-    staleTime: 2 * 60_000,
-  });
-
-  if (!data) return null;
-  const label = format ? format(data.key, data.value) : data.value.toLocaleString();
-  return (
-    <p className="text-[11px] text-muted-foreground/70">
-      Latest: {label}
-    </p>
-  );
-}
-
-// ─── Bitcoin card ─────────────────────────────────────────────────────────────
-
-function BitcoinCard({ integration }: { integration: UserIntegration | undefined }) {
   const queryClient = useQueryClient();
+  const [username, setUsername] = useState((integration?.config as any)?.username ?? "");
+  const [token, setToken] = useState((integration?.config as any)?.token ?? "");
 
   const upsertMutation = useMutation({
-    mutationFn: () => upsertIntegration("bitcoin", {}),
-    onSuccess: () => {
-      toast.success("Bitcoin price tracking enabled");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteIntegration("bitcoin"),
-    onSuccess: () => {
-      toast.success("Bitcoin integration removed");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const toggleMutation = useMutation({
-    mutationFn: (active: boolean) => toggleIntegration("bitcoin", active),
-    onSuccess: (_, active) => {
-      toast.success(active ? "Bitcoin tracking enabled" : "Bitcoin tracking paused");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const connected = !!integration;
-  const busy = upsertMutation.isPending || deleteMutation.isPending || toggleMutation.isPending;
-
-  return (
-    <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
-      <span className="text-2xl shrink-0 mt-0.5">₿</span>
-      <div className="flex-1 min-w-0 space-y-1.5">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-sm text-foreground">Bitcoin Price</span>
-          {connected && (
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${integration.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
-              {integration.is_active ? "Active" : "Paused"}
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Tracks BTC/USD price automatically. No config needed.
-        </p>
-        {connected && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <RefreshCw className="h-3 w-3" />
-            {formatSyncTime(integration.last_synced_at)}
-          </p>
-        )}
-        {connected && (
-          <MetricPreview
-            keys={["bitcoin.price_usd", "bitcoin.moscow_time"]}
-            formatters={{
-              "bitcoin.price_usd": (v) => `$${Math.round(v).toLocaleString()}`,
-              "bitcoin.moscow_time": (v) => `${Math.round(v).toLocaleString()} sats/$`,
-            }}
-          />
-        )}
-        {integration?.last_error && (
-          <p className="text-xs text-destructive flex items-start gap-1">
-            <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-            {integration.last_error}
-          </p>
-        )}
-      </div>
-      <div className="shrink-0 flex items-center gap-2">
-        {connected ? (
-          <>
-            <Switch
-              checked={integration.is_active}
-              disabled={busy}
-              onCheckedChange={(v) => toggleMutation.mutate(v)}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              onClick={() => deleteMutation.mutate()}
-              className="text-muted-foreground hover:text-destructive text-xs h-7"
-            >
-              Remove
-            </Button>
-          </>
-        ) : (
-          <Button
-            size="sm"
-            disabled={busy}
-            onClick={() => upsertMutation.mutate()}
-            className="h-7 text-xs"
-          >
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enable"}
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Mempool card ─────────────────────────────────────────────────────────────
-
-function MempoolCard({ integration }: { integration: UserIntegration | undefined }) {
-  const queryClient = useQueryClient();
-
-  const upsertMutation = useMutation({
-    mutationFn: () => upsertIntegration("mempool", {}),
-    onSuccess: () => {
-      toast.success("Mempool tracking enabled");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteIntegration("mempool"),
-    onSuccess: () => {
-      toast.success("Mempool integration removed");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const toggleMutation = useMutation({
-    mutationFn: (active: boolean) => toggleIntegration("mempool", active),
-    onSuccess: (_, active) => {
-      toast.success(active ? "Mempool tracking enabled" : "Mempool tracking paused");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const connected = !!integration;
-  const busy = upsertMutation.isPending || deleteMutation.isPending || toggleMutation.isPending;
-
-  return (
-    <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
-      <span className="text-2xl shrink-0 mt-0.5">⛓️</span>
-      <div className="flex-1 min-w-0 space-y-1.5">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-sm text-foreground">Mempool.space</span>
-          {connected && (
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${integration.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
-              {integration.is_active ? "Active" : "Paused"}
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Fee rates, hashrate, difficulty, block height, and mempool stats. No config needed.
-        </p>
-        {connected && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <RefreshCw className="h-3 w-3" />
-            {formatSyncTime(integration.last_synced_at)}
-          </p>
-        )}
-        {connected && (
-          <MetricPreview
-            keys={["mempool.fees.fastest", "mempool.block_height", "mempool.hashrate"]}
-            formatters={{
-              "mempool.fees.fastest": (v) => `${Math.round(v)} sat/vB`,
-              "mempool.block_height": (v) => `#${Math.round(v).toLocaleString()}`,
-              "mempool.hashrate": (v) => `${v.toFixed(1)} EH/s`,
-            }}
-          />
-        )}
-        {integration?.last_error && (
-          <p className="text-xs text-destructive flex items-start gap-1">
-            <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-            {integration.last_error}
-          </p>
-        )}
-      </div>
-      <div className="shrink-0 flex items-center gap-2">
-        {connected ? (
-          <>
-            <Switch
-              checked={integration.is_active}
-              disabled={busy}
-              onCheckedChange={(v) => toggleMutation.mutate(v)}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              onClick={() => deleteMutation.mutate()}
-              className="text-muted-foreground hover:text-destructive text-xs h-7"
-            >
-              Remove
-            </Button>
-          </>
-        ) : (
-          <Button
-            size="sm"
-            disabled={busy}
-            onClick={() => upsertMutation.mutate()}
-            className="h-7 text-xs"
-          >
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enable"}
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── GitHub card ──────────────────────────────────────────────────────────────
-
-function GitHubCard({ integration }: { integration: UserIntegration | undefined }) {
-  const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [username, setUsername] = useState(
-    (integration?.config as any)?.username ?? ""
-  );
-  const [token, setToken] = useState(
-    (integration?.config as any)?.token ?? ""
-  );
-
-  const upsertMutation = useMutation({
-    mutationFn: () =>
-      upsertIntegration("github", { username, ...(token ? { token } : {}) }),
+    mutationFn: () => upsertIntegration("github", { username, ...(token ? { token } : {}) }),
     onSuccess: () => {
       toast.success("GitHub connected");
-      setOpen(false);
+      onClose();
       queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteIntegration("github"),
-    onSuccess: () => {
-      toast.success("GitHub disconnected");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const connected = !!integration;
-  const busy = deleteMutation.isPending;
-
-  const handleOpen = () => {
-    setUsername((integration?.config as any)?.username ?? "");
-    setToken((integration?.config as any)?.token ?? "");
-    setOpen(true);
-  };
 
   return (
-    <>
-      <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
-        <span className="text-2xl shrink-0 mt-0.5">🐙</span>
-        <div className="flex-1 min-w-0 space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm text-foreground">GitHub Stats</span>
-            {connected && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success/15 text-success">
-                Connected
-              </span>
-            )}
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Connect GitHub</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="gh-username">GitHub username <span className="text-destructive">*</span></Label>
+            <Input
+              id="gh-username"
+              placeholder="octocat"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
           </div>
-          <p className="text-xs text-muted-foreground">
-            Tracks stars, forks, commits, and PR activity across your repos.
-          </p>
-          {connected && (
+          <div className="space-y-1.5">
+            <Label htmlFor="gh-token">
+              Personal access token{" "}
+              <span className="text-muted-foreground font-normal">(optional)</span>
+            </Label>
+            <Input
+              id="gh-token"
+              type="password"
+              placeholder="ghp_…"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+            />
             <p className="text-xs text-muted-foreground">
-              @{(integration.config as any)?.username}
-              {" · "}
-              <span className="flex items-center gap-1 inline-flex">
-                <RefreshCw className="h-3 w-3" />
-                {formatSyncTime(integration.last_synced_at)}
-              </span>
+              Required for private repos and higher rate limits.
             </p>
-          )}
-          {integration?.last_error && (
-            <p className="text-xs text-destructive flex items-start gap-1">
-              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-              {integration.last_error}
-            </p>
-          )}
-        </div>
-        <div className="shrink-0 flex items-center gap-2">
-          {connected ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpen}
-                className="h-7 text-xs"
-              >
-                Edit
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={busy}
-                onClick={() => deleteMutation.mutate()}
-                className="text-muted-foreground hover:text-destructive text-xs h-7"
-              >
-                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Disconnect"}
-              </Button>
-            </>
-          ) : (
-            <Button size="sm" onClick={handleOpen} className="h-7 text-xs">
-              Connect
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Connect GitHub</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="gh-username">GitHub username <span className="text-destructive">*</span></Label>
-              <Input
-                id="gh-username"
-                placeholder="octocat"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="gh-token">
-                Personal access token{" "}
-                <span className="text-muted-foreground font-normal">(optional)</span>
-              </Label>
-              <Input
-                id="gh-token"
-                type="password"
-                placeholder="ghp_…"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Required for private repos and higher rate limits.
-              </p>
-            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={!username.trim() || upsertMutation.isPending}
-              onClick={() => upsertMutation.mutate()}
-            >
-              {upsertMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Save"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            disabled={!username.trim() || upsertMutation.isPending}
+            onClick={() => upsertMutation.mutate()}
+          >
+            {upsertMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-// ─── Vercel card ──────────────────────────────────────────────────────────────
-
-function VercelCard({ integration }: { integration: UserIntegration | undefined }) {
+function VercelDialog({
+  open,
+  onClose,
+  integration,
+}: {
+  open: boolean;
+  onClose: () => void;
+  integration: UserIntegration | undefined;
+}) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [token, setToken] = useState(
-    (integration?.config as any)?.token ?? ""
-  );
+  const [token, setToken] = useState((integration?.config as any)?.token ?? "");
 
   const upsertMutation = useMutation({
     mutationFn: () => upsertIntegration("vercel", { token }),
     onSuccess: () => {
       toast.success("Vercel connected");
-      setOpen(false);
+      onClose();
       queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteIntegration("vercel"),
-    onSuccess: () => {
-      toast.success("Vercel disconnected");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const connected = !!integration;
-  const busy = deleteMutation.isPending;
-
-  const handleOpen = () => {
-    setToken((integration?.config as any)?.token ?? "");
-    setOpen(true);
-  };
 
   return (
-    <>
-      <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
-        <span className="text-2xl shrink-0 mt-0.5">▲</span>
-        <div className="flex-1 min-w-0 space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm text-foreground">Vercel</span>
-            {connected && (
-              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success/15 text-success">
-                Connected
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Tracks deployments, build times, and project activity across your Vercel projects.
-          </p>
-          {connected && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <RefreshCw className="h-3 w-3" />
-              {formatSyncTime(integration.last_synced_at)}
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Connect Vercel</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="vercel-token">
+              API token <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="vercel-token"
+              type="password"
+              placeholder="vercel_…"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Create a token at vercel.com/account/tokens
             </p>
-          )}
-          {integration?.last_error && (
-            <p className="text-xs text-destructive flex items-start gap-1">
-              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-              {integration.last_error}
-            </p>
-          )}
-        </div>
-        <div className="shrink-0 flex items-center gap-2">
-          {connected ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpen}
-                className="h-7 text-xs"
-              >
-                Edit
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={busy}
-                onClick={() => deleteMutation.mutate()}
-                className="text-muted-foreground hover:text-destructive text-xs h-7"
-              >
-                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Disconnect"}
-              </Button>
-            </>
-          ) : (
-            <Button size="sm" onClick={handleOpen} className="h-7 text-xs">
-              Connect
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Connect Vercel</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="vercel-token">
-                API token <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="vercel-token"
-                type="password"
-                placeholder="vercel_…"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Create one at vercel.com → Account Settings → Tokens.
-              </p>
-            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={!token.trim() || upsertMutation.isPending}
-              onClick={() => upsertMutation.mutate()}
-            >
-              {upsertMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Save"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            disabled={!token.trim() || upsertMutation.isPending}
+            onClick={() => upsertMutation.mutate()}
+          >
+            {upsertMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
-// ─── Weather card ─────────────────────────────────────────────────────────────
-
-function WeatherCard({ integration }: { integration: UserIntegration | undefined }) {
+function FREDDialog({
+  open,
+  onClose,
+  integration,
+}: {
+  open: boolean;
+  onClose: () => void;
+  integration: UserIntegration | undefined;
+}) {
   const queryClient = useQueryClient();
-  const [open, setOpen] = useState(false);
-  const [locationName, setLocationName] = useState(
-    (integration?.config as any)?.location_name ?? ""
+  const [apiKey, setApiKey] = useState((integration?.config as any)?.api_key ?? "");
+
+  const upsertMutation = useMutation({
+    mutationFn: () => upsertIntegration("fred", { api_key: apiKey }),
+    onSuccess: () => {
+      toast.success("FRED connected");
+      onClose();
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Connect FRED</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="fred-key">
+              API key <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="fred-key"
+              type="password"
+              placeholder="abcdef1234567890abcdef1234567890"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Free key at fred.stlouisfed.org/docs/api/api_key.html
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            disabled={!apiKey.trim() || upsertMutation.isPending}
+            onClick={() => upsertMutation.mutate()}
+          >
+            {upsertMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
-  const [latitude, setLatitude] = useState(
-    String((integration?.config as any)?.latitude ?? "")
-  );
-  const [longitude, setLongitude] = useState(
-    String((integration?.config as any)?.longitude ?? "")
-  );
+}
+
+function WeatherDialog({
+  open,
+  onClose,
+  integration,
+}: {
+  open: boolean;
+  onClose: () => void;
+  integration: UserIntegration | undefined;
+}) {
+  const queryClient = useQueryClient();
+  const [locationName, setLocationName] = useState((integration?.config as any)?.location_name ?? "");
+  const [latitude, setLatitude] = useState(String((integration?.config as any)?.latitude ?? ""));
+  const [longitude, setLongitude] = useState(String((integration?.config as any)?.longitude ?? ""));
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState("");
 
@@ -1462,25 +912,298 @@ function WeatherCard({ integration }: { integration: UserIntegration | undefined
       }),
     onSuccess: () => {
       toast.success("Weather connected");
-      setOpen(false);
+      onClose();
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const canSave =
+    locationName.trim().length > 0 &&
+    !isNaN(parseFloat(latitude)) &&
+    !isNaN(parseFloat(longitude)) &&
+    !upsertMutation.isPending;
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Connect Weather</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="weather-location">
+              Location <span className="text-destructive">*</span>
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="weather-location"
+                placeholder="Prague, New York, Tokyo..."
+                value={locationName}
+                onChange={(e) => setLocationName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    geocodeLocation();
+                  }
+                }}
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={geocodeLocation}
+                disabled={!locationName.trim() || geoLoading}
+              >
+                {geoLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Lookup"}
+              </Button>
+            </div>
+            {geoError && (
+              <p className="text-xs text-destructive">{geoError}</p>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="weather-lat">Latitude</Label>
+              <Input
+                id="weather-lat"
+                placeholder="50.0755"
+                value={latitude}
+                onChange={(e) => setLatitude(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="weather-lon">Longitude</Label>
+              <Input
+                id="weather-lon"
+                placeholder="14.4378"
+                value={longitude}
+                onChange={(e) => setLongitude(e.target.value)}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Type a city name and click Lookup to auto-fill coordinates, or enter them manually.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button disabled={!canSave} onClick={() => upsertMutation.mutate()}>
+            {upsertMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── Difficulty + type badge helpers ──────────────────────────────────────────
+
+function DifficultyBadge({ difficulty }: { difficulty: CatalogIntegration["difficulty"] }) {
+  return (
+    <span
+      className={cn(
+        "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+        difficulty === "easy" && "bg-success/15 text-success",
+        difficulty === "medium" && "bg-amber-500/15 text-amber-400",
+        difficulty === "advanced" && "bg-destructive/15 text-destructive"
+      )}
+    >
+      {difficulty}
+    </span>
+  );
+}
+
+function TypeBadge({ type }: { type: CatalogIntegration["type"] }) {
+  if (type === "server-side") return null;
+  return (
+    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+      {type === "collector" ? "script" : "manual"}
+    </span>
+  );
+}
+
+// ─── Generic server-side one-click card ───────────────────────────────────────
+
+function ServerSideCard({
+  catalogEntry,
+  integration,
+  featured = false,
+}: {
+  catalogEntry: CatalogIntegration;
+  integration: UserIntegration | undefined;
+  featured?: boolean;
+}) {
+  const queryClient = useQueryClient();
+
+  const upsertMutation = useMutation({
+    mutationFn: () => upsertIntegration(catalogEntry.id, {}),
+    onSuccess: () => {
+      toast.success(`${catalogEntry.name} enabled`);
       queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteIntegration("weather"),
+    mutationFn: () => deleteIntegration(catalogEntry.id),
     onSuccess: () => {
-      toast.success("Weather integration removed");
+      toast.success(`${catalogEntry.name} removed`);
       queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
   const toggleMutation = useMutation({
-    mutationFn: (active: boolean) => toggleIntegration("weather", active),
+    mutationFn: (active: boolean) => toggleIntegration(catalogEntry.id, active),
     onSuccess: (_, active) => {
-      toast.success(active ? "Weather tracking enabled" : "Weather tracking paused");
+      toast.success(active ? `${catalogEntry.name} enabled` : `${catalogEntry.name} paused`);
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const connected = !!integration;
+  const busy = upsertMutation.isPending || deleteMutation.isPending || toggleMutation.isPending;
+
+  // Show first 2–3 concrete metric keys (skip template keys with {placeholder})
+  const previewKeys = catalogEntry.metrics
+    .filter((m) => !m.key.includes("{"))
+    .slice(0, 3)
+    .map((m) => m.key);
+
+  const card = (
+    <div
+      className={cn(
+        "rounded-xl border bg-card flex flex-col gap-3 transition-all",
+        featured ? "p-5 hover:border-primary/40" : "p-4",
+        connected ? "border-success/30" : "border-border hover:border-border/80"
+      )}
+    >
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <span className={cn("shrink-0", featured ? "text-2xl" : "text-xl")}>{catalogEntry.icon}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className={cn("font-semibold text-foreground", featured ? "text-sm" : "text-sm")}>
+              {catalogEntry.name}
+            </span>
+            {connected && (
+              <span
+                className={cn(
+                  "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                  integration.is_active
+                    ? "bg-success/15 text-success"
+                    : "bg-muted text-muted-foreground"
+                )}
+              >
+                {integration.is_active ? "Active" : "Paused"}
+              </span>
+            )}
+            {catalogEntry.free && !connected && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                Free
+              </span>
+            )}
+          </div>
+          <p className={cn("text-muted-foreground mt-0.5", featured ? "text-xs" : "text-[11px]")}>
+            {catalogEntry.description}
+          </p>
+        </div>
+      </div>
+
+      {/* Status + metrics */}
+      {connected && (
+        <div className="space-y-1">
+          <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+            <RefreshCw className="h-3 w-3" />
+            {formatSyncTime(integration.last_synced_at)}
+          </p>
+          {previewKeys.length > 0 && (
+            <MetricPreview keys={previewKeys} />
+          )}
+          {integration.last_error && (
+            <p className="text-[11px] text-destructive flex items-start gap-1">
+              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+              {integration.last_error}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 mt-auto">
+        {connected ? (
+          <>
+            <Switch
+              checked={integration.is_active}
+              disabled={busy}
+              onCheckedChange={(v) => toggleMutation.mutate(v)}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => deleteMutation.mutate()}
+              className="text-muted-foreground hover:text-destructive text-xs h-7 ml-auto"
+            >
+              {busy && deleteMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
+            </Button>
+          </>
+        ) : (
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => upsertMutation.mutate()}
+            className="h-7 text-xs"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enable"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
+  if (featured && !connected) {
+    return (
+      <div className="rounded-xl bg-gradient-to-br from-primary/20 via-primary/5 to-transparent p-px">
+        {card}
+      </div>
+    );
+  }
+
+  return card;
+}
+
+// ─── Config card (for integrations needing API key / setup) ───────────────────
+
+function ConfigCard({
+  catalogEntry,
+  integration,
+}: {
+  catalogEntry: CatalogIntegration;
+  integration: UserIntegration | undefined;
+}) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+
+  // Weather also supports toggle
+  const hasToggle = catalogEntry.id === "weather";
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteIntegration(catalogEntry.id),
+    onSuccess: () => {
+      toast.success(`${catalogEntry.name} disconnected`);
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (active: boolean) => toggleIntegration(catalogEntry.id, active),
+    onSuccess: (_, active) => {
+      toast.success(active ? `${catalogEntry.name} enabled` : `${catalogEntry.name} paused`);
       queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
     },
     onError: (err: Error) => toast.error(err.message),
@@ -1490,59 +1213,90 @@ function WeatherCard({ integration }: { integration: UserIntegration | undefined
   const busy = deleteMutation.isPending || toggleMutation.isPending;
 
   const handleOpen = () => {
-    setLocationName((integration?.config as any)?.location_name ?? "");
-    setLatitude(String((integration?.config as any)?.latitude ?? ""));
-    setLongitude(String((integration?.config as any)?.longitude ?? ""));
     setOpen(true);
   };
 
-  const canSave =
-    locationName.trim().length > 0 &&
-    !isNaN(parseFloat(latitude)) &&
-    !isNaN(parseFloat(longitude)) &&
-    !upsertMutation.isPending;
+  // Context-specific detail shown when connected
+  const connectedDetail = () => {
+    if (catalogEntry.id === "github") {
+      return (integration?.config as any)?.username ? `@${(integration?.config as any)?.username}` : null;
+    }
+    if (catalogEntry.id === "weather") {
+      return (integration?.config as any)?.location_name ?? null;
+    }
+    return null;
+  };
+
+  const detail = connectedDetail();
 
   return (
     <>
-      <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
-        <span className="text-2xl shrink-0 mt-0.5">🌤️</span>
-        <div className="flex-1 min-w-0 space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm text-foreground">Weather</span>
-            {connected && (
-              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${integration.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
-                {integration.is_active ? "Active" : "Paused"}
-              </span>
+      <div
+        className={cn(
+          "rounded-xl border bg-card p-4 flex flex-col gap-3 transition-all",
+          connected ? "border-success/30" : "border-border hover:border-border/80"
+        )}
+      >
+        {/* Header */}
+        <div className="flex items-start gap-3">
+          <span className="text-xl shrink-0">{catalogEntry.icon}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-semibold text-sm text-foreground">{catalogEntry.name}</span>
+              {connected && (
+                <span
+                  className={cn(
+                    "text-[10px] font-medium px-1.5 py-0.5 rounded-full",
+                    hasToggle
+                      ? integration!.is_active
+                        ? "bg-success/15 text-success"
+                        : "bg-muted text-muted-foreground"
+                      : "bg-success/15 text-success"
+                  )}
+                >
+                  {hasToggle ? (integration!.is_active ? "Active" : "Paused") : "Connected"}
+                </span>
+              )}
+              {catalogEntry.free && !connected && (
+                <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                  Free key
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-0.5">{catalogEntry.description}</p>
+          </div>
+        </div>
+
+        {/* Status */}
+        {connected && (
+          <div className="space-y-1">
+            {detail && (
+              <p className="text-[11px] text-muted-foreground">{detail}</p>
+            )}
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <RefreshCw className="h-3 w-3" />
+              {formatSyncTime(integration!.last_synced_at)}
+            </p>
+            {integration!.last_error && (
+              <p className="text-[11px] text-destructive flex items-start gap-1">
+                <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                {integration!.last_error}
+              </p>
             )}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Temperature, humidity, rain, snow, wind, and UV via Open-Meteo. Free, no API key needed.
-          </p>
-          {connected && (
-            <p className="text-xs text-muted-foreground">
-              {(integration.config as any)?.location_name}
-              {" · "}
-              <span className="inline-flex items-center gap-1">
-                <RefreshCw className="h-3 w-3" />
-                {formatSyncTime(integration.last_synced_at)}
-              </span>
-            </p>
-          )}
-          {integration?.last_error && (
-            <p className="text-xs text-destructive flex items-start gap-1">
-              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-              {integration.last_error}
-            </p>
-          )}
-        </div>
-        <div className="shrink-0 flex items-center gap-2">
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 mt-auto">
           {connected ? (
             <>
-              <Switch
-                checked={integration.is_active}
-                disabled={busy}
-                onCheckedChange={(v) => toggleMutation.mutate(v)}
-              />
+              {hasToggle && (
+                <Switch
+                  checked={integration!.is_active}
+                  disabled={busy}
+                  onCheckedChange={(v) => toggleMutation.mutate(v)}
+                />
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -1556,9 +1310,9 @@ function WeatherCard({ integration }: { integration: UserIntegration | undefined
                 size="sm"
                 disabled={busy}
                 onClick={() => deleteMutation.mutate()}
-                className="text-muted-foreground hover:text-destructive text-xs h-7"
+                className="text-muted-foreground hover:text-destructive text-xs h-7 ml-auto"
               >
-                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Disconnect"}
               </Button>
             </>
           ) : (
@@ -1569,401 +1323,76 @@ function WeatherCard({ integration }: { integration: UserIntegration | undefined
         </div>
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Connect Weather</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="weather-location">
-                Location <span className="text-destructive">*</span>
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  id="weather-location"
-                  placeholder="Prague, New York, Tokyo..."
-                  value={locationName}
-                  onChange={(e) => setLocationName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      geocodeLocation();
-                    }
-                  }}
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={geoLoading || !locationName.trim()}
-                  onClick={geocodeLocation}
-                  className="h-9 px-3 shrink-0"
-                >
-                  {geoLoading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    "Lookup"
-                  )}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Type a city name and hit <strong>Lookup</strong> to auto-fill coordinates.
-              </p>
-              {geoError && (
-                <p className="text-xs text-destructive">{geoError}</p>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="weather-lat">
-                  Latitude <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="weather-lat"
-                  placeholder="50.0755"
-                  value={latitude}
-                  onChange={(e) => setLatitude(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="weather-lon">
-                  Longitude <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="weather-lon"
-                  placeholder="14.4378"
-                  value={longitude}
-                  onChange={(e) => setLongitude(e.target.value)}
-                />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Coordinates auto-fill from Lookup, or enter manually.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button disabled={!canSave} onClick={() => upsertMutation.mutate()}>
-              {upsertMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Save"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Config dialog — specific to integration ID */}
+      {catalogEntry.id === "github" && (
+        <GitHubDialog open={open} onClose={() => setOpen(false)} integration={integration} />
+      )}
+      {catalogEntry.id === "vercel" && (
+        <VercelDialog open={open} onClose={() => setOpen(false)} integration={integration} />
+      )}
+      {catalogEntry.id === "fred" && (
+        <FREDDialog open={open} onClose={() => setOpen(false)} integration={integration} />
+      )}
+      {catalogEntry.id === "weather" && (
+        <WeatherDialog open={open} onClose={() => setOpen(false)} integration={integration} />
+      )}
     </>
   );
 }
 
-// ─── Fear & Greed card ────────────────────────────────────────────────────────
+// ─── Collector/info card (non-server-side catalog entries) ────────────────────
 
-function FearGreedCard({ integration }: { integration: UserIntegration | undefined }) {
-  const queryClient = useQueryClient();
-
-  const upsertMutation = useMutation({
-    mutationFn: () => upsertIntegration("fng", {}),
-    onSuccess: () => {
-      toast.success("Fear & Greed tracking enabled");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteIntegration("fng"),
-    onSuccess: () => {
-      toast.success("Fear & Greed integration removed");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const toggleMutation = useMutation({
-    mutationFn: (active: boolean) => toggleIntegration("fng", active),
-    onSuccess: (_, active) => {
-      toast.success(active ? "Fear & Greed tracking enabled" : "Fear & Greed tracking paused");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const connected = !!integration;
-  const busy = upsertMutation.isPending || deleteMutation.isPending || toggleMutation.isPending;
-
+function CatalogInfoCard({ entry }: { entry: CatalogIntegration }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
-      <span className="text-2xl shrink-0 mt-0.5">😱</span>
-      <div className="flex-1 min-w-0 space-y-1.5">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-sm text-foreground">Fear & Greed Index</span>
-          {connected && (
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${integration.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
-              {integration.is_active ? "Active" : "Paused"}
-            </span>
-          )}
+    <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3">
+      <div className="flex items-start gap-3">
+        <span className="text-xl shrink-0">{entry.icon}</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-semibold text-sm text-foreground">{entry.name}</span>
+            <DifficultyBadge difficulty={entry.difficulty} />
+            <TypeBadge type={entry.type} />
+            {entry.free && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                Free
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-0.5">{entry.description}</p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Crypto market sentiment score (0–100) from alternative.me. No config needed.
+      </div>
+      {entry.metrics.length > 0 && (
+        <p className="text-[10px] text-muted-foreground/60 font-mono truncate">
+          {entry.metrics.slice(0, 2).map((m) => m.key).join(" · ")}
+          {entry.metrics.length > 2 ? ` +${entry.metrics.length - 2} more` : ""}
         </p>
-        {connected && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <RefreshCw className="h-3 w-3" />
-            {formatSyncTime(integration.last_synced_at)}
-          </p>
-        )}
-        {connected && (
-          <MetricPreview
-            keys={["fng.value"]}
-            formatters={{
-              "fng.value": (v) => `${Math.round(v)}/100`,
-            }}
-          />
-        )}
-        {integration?.last_error && (
-          <p className="text-xs text-destructive flex items-start gap-1">
-            <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-            {integration.last_error}
-          </p>
-        )}
-      </div>
-      <div className="shrink-0 flex items-center gap-2">
-        {connected ? (
-          <>
-            <Switch
-              checked={integration.is_active}
-              disabled={busy}
-              onCheckedChange={(v) => toggleMutation.mutate(v)}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              onClick={() => deleteMutation.mutate()}
-              className="text-muted-foreground hover:text-destructive text-xs h-7"
-            >
-              Remove
-            </Button>
-          </>
-        ) : (
-          <Button
-            size="sm"
-            disabled={busy}
-            onClick={() => upsertMutation.mutate()}
-            className="h-7 text-xs"
-          >
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enable"}
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Lightning card ───────────────────────────────────────────────────────────
-
-function LightningCard({ integration }: { integration: UserIntegration | undefined }) {
-  const queryClient = useQueryClient();
-
-  const upsertMutation = useMutation({
-    mutationFn: () => upsertIntegration("lightning", {}),
-    onSuccess: () => {
-      toast.success("Lightning Network tracking enabled");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: () => deleteIntegration("lightning"),
-    onSuccess: () => {
-      toast.success("Lightning integration removed");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const toggleMutation = useMutation({
-    mutationFn: (active: boolean) => toggleIntegration("lightning", active),
-    onSuccess: (_, active) => {
-      toast.success(active ? "Lightning tracking enabled" : "Lightning tracking paused");
-      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const connected = !!integration;
-  const busy = upsertMutation.isPending || deleteMutation.isPending || toggleMutation.isPending;
-
-  return (
-    <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
-      <span className="text-2xl shrink-0 mt-0.5">⚡</span>
-      <div className="flex-1 min-w-0 space-y-1.5">
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-sm text-foreground">Lightning Network</span>
-          {connected && (
-            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${integration.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
-              {integration.is_active ? "Active" : "Paused"}
-            </span>
-          )}
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Network capacity, channels, and node count from mempool.space. No config needed.
-        </p>
-        {connected && (
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <RefreshCw className="h-3 w-3" />
-            {formatSyncTime(integration.last_synced_at)}
-          </p>
-        )}
-        {connected && (
-          <MetricPreview
-            keys={["lightning.capacity_btc", "lightning.channel_count", "lightning.node_count"]}
-            formatters={{
-              "lightning.capacity_btc": (v) => `${v.toFixed(0)} BTC`,
-              "lightning.channel_count": (v) => `${v.toLocaleString()} channels`,
-              "lightning.node_count": (v) => `${v.toLocaleString()} nodes`,
-            }}
-          />
-        )}
-        {integration?.last_error && (
-          <p className="text-xs text-destructive flex items-start gap-1">
-            <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-            {integration.last_error}
-          </p>
-        )}
-      </div>
-      <div className="shrink-0 flex items-center gap-2">
-        {connected ? (
-          <>
-            <Switch
-              checked={integration.is_active}
-              disabled={busy}
-              onCheckedChange={(v) => toggleMutation.mutate(v)}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              onClick={() => deleteMutation.mutate()}
-              className="text-muted-foreground hover:text-destructive text-xs h-7"
-            >
-              Remove
-            </Button>
-          </>
-        ) : (
-          <Button
-            size="sm"
-            disabled={busy}
-            onClick={() => upsertMutation.mutate()}
-            className="h-7 text-xs"
-          >
-            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enable"}
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Server-side integrations section ─────────────────────────────────────────
-
-// Map each server-side provider to a category for filtering
-const SERVER_SIDE_CATEGORIES: Record<string, string> = {
-  bitcoin: "bitcoin",
-  mempool: "bitcoin",
-  fng: "bitcoin",
-  lightning: "bitcoin",
-  github: "developer",
-  vercel: "developer",
-  weather: "weather",
-  coingecko: "finance",
-  fred: "finance",
-};
-
-// Search terms per card (name + description)
-const SERVER_SIDE_SEARCH: Record<string, string> = {
-  bitcoin: "bitcoin price btc usd coinbase",
-  mempool: "mempool bitcoin fees hashrate difficulty block height",
-  fng: "fear greed index sentiment fng bitcoin market",
-  lightning: "lightning network capacity channels nodes ln",
-  github: "github stars forks issues repos developer",
-  vercel: "vercel deploy build duration project developer",
-  weather: "weather temperature humidity rain snow wind uv open-meteo",
-  coingecko: "coingecko crypto market cap btc dominance volume altcoin",
-  fred: "fred m2 money supply cpi inflation federal reserve interest rate",
-};
-
-interface FilterProps {
-  activeCategory: string;
-  search: string;
-}
-
-function ServerSideIntegrations({ activeCategory, search }: FilterProps) {
-  const { data: integrations = [], isLoading, isError, refetch } = useQuery({
-    queryKey: ["user-integrations"],
-    queryFn: fetchIntegrations,
-    retry: 1,
-  });
-
-  const byProvider = Object.fromEntries(
-    integrations.map((i) => [i.provider, i])
-  );
-
-  const providers = ["bitcoin", "mempool", "fng", "lightning", "github", "vercel", "weather", "coingecko", "fred"];
-  const q = search.toLowerCase();
-
-  const visible = providers.filter((p) => {
-    if (activeCategory !== "all" && SERVER_SIDE_CATEGORIES[p] !== activeCategory) return false;
-    if (q && !SERVER_SIDE_SEARCH[p].includes(q)) return false;
-    return true;
-  });
-
-  if (visible.length === 0) return null;
-
-  const renderCard = (provider: string) => {
-    switch (provider) {
-      case "bitcoin":   return <BitcoinCard     key="bitcoin"   integration={byProvider["bitcoin"]}   />;
-      case "mempool":   return <MempoolCard     key="mempool"   integration={byProvider["mempool"]}   />;
-      case "fng":       return <FearGreedCard   key="fng"       integration={byProvider["fng"]}       />;
-      case "lightning":  return <LightningCard  key="lightning"  integration={byProvider["lightning"]} />;
-      case "github":    return <GitHubCard      key="github"    integration={byProvider["github"]}    />;
-      case "vercel":    return <VercelCard      key="vercel"    integration={byProvider["vercel"]}    />;
-      case "weather":   return <WeatherCard     key="weather"   integration={byProvider["weather"]}   />;
-      case "coingecko": return <CoinGeckoCard   key="coingecko" integration={byProvider["coingecko"]} />;
-      case "fred":      return <FREDCard        key="fred"      integration={byProvider["fred"]}      />;
-      default: return null;
-    }
-  };
-
-  return (
-    <div className="space-y-3">
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
-      ) : isError ? (
-        <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-card py-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            Could not load server-side integrations. Please refresh.
-          </p>
-          <button
-            onClick={() => refetch()}
-            className="text-xs text-primary hover:underline"
-          >
-            Retry
-          </button>
-        </div>
-      ) : (
-        visible.map(renderCard)
       )}
+      <div className="mt-auto">
+        <span className="text-[10px] text-muted-foreground/60 italic">
+          Collector script required — see Manual section below
+        </span>
+      </div>
     </div>
   );
+}
+
+// ─── Render the right card type for a catalog entry ───────────────────────────
+
+function CatalogCard({
+  entry,
+  integration,
+}: {
+  entry: CatalogIntegration;
+  integration: UserIntegration | undefined;
+}) {
+  if (entry.type !== "server-side") {
+    return <CatalogInfoCard entry={entry} />;
+  }
+  if (entry.setupType === "one-click") {
+    return <ServerSideCard catalogEntry={entry} integration={integration} />;
+  }
+  // api-key server-side
+  return <ConfigCard catalogEntry={entry} integration={integration} />;
 }
 
 // ─── Quick Start Banner ────────────────────────────────────────────────────────
@@ -2007,20 +1436,16 @@ function QuickStartBanner() {
 
 // ─── Category filter bar ──────────────────────────────────────────────────────
 
-// Only show categories that have actual integrations on this page
-const PAGE_CATEGORIES = CATALOG_CATEGORIES.filter((c) =>
-  ["all", "bitcoin", "mining", "finance", "weather", "developer", "infrastructure"].includes(c.id)
-);
-
-interface CategoryFilterProps {
+function CategoryFilter({
+  active,
+  onChange,
+}: {
   active: string;
   onChange: (id: string) => void;
-}
-
-function CategoryFilter({ active, onChange }: CategoryFilterProps) {
+}) {
   return (
     <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
-      {PAGE_CATEGORIES.map((cat) => (
+      {CATALOG_CATEGORIES.map((cat) => (
         <button
           key={cat.id}
           onClick={() => onChange(cat.id)}
@@ -2041,14 +1466,57 @@ function CategoryFilter({ active, onChange }: CategoryFilterProps) {
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
+const FEATURED_IDS = ["bitcoin", "mempool", "fng", "lightning"];
+
 export default function IntegrationsPage() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
 
+  const { data: integrations = [], isLoading: integrationsLoading } = useQuery({
+    queryKey: ["user-integrations"],
+    queryFn: fetchIntegrations,
+    retry: 1,
+  });
+
+  const byProvider = useMemo(
+    () => Object.fromEntries(integrations.map((i) => [i.provider, i])),
+    [integrations]
+  );
+
+  const isFiltered = !!search || activeCategory !== "all";
   const q = search.toLowerCase();
+
+  // Filter catalog entries
+  const filteredCatalog = useMemo(() => {
+    return INTEGRATION_CATALOG.filter((entry) => {
+      if (activeCategory !== "all" && entry.category !== activeCategory) return false;
+      if (q && !entry.name.toLowerCase().includes(q) && !entry.description.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [activeCategory, q]);
+
+  // Sort: enabled first, then by category order
+  const sortedCatalog = useMemo(() => {
+    return [...filteredCatalog].sort((a, b) => {
+      const aEnabled = !!byProvider[a.id];
+      const bEnabled = !!byProvider[b.id];
+      if (aEnabled && !bEnabled) return -1;
+      if (!aEnabled && bEnabled) return 1;
+      return 0;
+    });
+  }, [filteredCatalog, byProvider]);
+
+  // Featured entries (only shown when no filter/search active)
+  const featuredEntries = useMemo(
+    () => INTEGRATION_CATALOG.filter((e) => FEATURED_IDS.includes(e.id)),
+    []
+  );
 
   // Filter manual integrations
   const filteredManual = useMemo(() => {
+    if (activeCategory !== "all" && !["developer", "infrastructure", "mining"].includes(activeCategory)) {
+      return [];
+    }
     return INTEGRATIONS.filter((i) => {
       if (activeCategory !== "all" && i.category !== activeCategory) return false;
       if (q && !i.name.toLowerCase().includes(q) && !i.description.toLowerCase().includes(q)) return false;
@@ -2056,28 +1524,20 @@ export default function IntegrationsPage() {
     });
   }, [activeCategory, q]);
 
-  // Show the manual section wrapper when there's something to show
-  const showManualSection =
-    (activeCategory === "all" || ["developer", "infrastructure"].includes(activeCategory)) &&
-    filteredManual.length > 0;
-
-  // Show Claude section only when relevant
+  const showManualSection = filteredManual.length > 0;
   const showClaudeSection =
     (activeCategory === "all" || activeCategory === "developer") &&
     (!q || "claude openclaw ai token".includes(q));
 
-  // Show server-side section when relevant categories are selected
-  const showServerSideSection =
-    activeCategory === "all" ||
-    ["bitcoin", "weather", "developer", "finance"].includes(activeCategory);
-
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <QuickStartBanner />
+
+      {/* Header */}
       <div>
         <h1 className="font-mono text-xl font-semibold text-foreground">Integrations</h1>
-        <p className="text-metric-sm text-muted-foreground mt-1">
-          Connect any data source. Push metrics with a single HTTP call.
+        <p className="text-sm text-muted-foreground mt-1">
+          Connect data sources to power your dashboards
         </p>
       </div>
 
@@ -2096,33 +1556,105 @@ export default function IntegrationsPage() {
         <CategoryFilter active={activeCategory} onChange={setActiveCategory} />
       </div>
 
-      {/* Server-side integrations */}
-      {showServerSideSection && (
+      {/* Featured section — only when no filter/search */}
+      <AnimatePresence>
+        {!isFiltered && (
+          <motion.div
+            key="featured"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <Zap className="h-4 w-4 text-primary" />
+              <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Featured — free &amp; instant
+              </h2>
+            </div>
+            {integrationsLoading ? (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="h-32 rounded-xl bg-card border border-border animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {featuredEntries.map((entry) => (
+                  <motion.div
+                    key={entry.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <ServerSideCard
+                      catalogEntry={entry}
+                      integration={byProvider[entry.id]}
+                      featured
+                    />
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* All integrations grid */}
+      <div>
+        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+          {isFiltered ? "Results" : "All Integrations"}
+          {filteredCatalog.length > 0 && (
+            <span className="ml-2 text-muted-foreground/50 normal-case tracking-normal font-normal">
+              {filteredCatalog.length} sources
+            </span>
+          )}
+        </h2>
+
+        {integrationsLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="h-28 rounded-xl bg-card border border-border animate-pulse" />
+            ))}
+          </div>
+        ) : sortedCatalog.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-16 text-center">
+            <p className="text-sm text-muted-foreground">No integrations found for "{search}"</p>
+            <button
+              onClick={() => { setSearch(""); setActiveCategory("all"); }}
+              className="text-xs text-primary hover:underline"
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {sortedCatalog.map((entry, i) => (
+              <motion.div
+                key={entry.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(i * 0.03, 0.3) }}
+              >
+                <CatalogCard entry={entry} integration={byProvider[entry.id]} />
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Manual / Developer section */}
+      {showManualSection && (
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Zap className="h-4 w-4 text-muted-foreground" />
             <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Server-Side Integrations
+              Manual &amp; Developer Integrations
             </h2>
           </div>
           <p className="text-xs text-muted-foreground mb-3">
-            These run automatically — no scripts needed.
-          </p>
-          <ServerSideIntegrations activeCategory={activeCategory} search={search} />
-        </div>
-      )}
-
-      {/* Manual integrations */}
-      {showManualSection && (
-        <div>
-          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-            Manual Integrations
-          </h2>
-          <p className="text-xs text-muted-foreground mb-3">
-            Push data from scripts, CI/CD, or your own code.
+            Push data from scripts, CI/CD, or your own code using the ingest API.
           </p>
 
-          {/* Quick start — only show when not filtering to a specific non-developer category */}
+          {/* One-liner quick start */}
           {(activeCategory === "all" || activeCategory === "developer") && !q && (
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 mb-4">
               <div className="flex items-start gap-4">
@@ -2162,7 +1694,7 @@ export default function IntegrationsPage() {
         </div>
       )}
 
-      {/* Claude Usage section */}
+      {/* Claude AI Usage section */}
       {showClaudeSection && (
         <div>
           <div className="flex items-center gap-2 mb-3">
@@ -2175,21 +1707,8 @@ export default function IntegrationsPage() {
         </div>
       )}
 
-      {/* Empty state */}
-      {!showServerSideSection && !showManualSection && !showClaudeSection && (
-        <div className="flex flex-col items-center gap-2 py-16 text-center">
-          <p className="text-sm text-muted-foreground">No integrations found for "{search}"</p>
-          <button
-            onClick={() => { setSearch(""); setActiveCategory("all"); }}
-            className="text-xs text-primary hover:underline"
-          >
-            Clear filters
-          </button>
-        </div>
-      )}
-
       {/* Footer note */}
-      {(activeCategory === "all" || !search) && (
+      {activeCategory === "all" && !search && (
         <div className="rounded-lg border border-border bg-muted/20 p-4 text-xs text-muted-foreground">
           <strong className="text-foreground">Need a different integration?</strong> numbrs supports
           any HTTP client. If you have a metric as a number, you can push it. Open an issue or PR on

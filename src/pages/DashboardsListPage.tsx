@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchDashboards, createDashboard, deleteDashboard, createPanel } from "@/lib/dashboard-api";
 import { useAuth } from "@/hooks/useAuth";
 import { DASHBOARD_TEMPLATES, type DashboardTemplate } from "@/lib/dashboard-templates";
+import { fetchIntegrations } from "@/lib/integrations-api";
+import { getCatalogEntry } from "@/lib/integration-catalog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -15,12 +17,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Plus, LayoutGrid, Trash2 } from "lucide-react";
+import { Plus, LayoutGrid, Trash2, CheckCircle2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 export default function DashboardsListPage() {
   const { user } = useAuth();
@@ -33,6 +35,17 @@ export default function DashboardsListPage() {
     queryKey: ["dashboards"],
     queryFn: fetchDashboards,
   });
+
+  const { data: integrations = [] } = useQuery({
+    queryKey: ["user-integrations"],
+    queryFn: fetchIntegrations,
+    enabled: showTemplates,
+  });
+
+  const enabledProviders = useMemo(
+    () => new Set(integrations.filter((i) => i.is_active).map((i) => i.provider)),
+    [integrations]
+  );
 
   const createFromTemplate = async (template: DashboardTemplate | null) => {
     try {
@@ -155,22 +168,60 @@ export default function DashboardsListPage() {
               </div>
             </button>
             <div className="text-xs text-muted-foreground uppercase tracking-wider font-medium px-1">Templates</div>
-            {DASHBOARD_TEMPLATES.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => { setShowTemplates(false); createFromTemplate(t); }}
-                className="w-full rounded-lg border border-border bg-card p-4 text-left hover:border-primary/40 hover:shadow-card transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">{t.icon}</span>
-                  <div>
-                    <div className="font-mono text-sm font-medium text-foreground">{t.name}</div>
-                    <div className="text-xs text-muted-foreground">{t.description}</div>
-                    <div className="text-[10px] text-muted-foreground mt-1">{t.panels.length} panels</div>
+            {DASHBOARD_TEMPLATES.map((t) => {
+              const required = t.requiredIntegrations ?? [];
+              const missing = required.filter((id) => !enabledProviders.has(id));
+              const allReady = missing.length === 0;
+
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => { setShowTemplates(false); createFromTemplate(t); }}
+                  className="w-full rounded-lg border border-border bg-card p-4 text-left hover:border-primary/40 hover:shadow-card transition-all"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl shrink-0">{t.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-mono text-sm font-medium text-foreground">{t.name}</div>
+                      <div className="text-xs text-muted-foreground">{t.description}</div>
+                      <div className="text-[10px] text-muted-foreground mt-1">{t.panels.length} panels</div>
+
+                      {/* Integration requirements */}
+                      {required.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {required.map((id) => {
+                            const entry = getCatalogEntry(id);
+                            const active = enabledProviders.has(id);
+                            return (
+                              <span
+                                key={id}
+                                className={cn(
+                                  "inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium",
+                                  active
+                                    ? "bg-success/15 text-success"
+                                    : "bg-amber-500/10 text-amber-400"
+                                )}
+                              >
+                                {active
+                                  ? <CheckCircle2 className="h-2.5 w-2.5" />
+                                  : <AlertTriangle className="h-2.5 w-2.5" />
+                                }
+                                {entry?.name ?? id}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {required.length > 0 && missing.length > 0 && (
+                        <p className="text-[10px] text-amber-400/80 mt-1.5">
+                          {missing.length} integration{missing.length > 1 ? "s" : ""} not yet enabled — enable from Integrations page first
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         </DialogContent>
       </Dialog>
