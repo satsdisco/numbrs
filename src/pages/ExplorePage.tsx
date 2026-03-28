@@ -6,7 +6,7 @@ import { scoreColor, formatMs, formatPct, type ScoreColor } from "@/lib/health";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Activity, Search, ArrowUpDown, Globe, Zap, Shield, ArrowLeft } from "lucide-react";
+import { Activity, Search, ArrowUpDown, Globe, Zap, Shield, ArrowLeft, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
@@ -133,15 +133,15 @@ export default function ExplorePage() {
             <div className="flex items-center justify-center gap-2 mb-3">
               <Activity className="h-6 w-6 text-primary" />
               <span className="font-mono text-sm font-semibold text-primary tracking-widest uppercase">
-                numbrs for Nostr
+                Community Benchmarks
               </span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight">
-              Relay Directory
+              Public Relay Benchmarks
             </h1>
             <p className="mt-3 text-muted-foreground max-w-lg mx-auto">
-              Real-time health monitoring for the Nostr relay network.
-              Find the fastest, most reliable relays.
+              Performance benchmarks from relays monitored by numbrs users.
+              Add your relays to contribute data.
             </p>
           </motion.div>
 
@@ -286,6 +286,40 @@ export default function ExplorePage() {
             </table>
           </div>
         )}
+
+        {/* CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="mt-8 rounded-lg border border-dashed border-border bg-card/40 px-6 py-5 text-center"
+        >
+          {user ? (
+            <>
+              <p className="text-sm text-muted-foreground mb-3">
+                Want to see your relays here? Start monitoring them and they'll appear in the benchmarks.
+              </p>
+              <Link to="/relays">
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  Monitor a Relay
+                </Button>
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground mb-3">
+                Sign up to monitor your own relays and contribute data to these benchmarks.
+              </p>
+              <Link to="/auth">
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Zap className="h-3.5 w-3.5" />
+                  Sign Up to Contribute
+                </Button>
+              </Link>
+            </>
+          )}
+        </motion.div>
       </div>
     </div>
   );
