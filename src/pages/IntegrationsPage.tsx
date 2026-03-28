@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { Check, Copy, ChevronDown, ChevronUp, Bot, Info, X, Loader2, AlertCircle, RefreshCw, Zap } from "lucide-react";
+import { Check, Copy, ChevronDown, ChevronUp, Bot, Info, X, Loader2, AlertCircle, RefreshCw, Zap, Search } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
@@ -21,6 +21,7 @@ import {
   toggleIntegration,
   type UserIntegration,
 } from "@/lib/integrations-api";
+import { CATALOG_CATEGORIES } from "@/lib/integration-catalog";
 import { cn } from "@/lib/utils";
 
 // ─── Copy button ───────────────────────────────────────────────────────────────
@@ -79,13 +80,14 @@ function CodeBlock({ code, language = "bash" }: { code: string; language?: strin
   );
 }
 
-// ─── Integration card ──────────────────────────────────────────────────────────
+// ─── Integration card (manual) ────────────────────────────────────────────────
 
 interface Integration {
   id: string;
   icon: string;
   name: string;
   description: string;
+  category: string;
   language?: string;
   snippets: { label: string; code: string; language?: string }[];
 }
@@ -144,6 +146,7 @@ const INTEGRATIONS: Integration[] = [
     id: "http-api",
     icon: "🌐",
     name: "HTTP API",
+    category: "developer",
     description: "Push metrics from any language or tool with a simple POST request",
     language: "bash",
     snippets: [
@@ -167,6 +170,7 @@ const INTEGRATIONS: Integration[] = [
     id: "bash",
     icon: "🐚",
     name: "Bash / Cron",
+    category: "infrastructure",
     description: "Track server metrics from a cron job or shell script",
     language: "bash",
     snippets: [
@@ -189,6 +193,7 @@ curl -sX POST https://numbrs.lol/functions/v1/ingest \\
     id: "github-actions",
     icon: "⚙️",
     name: "GitHub Actions",
+    category: "developer",
     description: "Track deploys, test runs, and build metrics in your CI/CD pipeline",
     language: "yaml",
     snippets: [
@@ -213,9 +218,10 @@ curl -sX POST https://numbrs.lol/functions/v1/ingest \\
     ],
   },
   {
-    id: "vercel",
+    id: "vercel-webhook",
     icon: "▲",
     name: "Vercel Webhook",
+    category: "developer",
     description: "Get notified on every deploy — track deploy frequency and status",
     language: "bash",
     snippets: [
@@ -251,6 +257,7 @@ curl -sX POST https://numbrs.lol/functions/v1/ingest \\
     id: "python",
     icon: "🐍",
     name: "Python",
+    category: "developer",
     description: "Track metrics from Python scripts, ML training runs, or API servers",
     language: "python",
     snippets: [
@@ -292,6 +299,7 @@ track_batch([
     id: "nodejs",
     icon: "🟢",
     name: "Node.js",
+    category: "developer",
     description: "Push metrics from Express, Next.js, or any Node.js application",
     language: "javascript",
     snippets: [
@@ -401,7 +409,6 @@ function ClaudeSection() {
           transition={{ duration: 0.2 }}
           className="border-t border-border px-5 pb-5 pt-4 space-y-5"
         >
-          {/* What it tracks */}
           <div className="space-y-2">
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               What it tracks
@@ -418,7 +425,6 @@ function ClaudeSection() {
             </ul>
           </div>
 
-          {/* How it works */}
           <div className="space-y-2">
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               How it works
@@ -432,7 +438,6 @@ function ClaudeSection() {
             </p>
           </div>
 
-          {/* Setup steps */}
           <div className="space-y-2">
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Setup
@@ -449,7 +454,6 @@ function ClaudeSection() {
             </ol>
           </div>
 
-          {/* Collector script */}
           <div className="space-y-2">
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Collector script
@@ -457,7 +461,6 @@ function ClaudeSection() {
             <CodeBlock code={COLLECTOR_SCRIPT} language="bash" />
           </div>
 
-          {/* Cron example */}
           <div className="space-y-2">
             <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Crontab entry (every 5 minutes)
@@ -472,6 +475,240 @@ function ClaudeSection() {
         </motion.div>
       )}
     </motion.div>
+  );
+}
+
+// ─── CoinGecko card ───────────────────────────────────────────────────────────
+
+function CoinGeckoCard({ integration }: { integration: UserIntegration | undefined }) {
+  const queryClient = useQueryClient();
+
+  const upsertMutation = useMutation({
+    mutationFn: () => upsertIntegration("coingecko", {}),
+    onSuccess: () => {
+      toast.success("CoinGecko tracking enabled");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteIntegration("coingecko"),
+    onSuccess: () => {
+      toast.success("CoinGecko integration removed");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (active: boolean) => toggleIntegration("coingecko", active),
+    onSuccess: (_, active) => {
+      toast.success(active ? "CoinGecko tracking enabled" : "CoinGecko tracking paused");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const connected = !!integration;
+  const busy = upsertMutation.isPending || deleteMutation.isPending || toggleMutation.isPending;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
+      <span className="text-2xl shrink-0 mt-0.5">🦎</span>
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm text-foreground">CoinGecko</span>
+          {connected && (
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${integration.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+              {integration.is_active ? "Active" : "Paused"}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          BTC dominance, total market cap, 24h volume, and active cryptocurrencies. No config needed.
+        </p>
+        {connected && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <RefreshCw className="h-3 w-3" />
+            {formatSyncTime(integration.last_synced_at)}
+          </p>
+        )}
+        {integration?.last_error && (
+          <p className="text-xs text-destructive flex items-start gap-1">
+            <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+            {integration.last_error}
+          </p>
+        )}
+      </div>
+      <div className="shrink-0 flex items-center gap-2">
+        {connected ? (
+          <>
+            <Switch
+              checked={integration.is_active}
+              disabled={busy}
+              onCheckedChange={(v) => toggleMutation.mutate(v)}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => deleteMutation.mutate()}
+              className="text-muted-foreground hover:text-destructive text-xs h-7"
+            >
+              Remove
+            </Button>
+          </>
+        ) : (
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => upsertMutation.mutate()}
+            className="h-7 text-xs"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enable"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── FRED card ────────────────────────────────────────────────────────────────
+
+function FREDCard({ integration }: { integration: UserIntegration | undefined }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [apiKey, setApiKey] = useState(
+    (integration?.config as any)?.api_key ?? ""
+  );
+
+  const upsertMutation = useMutation({
+    mutationFn: () => upsertIntegration("fred", { api_key: apiKey }),
+    onSuccess: () => {
+      toast.success("FRED connected");
+      setOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteIntegration("fred"),
+    onSuccess: () => {
+      toast.success("FRED disconnected");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const connected = !!integration;
+  const busy = deleteMutation.isPending;
+
+  const handleOpen = () => {
+    setApiKey((integration?.config as any)?.api_key ?? "");
+    setOpen(true);
+  };
+
+  return (
+    <>
+      <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
+        <span className="text-2xl shrink-0 mt-0.5">🏛️</span>
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm text-foreground">FRED (M2 / CPI)</span>
+            {connected && (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-success/15 text-success">
+                Connected
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            US M2 money supply, CPI, and Fed funds rate from the Federal Reserve. Free API key required.
+          </p>
+          {connected && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <RefreshCw className="h-3 w-3" />
+              {formatSyncTime(integration.last_synced_at)}
+            </p>
+          )}
+          {integration?.last_error && (
+            <p className="text-xs text-destructive flex items-start gap-1">
+              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+              {integration.last_error}
+            </p>
+          )}
+        </div>
+        <div className="shrink-0 flex items-center gap-2">
+          {connected ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpen}
+                className="h-7 text-xs"
+              >
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => deleteMutation.mutate()}
+                className="text-muted-foreground hover:text-destructive text-xs h-7"
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Disconnect"}
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" onClick={handleOpen} className="h-7 text-xs">
+              Connect
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Connect FRED</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="fred-key">
+                API key <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="fred-key"
+                type="password"
+                placeholder="abcdef1234567890abcdef1234567890"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Free key at{" "}
+                <span className="text-primary">fred.stlouisfed.org/docs/api/api_key.html</span>
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              disabled={!apiKey.trim() || upsertMutation.isPending}
+              onClick={() => upsertMutation.mutate()}
+            >
+              {upsertMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -538,6 +775,102 @@ function BitcoinCard({ integration }: { integration: UserIntegration | undefined
         </div>
         <p className="text-xs text-muted-foreground">
           Tracks BTC/USD price automatically. No config needed.
+        </p>
+        {connected && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <RefreshCw className="h-3 w-3" />
+            {formatSyncTime(integration.last_synced_at)}
+          </p>
+        )}
+        {integration?.last_error && (
+          <p className="text-xs text-destructive flex items-start gap-1">
+            <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+            {integration.last_error}
+          </p>
+        )}
+      </div>
+      <div className="shrink-0 flex items-center gap-2">
+        {connected ? (
+          <>
+            <Switch
+              checked={integration.is_active}
+              disabled={busy}
+              onCheckedChange={(v) => toggleMutation.mutate(v)}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => deleteMutation.mutate()}
+              className="text-muted-foreground hover:text-destructive text-xs h-7"
+            >
+              Remove
+            </Button>
+          </>
+        ) : (
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => upsertMutation.mutate()}
+            className="h-7 text-xs"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enable"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Mempool card ─────────────────────────────────────────────────────────────
+
+function MempoolCard({ integration }: { integration: UserIntegration | undefined }) {
+  const queryClient = useQueryClient();
+
+  const upsertMutation = useMutation({
+    mutationFn: () => upsertIntegration("mempool", {}),
+    onSuccess: () => {
+      toast.success("Mempool tracking enabled");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteIntegration("mempool"),
+    onSuccess: () => {
+      toast.success("Mempool integration removed");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (active: boolean) => toggleIntegration("mempool", active),
+    onSuccess: (_, active) => {
+      toast.success(active ? "Mempool tracking enabled" : "Mempool tracking paused");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const connected = !!integration;
+  const busy = upsertMutation.isPending || deleteMutation.isPending || toggleMutation.isPending;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
+      <span className="text-2xl shrink-0 mt-0.5">⛓️</span>
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm text-foreground">Mempool.space</span>
+          {connected && (
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${integration.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+              {integration.is_active ? "Active" : "Paused"}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Fee rates, hashrate, difficulty, block height, and mempool stats. No config needed.
         </p>
         {connected && (
           <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -878,9 +1211,234 @@ function VercelCard({ integration }: { integration: UserIntegration | undefined 
   );
 }
 
+// ─── Weather card ─────────────────────────────────────────────────────────────
+
+function WeatherCard({ integration }: { integration: UserIntegration | undefined }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [locationName, setLocationName] = useState(
+    (integration?.config as any)?.location_name ?? ""
+  );
+  const [latitude, setLatitude] = useState(
+    String((integration?.config as any)?.latitude ?? "")
+  );
+  const [longitude, setLongitude] = useState(
+    String((integration?.config as any)?.longitude ?? "")
+  );
+
+  const upsertMutation = useMutation({
+    mutationFn: () =>
+      upsertIntegration("weather", {
+        location_name: locationName.trim(),
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+      }),
+    onSuccess: () => {
+      toast.success("Weather connected");
+      setOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteIntegration("weather"),
+    onSuccess: () => {
+      toast.success("Weather integration removed");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (active: boolean) => toggleIntegration("weather", active),
+    onSuccess: (_, active) => {
+      toast.success(active ? "Weather tracking enabled" : "Weather tracking paused");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const connected = !!integration;
+  const busy = deleteMutation.isPending || toggleMutation.isPending;
+
+  const handleOpen = () => {
+    setLocationName((integration?.config as any)?.location_name ?? "");
+    setLatitude(String((integration?.config as any)?.latitude ?? ""));
+    setLongitude(String((integration?.config as any)?.longitude ?? ""));
+    setOpen(true);
+  };
+
+  const canSave =
+    locationName.trim().length > 0 &&
+    !isNaN(parseFloat(latitude)) &&
+    !isNaN(parseFloat(longitude)) &&
+    !upsertMutation.isPending;
+
+  return (
+    <>
+      <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
+        <span className="text-2xl shrink-0 mt-0.5">🌤️</span>
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm text-foreground">Weather</span>
+            {connected && (
+              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${integration.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+                {integration.is_active ? "Active" : "Paused"}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Temperature, humidity, rain, snow, wind, and UV via Open-Meteo. Free, no API key needed.
+          </p>
+          {connected && (
+            <p className="text-xs text-muted-foreground">
+              {(integration.config as any)?.location_name}
+              {" · "}
+              <span className="inline-flex items-center gap-1">
+                <RefreshCw className="h-3 w-3" />
+                {formatSyncTime(integration.last_synced_at)}
+              </span>
+            </p>
+          )}
+          {integration?.last_error && (
+            <p className="text-xs text-destructive flex items-start gap-1">
+              <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+              {integration.last_error}
+            </p>
+          )}
+        </div>
+        <div className="shrink-0 flex items-center gap-2">
+          {connected ? (
+            <>
+              <Switch
+                checked={integration.is_active}
+                disabled={busy}
+                onCheckedChange={(v) => toggleMutation.mutate(v)}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpen}
+                className="h-7 text-xs"
+              >
+                Edit
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => deleteMutation.mutate()}
+                className="text-muted-foreground hover:text-destructive text-xs h-7"
+              >
+                {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Remove"}
+              </Button>
+            </>
+          ) : (
+            <Button size="sm" onClick={handleOpen} className="h-7 text-xs">
+              Connect
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Connect Weather</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="weather-location">
+                Location name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="weather-location"
+                placeholder="Home"
+                value={locationName}
+                onChange={(e) => setLocationName(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Used as a metric key prefix, e.g. <code className="font-mono bg-muted/50 px-1 rounded text-[11px]">weather.home.temperature</code>
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="weather-lat">
+                  Latitude <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="weather-lat"
+                  placeholder="40.7128"
+                  value={latitude}
+                  onChange={(e) => setLatitude(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="weather-lon">
+                  Longitude <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="weather-lon"
+                  placeholder="-74.0060"
+                  value={longitude}
+                  onChange={(e) => setLongitude(e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Find your coordinates at{" "}
+              <span className="text-primary">latlong.net</span> or right-click any location in Google Maps.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button disabled={!canSave} onClick={() => upsertMutation.mutate()}>
+              {upsertMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Save"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 // ─── Server-side integrations section ─────────────────────────────────────────
 
-function ServerSideIntegrations() {
+// Map each server-side provider to a category for filtering
+const SERVER_SIDE_CATEGORIES: Record<string, string> = {
+  bitcoin: "bitcoin",
+  mempool: "bitcoin",
+  github: "developer",
+  vercel: "developer",
+  weather: "weather",
+  coingecko: "finance",
+  fred: "finance",
+};
+
+// Search terms per card (name + description)
+const SERVER_SIDE_SEARCH: Record<string, string> = {
+  bitcoin: "bitcoin price btc usd coinbase",
+  mempool: "mempool bitcoin fees hashrate difficulty block height",
+  github: "github stars forks issues repos developer",
+  vercel: "vercel deploy build duration project developer",
+  weather: "weather temperature humidity rain snow wind uv open-meteo",
+  coingecko: "coingecko crypto market cap btc dominance volume altcoin",
+  fred: "fred m2 money supply cpi inflation federal reserve interest rate",
+};
+
+interface FilterProps {
+  activeCategory: string;
+  search: string;
+}
+
+function ServerSideIntegrations({ activeCategory, search }: FilterProps) {
   const { data: integrations = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["user-integrations"],
     queryFn: fetchIntegrations,
@@ -890,6 +1448,30 @@ function ServerSideIntegrations() {
   const byProvider = Object.fromEntries(
     integrations.map((i) => [i.provider, i])
   );
+
+  const providers = ["bitcoin", "mempool", "github", "vercel", "weather", "coingecko", "fred"];
+  const q = search.toLowerCase();
+
+  const visible = providers.filter((p) => {
+    if (activeCategory !== "all" && SERVER_SIDE_CATEGORIES[p] !== activeCategory) return false;
+    if (q && !SERVER_SIDE_SEARCH[p].includes(q)) return false;
+    return true;
+  });
+
+  if (visible.length === 0) return null;
+
+  const renderCard = (provider: string) => {
+    switch (provider) {
+      case "bitcoin":   return <BitcoinCard    key="bitcoin"   integration={byProvider["bitcoin"]}   />;
+      case "mempool":   return <MempoolCard    key="mempool"   integration={byProvider["mempool"]}   />;
+      case "github":    return <GitHubCard     key="github"    integration={byProvider["github"]}    />;
+      case "vercel":    return <VercelCard     key="vercel"    integration={byProvider["vercel"]}    />;
+      case "weather":   return <WeatherCard    key="weather"   integration={byProvider["weather"]}   />;
+      case "coingecko": return <CoinGeckoCard  key="coingecko" integration={byProvider["coingecko"]} />;
+      case "fred":      return <FREDCard       key="fred"      integration={byProvider["fred"]}      />;
+      default: return null;
+    }
+  };
 
   return (
     <div className="space-y-3">
@@ -910,11 +1492,7 @@ function ServerSideIntegrations() {
           </button>
         </div>
       ) : (
-        <>
-          <BitcoinCard integration={byProvider["bitcoin"]} />
-          <GitHubCard integration={byProvider["github"]} />
-          <VercelCard integration={byProvider["vercel"]} />
-        </>
+        visible.map(renderCard)
       )}
     </div>
   );
@@ -959,9 +1537,72 @@ function QuickStartBanner() {
   );
 }
 
+// ─── Category filter bar ──────────────────────────────────────────────────────
+
+// Only show categories that have actual integrations on this page
+const PAGE_CATEGORIES = CATALOG_CATEGORIES.filter((c) =>
+  ["all", "bitcoin", "finance", "weather", "developer", "infrastructure"].includes(c.id)
+);
+
+interface CategoryFilterProps {
+  active: string;
+  onChange: (id: string) => void;
+}
+
+function CategoryFilter({ active, onChange }: CategoryFilterProps) {
+  return (
+    <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
+      {PAGE_CATEGORIES.map((cat) => (
+        <button
+          key={cat.id}
+          onClick={() => onChange(cat.id)}
+          className={cn(
+            "shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap",
+            active === cat.id
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          <span>{cat.icon}</span>
+          <span>{cat.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function IntegrationsPage() {
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState("all");
+
+  const q = search.toLowerCase();
+
+  // Filter manual integrations
+  const filteredManual = useMemo(() => {
+    return INTEGRATIONS.filter((i) => {
+      if (activeCategory !== "all" && i.category !== activeCategory) return false;
+      if (q && !i.name.toLowerCase().includes(q) && !i.description.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [activeCategory, q]);
+
+  // Show the manual section wrapper when there's something to show
+  const showManualSection =
+    (activeCategory === "all" || ["developer", "infrastructure"].includes(activeCategory)) &&
+    filteredManual.length > 0;
+
+  // Show Claude section only when relevant
+  const showClaudeSection =
+    (activeCategory === "all" || activeCategory === "developer") &&
+    (!q || "claude openclaw ai token".includes(q));
+
+  // Show server-side section when relevant categories are selected
+  const showServerSideSection =
+    activeCategory === "all" ||
+    ["bitcoin", "weather", "developer", "finance"].includes(activeCategory);
+
   return (
     <div className="space-y-8">
       <QuickStartBanner />
@@ -972,83 +1613,121 @@ export default function IntegrationsPage() {
         </p>
       </div>
 
-      {/* Server-side integrations */}
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <Zap className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Server-Side Integrations
-          </h2>
+      {/* Search + category filter */}
+      <div className="space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search integrations…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-border bg-card pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 transition-colors"
+          />
         </div>
-        <p className="text-xs text-muted-foreground mb-3">
-          These run automatically — no scripts needed.
-        </p>
-        <ServerSideIntegrations />
+        <CategoryFilter active={activeCategory} onChange={setActiveCategory} />
       </div>
+
+      {/* Server-side integrations */}
+      {showServerSideSection && (
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Zap className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Server-Side Integrations
+            </h2>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            These run automatically — no scripts needed.
+          </p>
+          <ServerSideIntegrations activeCategory={activeCategory} search={search} />
+        </div>
+      )}
 
       {/* Manual integrations */}
-      <div>
-        <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-          Manual Integrations
-        </h2>
-        <p className="text-xs text-muted-foreground mb-3">
-          Push data from scripts, CI/CD, or your own code.
-        </p>
+      {showManualSection && (
+        <div>
+          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+            Manual Integrations
+          </h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            Push data from scripts, CI/CD, or your own code.
+          </p>
 
-        {/* Quick start */}
-        <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 mb-4">
-          <div className="flex items-start gap-4">
-            <div className="shrink-0 rounded-lg bg-primary/10 p-2.5">
-              <span className="text-xl">⚡</span>
+          {/* Quick start — only show when not filtering to a specific non-developer category */}
+          {(activeCategory === "all" || activeCategory === "developer") && !q && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-5 mb-4">
+              <div className="flex items-start gap-4">
+                <div className="shrink-0 rounded-lg bg-primary/10 p-2.5">
+                  <span className="text-xl">⚡</span>
+                </div>
+                <div className="space-y-2 flex-1">
+                  <div className="font-semibold text-sm text-foreground">One endpoint, any metric</div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Push any numeric value to numbrs using your API key. Pick a metric key (like{" "}
+                    <code className="font-mono bg-muted/50 px-1 py-0.5 rounded text-[11px]">cpu.usage</code>{" "}
+                    or{" "}
+                    <code className="font-mono bg-muted/50 px-1 py-0.5 rounded text-[11px]">deploy.count</code>
+                    ) and we handle storage, graphing, and alerting. Get your API key from{" "}
+                    <span className="text-primary">Settings → API Keys</span>.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4">
+                <CodeBlock code={`POST https://numbrs.lol/functions/v1/ingest\nx-api-key: YOUR_KEY\nContent-Type: application/json\n\n{"key": "my.metric", "value": 42}`} />
+              </div>
             </div>
-            <div className="space-y-2 flex-1">
-              <div className="font-semibold text-sm text-foreground">One endpoint, any metric</div>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Push any numeric value to numbrs using your API key. Pick a metric key (like{" "}
-                <code className="font-mono bg-muted/50 px-1 py-0.5 rounded text-[11px]">cpu.usage</code>{" "}
-                or{" "}
-                <code className="font-mono bg-muted/50 px-1 py-0.5 rounded text-[11px]">deploy.count</code>
-                ) and we handle storage, graphing, and alerting. Get your API key from{" "}
-                <span className="text-primary">Settings → API Keys</span>.
-              </p>
-            </div>
-          </div>
-          <div className="mt-4">
-            <CodeBlock code={`POST https://numbrs.lol/functions/v1/ingest\nx-api-key: YOUR_KEY\nContent-Type: application/json\n\n{"key": "my.metric", "value": 42}`} />
+          )}
+
+          <div className="space-y-3">
+            {filteredManual.map((integration, i) => (
+              <motion.div
+                key={integration.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+              >
+                <IntegrationCard integration={integration} />
+              </motion.div>
+            ))}
           </div>
         </div>
-
-        <div className="space-y-3">
-          {INTEGRATIONS.map((integration, i) => (
-            <motion.div
-              key={integration.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-            >
-              <IntegrationCard integration={integration} />
-            </motion.div>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* Claude Usage section */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Bot className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Claude AI Usage
-          </h2>
+      {showClaudeSection && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Bot className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Claude AI Usage
+            </h2>
+          </div>
+          <ClaudeSection />
         </div>
-        <ClaudeSection />
-      </div>
+      )}
+
+      {/* Empty state */}
+      {!showServerSideSection && !showManualSection && !showClaudeSection && (
+        <div className="flex flex-col items-center gap-2 py-16 text-center">
+          <p className="text-sm text-muted-foreground">No integrations found for "{search}"</p>
+          <button
+            onClick={() => { setSearch(""); setActiveCategory("all"); }}
+            className="text-xs text-primary hover:underline"
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
 
       {/* Footer note */}
-      <div className="rounded-lg border border-border bg-muted/20 p-4 text-xs text-muted-foreground">
-        <strong className="text-foreground">Need a different integration?</strong> numbrs supports
-        any HTTP client. If you have a metric as a number, you can push it. Open an issue or PR on
-        GitHub to add more integrations to this page.
-      </div>
+      {(activeCategory === "all" || !search) && (
+        <div className="rounded-lg border border-border bg-muted/20 p-4 text-xs text-muted-foreground">
+          <strong className="text-foreground">Need a different integration?</strong> numbrs supports
+          any HTTP client. If you have a metric as a number, you can push it. Open an issue or PR on
+          GitHub to add more integrations to this page.
+        </div>
+      )}
     </div>
   );
 }
