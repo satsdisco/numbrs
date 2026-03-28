@@ -1,4 +1,28 @@
-project_id = "hlynqozjiwmjohfhrrtc"
+project_id = "untlhymtrpkmiutwkpyh"
 
 [functions.ingest]
+verify_jwt = false
+
+[functions.collect-bitcoin]
+verify_jwt = false
+
+[functions.collect-mempool]
+verify_jwt = false
+
+[functions.collect-coingecko]
+verify_jwt = false
+
+[functions.collect-fng]
+verify_jwt = false
+
+[functions.collect-lightning]
+verify_jwt = false
+
+[functions.collect-weather]
+verify_jwt = false
+
+[functions.collect-fred]
+verify_jwt = false
+
+[functions.collect-github]
 verify_jwt = false

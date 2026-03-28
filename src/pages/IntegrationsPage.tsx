@@ -19,6 +19,8 @@ import {
   upsertIntegration,
   deleteIntegration,
   toggleIntegration,
+  fetchLatestMetricValues,
+  fetchFirstMetricLike,
   type UserIntegration,
 } from "@/lib/integrations-api";
 import { CATALOG_CATEGORIES } from "@/lib/integration-catalog";
@@ -534,6 +536,15 @@ function CoinGeckoCard({ integration }: { integration: UserIntegration | undefin
             {formatSyncTime(integration.last_synced_at)}
           </p>
         )}
+        {connected && (
+          <MetricPreview
+            keys={["coingecko.btc_dominance", "coingecko.total_market_cap_usd"]}
+            formatters={{
+              "coingecko.btc_dominance": (v) => `${v.toFixed(1)}% BTC dom`,
+              "coingecko.total_market_cap_usd": (v) => `$${(v / 1e12).toFixed(2)}T mcap`,
+            }}
+          />
+        )}
         {integration?.last_error && (
           <p className="text-xs text-destructive flex items-start gap-1">
             <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
@@ -726,6 +737,65 @@ function formatSyncTime(ts: string | null) {
   return d.toLocaleDateString();
 }
 
+// ─── Metric preview ───────────────────────────────────────────────────────────
+
+function MetricPreview({
+  keys,
+  formatters,
+}: {
+  keys: string[];
+  formatters?: Record<string, (v: number) => string>;
+}) {
+  const { data } = useQuery({
+    queryKey: ["metric-preview", ...keys],
+    queryFn: () => fetchLatestMetricValues(keys),
+    staleTime: 2 * 60_000,
+    enabled: keys.length > 0,
+  });
+
+  if (!data) return null;
+
+  const parts = keys
+    .filter((k) => data[k] !== null)
+    .map((k) => {
+      const val = data[k]!;
+      const fmt = formatters?.[k];
+      return fmt ? fmt(val.value) : val.value.toLocaleString();
+    });
+
+  if (parts.length === 0) {
+    return <p className="text-[11px] text-muted-foreground/50 italic">No data yet</p>;
+  }
+
+  return (
+    <p className="text-[11px] text-muted-foreground/70">
+      Latest: {parts.join(" · ")}
+    </p>
+  );
+}
+
+function MetricPreviewLike({
+  pattern,
+  format,
+}: {
+  pattern: string;
+  format?: (key: string, value: number) => string;
+}) {
+  const { data } = useQuery({
+    queryKey: ["metric-preview-like", pattern],
+    queryFn: () => fetchFirstMetricLike(pattern),
+    staleTime: 2 * 60_000,
+  });
+
+  if (!data) return null;
+  const label = format ? format(data.key, data.value) : data.value.toLocaleString();
+  return (
+    <p className="text-[11px] text-muted-foreground/70">
+      Latest: {label}
+    </p>
+  );
+}
+
 // ─── Bitcoin card ─────────────────────────────────────────────────────────────
 
 function BitcoinCard({ integration }: { integration: UserIntegration | undefined }) {
@@ -781,6 +851,15 @@ function BitcoinCard({ integration }: { integration: UserIntegration | undefined
             <RefreshCw className="h-3 w-3" />
             {formatSyncTime(integration.last_synced_at)}
           </p>
+        )}
+        {connected && (
+          <MetricPreview
+            keys={["bitcoin.price_usd", "bitcoin.moscow_time"]}
+            formatters={{
+              "bitcoin.price_usd": (v) => `$${Math.round(v).toLocaleString()}`,
+              "bitcoin.moscow_time": (v) => `${Math.round(v).toLocaleString()} sats/$`,
+            }}
+          />
         )}
         {integration?.last_error && (
           <p className="text-xs text-destructive flex items-start gap-1">
@@ -877,6 +956,16 @@ function MempoolCard({ integration }: { integration: UserIntegration | undefined
             <RefreshCw className="h-3 w-3" />
             {formatSyncTime(integration.last_synced_at)}
           </p>
+        )}
+        {connected && (
+          <MetricPreview
+            keys={["mempool.fees.fastest", "mempool.block_height", "mempool.hashrate"]}
+            formatters={{
+              "mempool.fees.fastest": (v) => `${Math.round(v)} sat/vB`,
+              "mempool.block_height": (v) => `#${Math.round(v).toLocaleString()}`,
+              "mempool.hashrate": (v) => `${v.toFixed(1)} EH/s`,
+            }}
+          />
         )}
         {integration?.last_error && (
           <p className="text-xs text-destructive flex items-start gap-1">
@@ -1462,12 +1551,224 @@ function WeatherCard({ integration }: { integration: UserIntegration | undefined
   );
 }
 
+// ─── Fear & Greed card ────────────────────────────────────────────────────────
+
+function FearGreedCard({ integration }: { integration: UserIntegration | undefined }) {
+  const queryClient = useQueryClient();
+
+  const upsertMutation = useMutation({
+    mutationFn: () => upsertIntegration("fng", {}),
+    onSuccess: () => {
+      toast.success("Fear & Greed tracking enabled");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteIntegration("fng"),
+    onSuccess: () => {
+      toast.success("Fear & Greed integration removed");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (active: boolean) => toggleIntegration("fng", active),
+    onSuccess: (_, active) => {
+      toast.success(active ? "Fear & Greed tracking enabled" : "Fear & Greed tracking paused");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const connected = !!integration;
+  const busy = upsertMutation.isPending || deleteMutation.isPending || toggleMutation.isPending;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
+      <span className="text-2xl shrink-0 mt-0.5">😱</span>
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm text-foreground">Fear & Greed Index</span>
+          {connected && (
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${integration.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+              {integration.is_active ? "Active" : "Paused"}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Crypto market sentiment score (0–100) from alternative.me. No config needed.
+        </p>
+        {connected && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <RefreshCw className="h-3 w-3" />
+            {formatSyncTime(integration.last_synced_at)}
+          </p>
+        )}
+        {connected && (
+          <MetricPreview
+            keys={["fng.value"]}
+            formatters={{
+              "fng.value": (v) => `${Math.round(v)}/100`,
+            }}
+          />
+        )}
+        {integration?.last_error && (
+          <p className="text-xs text-destructive flex items-start gap-1">
+            <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+            {integration.last_error}
+          </p>
+        )}
+      </div>
+      <div className="shrink-0 flex items-center gap-2">
+        {connected ? (
+          <>
+            <Switch
+              checked={integration.is_active}
+              disabled={busy}
+              onCheckedChange={(v) => toggleMutation.mutate(v)}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => deleteMutation.mutate()}
+              className="text-muted-foreground hover:text-destructive text-xs h-7"
+            >
+              Remove
+            </Button>
+          </>
+        ) : (
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => upsertMutation.mutate()}
+            className="h-7 text-xs"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enable"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Lightning card ───────────────────────────────────────────────────────────
+
+function LightningCard({ integration }: { integration: UserIntegration | undefined }) {
+  const queryClient = useQueryClient();
+
+  const upsertMutation = useMutation({
+    mutationFn: () => upsertIntegration("lightning", {}),
+    onSuccess: () => {
+      toast.success("Lightning Network tracking enabled");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteIntegration("lightning"),
+    onSuccess: () => {
+      toast.success("Lightning integration removed");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: (active: boolean) => toggleIntegration("lightning", active),
+    onSuccess: (_, active) => {
+      toast.success(active ? "Lightning tracking enabled" : "Lightning tracking paused");
+      queryClient.invalidateQueries({ queryKey: ["user-integrations"] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const connected = !!integration;
+  const busy = upsertMutation.isPending || deleteMutation.isPending || toggleMutation.isPending;
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-5 flex items-start gap-4">
+      <span className="text-2xl shrink-0 mt-0.5">⚡</span>
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm text-foreground">Lightning Network</span>
+          {connected && (
+            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${integration.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+              {integration.is_active ? "Active" : "Paused"}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Network capacity, channels, and node count from mempool.space. No config needed.
+        </p>
+        {connected && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            <RefreshCw className="h-3 w-3" />
+            {formatSyncTime(integration.last_synced_at)}
+          </p>
+        )}
+        {connected && (
+          <MetricPreview
+            keys={["lightning.capacity_btc", "lightning.channel_count", "lightning.node_count"]}
+            formatters={{
+              "lightning.capacity_btc": (v) => `${v.toFixed(0)} BTC`,
+              "lightning.channel_count": (v) => `${v.toLocaleString()} channels`,
+              "lightning.node_count": (v) => `${v.toLocaleString()} nodes`,
+            }}
+          />
+        )}
+        {integration?.last_error && (
+          <p className="text-xs text-destructive flex items-start gap-1">
+            <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+            {integration.last_error}
+          </p>
+        )}
+      </div>
+      <div className="shrink-0 flex items-center gap-2">
+        {connected ? (
+          <>
+            <Switch
+              checked={integration.is_active}
+              disabled={busy}
+              onCheckedChange={(v) => toggleMutation.mutate(v)}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => deleteMutation.mutate()}
+              className="text-muted-foreground hover:text-destructive text-xs h-7"
+            >
+              Remove
+            </Button>
+          </>
+        ) : (
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => upsertMutation.mutate()}
+            className="h-7 text-xs"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : "Enable"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Server-side integrations section ─────────────────────────────────────────
 
 // Map each server-side provider to a category for filtering
 const SERVER_SIDE_CATEGORIES: Record<string, string> = {
   bitcoin: "bitcoin",
   mempool: "bitcoin",
+  fng: "bitcoin",
+  lightning: "bitcoin",
   github: "developer",
   vercel: "developer",
   weather: "weather",
@@ -1479,6 +1780,8 @@ const SERVER_SIDE_CATEGORIES: Record<string, string> = {
 const SERVER_SIDE_SEARCH: Record<string, string> = {
   bitcoin: "bitcoin price btc usd coinbase",
   mempool: "mempool bitcoin fees hashrate difficulty block height",
+  fng: "fear greed index sentiment fng bitcoin market",
+  lightning: "lightning network capacity channels nodes ln",
   github: "github stars forks issues repos developer",
   vercel: "vercel deploy build duration project developer",
   weather: "weather temperature humidity rain snow wind uv open-meteo",
@@ -1502,7 +1805,7 @@ function ServerSideIntegrations({ activeCategory, search }: FilterProps) {
     integrations.map((i) => [i.provider, i])
   );
 
-  const providers = ["bitcoin", "mempool", "github", "vercel", "weather", "coingecko", "fred"];
+  const providers = ["bitcoin", "mempool", "fng", "lightning", "github", "vercel", "weather", "coingecko", "fred"];
   const q = search.toLowerCase();
 
   const visible = providers.filter((p) => {
@@ -1515,13 +1818,15 @@ function ServerSideIntegrations({ activeCategory, search }: FilterProps) {
 
   const renderCard = (provider: string) => {
     switch (provider) {
-      case "bitcoin":   return <BitcoinCard    key="bitcoin"   integration={byProvider["bitcoin"]}   />;
-      case "mempool":   return <MempoolCard    key="mempool"   integration={byProvider["mempool"]}   />;
-      case "github":    return <GitHubCard     key="github"    integration={byProvider["github"]}    />;
-      case "vercel":    return <VercelCard     key="vercel"    integration={byProvider["vercel"]}    />;
-      case "weather":   return <WeatherCard    key="weather"   integration={byProvider["weather"]}   />;
-      case "coingecko": return <CoinGeckoCard  key="coingecko" integration={byProvider["coingecko"]} />;
-      case "fred":      return <FREDCard       key="fred"      integration={byProvider["fred"]}      />;
+      case "bitcoin":   return <BitcoinCard     key="bitcoin"   integration={byProvider["bitcoin"]}   />;
+      case "mempool":   return <MempoolCard     key="mempool"   integration={byProvider["mempool"]}   />;
+      case "fng":       return <FearGreedCard   key="fng"       integration={byProvider["fng"]}       />;
+      case "lightning":  return <LightningCard  key="lightning"  integration={byProvider["lightning"]} />;
+      case "github":    return <GitHubCard      key="github"    integration={byProvider["github"]}    />;
+      case "vercel":    return <VercelCard      key="vercel"    integration={byProvider["vercel"]}    />;
+      case "weather":   return <WeatherCard     key="weather"   integration={byProvider["weather"]}   />;
+      case "coingecko": return <CoinGeckoCard   key="coingecko" integration={byProvider["coingecko"]} />;
+      case "fred":      return <FREDCard        key="fred"      integration={byProvider["fred"]}      />;
       default: return null;
     }
   };
