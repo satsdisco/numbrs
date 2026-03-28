@@ -14,6 +14,62 @@ export interface DashboardTemplate {
 }
 
 export const DASHBOARD_TEMPLATES: DashboardTemplate[] = [
+  // ─── Featured templates (use new integrations) ─────────────────────────────
+  {
+    id: "bitcoin-maximalist",
+    name: "Bitcoin Maximalist",
+    description: "The ultimate BTC dashboard — price, Moscow Time, fees, hashrate, halving countdown, Fear & Greed, and Lightning capacity",
+    icon: "🟠",
+    panels: [
+      { title: "BTC Price", panel_type: "area", config: { metric_key: "bitcoin.price_usd", data_source: "custom" as const, unit: "USD" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
+      { title: "BTC Price", panel_type: "stat", config: { metric_key: "bitcoin.price_usd", data_source: "custom" as const, stat_field: "latest" as const, unit: "$" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
+      { title: "Moscow Time", panel_type: "stat", config: { metric_key: "bitcoin.moscow_time", data_source: "custom" as const, stat_field: "latest" as const, unit: "sats/$" }, layout: { x: 8, y: 2, w: 4, h: 2 } },
+      { title: "Fastest Fee", panel_type: "stat", config: { metric_key: "mempool.fees.fastest", data_source: "custom" as const, stat_field: "latest" as const, unit: "sat/vB" }, layout: { x: 0, y: 4, w: 3, h: 2 } },
+      { title: "Block Height", panel_type: "stat", config: { metric_key: "mempool.block_height", data_source: "custom" as const, stat_field: "latest" as const, unit: "" }, layout: { x: 3, y: 4, w: 3, h: 2 } },
+      { title: "Fear & Greed", panel_type: "gauge", config: { metric_key: "fng.value", data_source: "custom" as const, stat_field: "latest" as const, gauge_max: 100 }, layout: { x: 6, y: 4, w: 3, h: 3 } },
+      { title: "Halving Progress", panel_type: "gauge", config: { metric_key: "mempool.halving_progress_pct", data_source: "custom" as const, stat_field: "latest" as const, gauge_max: 100, unit: "%" }, layout: { x: 9, y: 4, w: 3, h: 3 } },
+      { title: "Hashrate", panel_type: "area", config: { metric_key: "mempool.hashrate", data_source: "custom" as const, unit: "EH/s" }, layout: { x: 0, y: 7, w: 6, h: 4 } },
+      { title: "Lightning Capacity", panel_type: "area", config: { metric_key: "lightning.capacity_btc", data_source: "custom" as const, unit: "BTC" }, layout: { x: 6, y: 7, w: 6, h: 4 } },
+      { title: "LN Channels", panel_type: "stat", config: { metric_key: "lightning.channel_count", data_source: "custom" as const, stat_field: "latest" as const, unit: "channels" }, layout: { x: 0, y: 11, w: 3, h: 2 } },
+      { title: "LN Nodes", panel_type: "stat", config: { metric_key: "lightning.node_count", data_source: "custom" as const, stat_field: "latest" as const, unit: "nodes" }, layout: { x: 3, y: 11, w: 3, h: 2 } },
+      { title: "Halving Blocks Left", panel_type: "stat", config: { metric_key: "mempool.halving_blocks_remaining", data_source: "custom" as const, stat_field: "latest" as const, unit: "blocks" }, layout: { x: 6, y: 11, w: 3, h: 2 } },
+      { title: "Hashrate Now", panel_type: "stat", config: { metric_key: "mempool.hashrate", data_source: "custom" as const, stat_field: "latest" as const, unit: "EH/s" }, layout: { x: 9, y: 11, w: 3, h: 2 } },
+    ],
+  },
+  {
+    id: "sound-money-cockpit",
+    name: "Sound Money Cockpit",
+    description: "Bitcoin vs everything — BTC price alongside market dominance, M2 money supply, CPI, and Fed rate",
+    icon: "💰",
+    panels: [
+      { title: "BTC Price", panel_type: "area", config: { metric_key: "bitcoin.price_usd", data_source: "custom" as const, unit: "USD" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
+      { title: "BTC Price", panel_type: "stat", config: { metric_key: "bitcoin.price_usd", data_source: "custom" as const, stat_field: "latest" as const, unit: "$" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
+      { title: "Moscow Time", panel_type: "stat", config: { metric_key: "bitcoin.moscow_time", data_source: "custom" as const, stat_field: "latest" as const, unit: "sats/$" }, layout: { x: 8, y: 2, w: 4, h: 2 } },
+      { title: "BTC Dominance", panel_type: "area", config: { metric_key: "coingecko.btc_dominance", data_source: "custom" as const, unit: "%" }, layout: { x: 0, y: 4, w: 6, h: 4 } },
+      { title: "BTC Dom.", panel_type: "stat", config: { metric_key: "coingecko.btc_dominance", data_source: "custom" as const, stat_field: "latest" as const, unit: "%" }, layout: { x: 6, y: 4, w: 3, h: 2 } },
+      { title: "Total Market Cap", panel_type: "stat", config: { metric_key: "coingecko.total_market_cap_usd", data_source: "custom" as const, stat_field: "latest" as const, unit: "USD" }, layout: { x: 9, y: 4, w: 3, h: 2 } },
+      { title: "Fear & Greed", panel_type: "gauge", config: { metric_key: "fng.value", data_source: "custom" as const, stat_field: "latest" as const, gauge_max: 100 }, layout: { x: 6, y: 6, w: 3, h: 3 } },
+      { title: "24h Volume", panel_type: "stat", config: { metric_key: "coingecko.total_volume_24h", data_source: "custom" as const, stat_field: "latest" as const, unit: "USD" }, layout: { x: 9, y: 6, w: 3, h: 2 } },
+      { title: "M2 Money Supply", panel_type: "line", config: { metric_key: "fred.m2_money_supply", data_source: "custom" as const, unit: "$B" }, layout: { x: 0, y: 9, w: 4, h: 4 } },
+      { title: "CPI", panel_type: "line", config: { metric_key: "fred.cpi", data_source: "custom" as const, unit: "" }, layout: { x: 4, y: 9, w: 4, h: 4 } },
+      { title: "Fed Funds Rate", panel_type: "line", config: { metric_key: "fred.fed_funds_rate", data_source: "custom" as const, unit: "%" }, layout: { x: 8, y: 9, w: 4, h: 4 } },
+    ],
+  },
+  {
+    id: "lightning-dashboard",
+    name: "Lightning Network",
+    description: "Network capacity, channels, nodes, and growth trends for the Lightning Network",
+    icon: "⚡",
+    panels: [
+      { title: "Network Capacity", panel_type: "area", config: { metric_key: "lightning.capacity_btc", data_source: "custom" as const, unit: "BTC" }, layout: { x: 0, y: 0, w: 8, h: 4 } },
+      { title: "Capacity Now", panel_type: "stat", config: { metric_key: "lightning.capacity_btc", data_source: "custom" as const, stat_field: "latest" as const, unit: "BTC" }, layout: { x: 8, y: 0, w: 4, h: 2 } },
+      { title: "Node Count", panel_type: "stat", config: { metric_key: "lightning.node_count", data_source: "custom" as const, stat_field: "latest" as const, unit: "nodes" }, layout: { x: 8, y: 2, w: 4, h: 2 } },
+      { title: "Channel Count", panel_type: "area", config: { metric_key: "lightning.channel_count", data_source: "custom" as const, unit: "channels" }, layout: { x: 0, y: 4, w: 6, h: 4 } },
+      { title: "Channels", panel_type: "stat", config: { metric_key: "lightning.channel_count", data_source: "custom" as const, stat_field: "latest" as const, unit: "channels" }, layout: { x: 6, y: 4, w: 3, h: 2 } },
+      { title: "Node Count Trend", panel_type: "line", config: { metric_key: "lightning.node_count", data_source: "custom" as const, unit: "nodes" }, layout: { x: 6, y: 6, w: 6, h: 4 } },
+    ],
+  },
+  // ─── Nostr & relay templates ───────────────────────────────────────────────
   {
     id: "relay-overview",
     name: "Relay Overview",
