@@ -31,6 +31,43 @@ import { cn } from "@/lib/utils";
 import { Activity, Plus, Trash2, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+// ─── Range selector ────────────────────────────────────────────────────────────
+
+type UptimeRange = "24h" | "7d" | "30d";
+
+const RANGE_OPTIONS: { label: string; value: UptimeRange; hours: number; eventLimit: number }[] = [
+  { label: "24h", value: "24h", hours: 24, eventLimit: 50 },
+  { label: "7d",  value: "7d",  hours: 168, eventLimit: 200 },
+  { label: "30d", value: "30d", hours: 720, eventLimit: 500 },
+];
+
+function UptimeRangeSelector({
+  value,
+  onChange,
+}: {
+  value: UptimeRange;
+  onChange: (v: UptimeRange) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
+      {RANGE_OPTIONS.map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => onChange(opt.value)}
+          className={cn(
+            "rounded-sm px-3 py-1 font-mono text-xs font-medium transition-all duration-150",
+            value === opt.value
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatLatency(ms: number | null): string {
@@ -103,16 +140,24 @@ function EventTimeline({ events }: { events: UptimeEvent[] }) {
 
 // ─── Expanded monitor row ──────────────────────────────────────────────────────
 
-function MonitorDetail({ monitor }: { monitor: UptimeMonitor }) {
+function MonitorDetail({
+  monitor,
+  rangeHours,
+  eventLimit,
+}: {
+  monitor: UptimeMonitor;
+  rangeHours: number;
+  eventLimit: number;
+}) {
   const { data: events, isLoading } = useQuery({
-    queryKey: ["uptime-events", monitor.id],
-    queryFn: () => fetchUptimeEvents(monitor.id, 50),
+    queryKey: ["uptime-events", monitor.id, eventLimit],
+    queryFn: () => fetchUptimeEvents(monitor.id, eventLimit),
     refetchInterval: 30_000,
   });
 
   const { data: summary } = useQuery({
-    queryKey: ["uptime-summary", monitor.id],
-    queryFn: () => fetchUptimeSummary(monitor.id, 24),
+    queryKey: ["uptime-summary", monitor.id, rangeHours],
+    queryFn: () => fetchUptimeSummary(monitor.id, rangeHours),
     refetchInterval: 30_000,
   });
 
@@ -120,7 +165,7 @@ function MonitorDetail({ monitor }: { monitor: UptimeMonitor }) {
     <div className="border-t border-border bg-muted/20 px-5 py-4 space-y-3">
       <div className="flex flex-wrap items-center gap-6 text-xs">
         <div>
-          <span className="text-muted-foreground uppercase tracking-wider">24h Uptime</span>
+          <span className="text-muted-foreground uppercase tracking-wider">Uptime</span>
           <div className="font-mono text-sm font-semibold text-foreground mt-0.5">
             {summary?.uptime_pct != null ? `${summary.uptime_pct.toFixed(1)}%` : "—"}
           </div>
@@ -157,16 +202,20 @@ function MonitorDetail({ monitor }: { monitor: UptimeMonitor }) {
 
 function MonitorRow({
   monitor,
+  rangeHours,
+  eventLimit,
   onDelete,
 }: {
   monitor: UptimeMonitor;
+  rangeHours: number;
+  eventLimit: number;
   onDelete: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
   const { data: summary } = useQuery({
-    queryKey: ["uptime-summary", monitor.id],
-    queryFn: () => fetchUptimeSummary(monitor.id, 24),
+    queryKey: ["uptime-summary", monitor.id, rangeHours],
+    queryFn: () => fetchUptimeSummary(monitor.id, rangeHours),
     refetchInterval: 30_000,
   });
 
@@ -195,7 +244,7 @@ function MonitorRow({
             </div>
           </div>
           <div className="text-center">
-            <div className="text-muted-foreground uppercase tracking-wider text-[10px]">24h Uptime</div>
+            <div className="text-muted-foreground uppercase tracking-wider text-[10px]">Uptime</div>
             <div className="font-mono text-foreground mt-0.5">
               {summary?.uptime_pct != null ? `${summary.uptime_pct.toFixed(1)}%` : "—"}
             </div>
@@ -229,7 +278,11 @@ function MonitorRow({
             transition={{ duration: 0.2 }}
             style={{ overflow: "hidden" }}
           >
-            <MonitorDetail monitor={monitor} />
+            <MonitorDetail
+              monitor={monitor}
+              rangeHours={rangeHours}
+              eventLimit={eventLimit}
+            />
           </motion.div>
         )}
       </AnimatePresence>
@@ -341,6 +394,9 @@ export default function UptimePage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
+  const [range, setRange] = useState<UptimeRange>("24h");
+
+  const rangeOpt = RANGE_OPTIONS.find((o) => o.value === range)!;
 
   const { data: monitors, isLoading } = useQuery({
     queryKey: ["uptime-monitors"],
@@ -387,7 +443,8 @@ export default function UptimePage() {
             Monitor any URL — track availability and latency
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <UptimeRangeSelector value={range} onChange={setRange} />
           <Button
             variant="outline"
             size="sm"
@@ -447,6 +504,8 @@ export default function UptimePage() {
             <MonitorRow
               key={monitor.id}
               monitor={monitor}
+              rangeHours={rangeOpt.hours}
+              eventLimit={rangeOpt.eventLimit}
               onDelete={(id) => deleteMutation.mutate(id)}
             />
           ))}
