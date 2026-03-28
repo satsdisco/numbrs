@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "numbrs API",
-    "description": "REST API for numbrs — personal infrastructure monitoring. All endpoints require an `X-API-KEY` header. Get your API key at https://numbrs.lol/api-keys.",
+    "description": "REST API for numbrs \u2014 personal infrastructure monitoring. All endpoints require an `X-API-KEY` header. Get your API key at https://numbrs.lol/api-keys.",
     "version": "1.0.0",
     "contact": {
       "url": "https://numbrs.lol"
@@ -15,7 +15,9 @@
     }
   ],
   "security": [
-    { "ApiKeyAuth": [] }
+    {
+      "ApiKeyAuth": []
+    }
   ],
   "components": {
     "securitySchemes": {
@@ -30,52 +32,156 @@
       "Relay": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid", "example": "550e8400-e29b-41d4-a716-446655440000" },
-          "user_id": { "type": "string", "format": "uuid" },
-          "name": { "type": "string", "example": "My Relay" },
-          "url": { "type": "string", "example": "wss://relay.example.com" },
-          "region": { "type": "string", "nullable": true, "example": "us-east" },
-          "created_at": { "type": "string", "format": "date-time" },
-          "updated_at": { "type": "string", "format": "date-time" }
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "My Relay"
+          },
+          "url": {
+            "type": "string",
+            "example": "wss://relay.example.com"
+          },
+          "region": {
+            "type": "string",
+            "nullable": true,
+            "example": "us-east"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "Dashboard": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid", "example": "550e8400-e29b-41d4-a716-446655440001" },
-          "user_id": { "type": "string", "format": "uuid" },
-          "name": { "type": "string", "example": "Relay Health" },
-          "description": { "type": "string", "nullable": true, "example": "Overview of my relay performance" },
-          "is_public": { "type": "boolean", "example": false },
-          "share_token": { "type": "string", "nullable": true },
-          "created_at": { "type": "string", "format": "date-time" },
-          "updated_at": { "type": "string", "format": "date-time" }
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "550e8400-e29b-41d4-a716-446655440001"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Relay Health"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "example": "Overview of my relay performance"
+          },
+          "is_public": {
+            "type": "boolean",
+            "example": false
+          },
+          "share_token": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "Panel": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "dashboard_id": { "type": "string", "format": "uuid" },
-          "title": { "type": "string", "example": "Connect Latency" },
-          "panel_type": { "type": "string", "enum": ["line", "area", "bar", "stat", "gauge", "table", "heatmap"] },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dashboard_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "example": "Connect Latency"
+          },
+          "panel_type": {
+            "type": "string",
+            "enum": [
+              "line",
+              "area",
+              "bar",
+              "stat",
+              "gauge",
+              "table",
+              "heatmap"
+            ]
+          },
           "config": {
             "type": "object",
             "properties": {
-              "metric_key": { "type": "string", "example": "relay_latency_connect_ms" },
-              "data_source": { "type": "string", "enum": ["relay", "global", "custom"] },
-              "unit": { "type": "string", "example": "ms" },
-              "stat_field": { "type": "string", "enum": ["avg", "p50", "p95", "min", "max", "latest", "count", "sum"] },
-              "gauge_max": { "type": "number" }
+              "metric_key": {
+                "type": "string",
+                "example": "relay_latency_connect_ms"
+              },
+              "data_source": {
+                "type": "string",
+                "enum": [
+                  "relay",
+                  "global",
+                  "custom"
+                ]
+              },
+              "unit": {
+                "type": "string",
+                "example": "ms"
+              },
+              "stat_field": {
+                "type": "string",
+                "enum": [
+                  "avg",
+                  "p50",
+                  "p95",
+                  "min",
+                  "max",
+                  "latest",
+                  "count",
+                  "sum"
+                ]
+              },
+              "gauge_max": {
+                "type": "number"
+              }
             }
           },
           "layout": {
             "type": "object",
             "properties": {
-              "x": { "type": "integer" },
-              "y": { "type": "integer" },
-              "w": { "type": "integer" },
-              "h": { "type": "integer" }
+              "x": {
+                "type": "integer"
+              },
+              "y": {
+                "type": "integer"
+              },
+              "w": {
+                "type": "integer"
+              },
+              "h": {
+                "type": "integer"
+              }
             }
           }
         }
@@ -83,53 +189,328 @@
       "AlertRule": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "user_id": { "type": "string", "format": "uuid" },
-          "name": { "type": "string", "example": "Relay Latency High" },
-          "metric_key": { "type": "string", "example": "relay_latency_connect_ms" },
-          "condition": { "type": "string", "enum": ["gt", "lt"], "example": "gt" },
-          "threshold": { "type": "number", "example": 1000 },
-          "relay_id": { "type": "string", "format": "uuid", "nullable": true },
-          "is_active": { "type": "boolean", "example": true },
-          "created_at": { "type": "string", "format": "date-time" },
-          "updated_at": { "type": "string", "format": "date-time" }
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "Relay Latency High"
+          },
+          "metric_key": {
+            "type": "string",
+            "example": "relay_latency_connect_ms"
+          },
+          "condition": {
+            "type": "string",
+            "enum": [
+              "gt",
+              "lt"
+            ],
+            "example": "gt"
+          },
+          "threshold": {
+            "type": "number",
+            "example": 1000
+          },
+          "relay_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "is_active": {
+            "type": "boolean",
+            "example": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "UptimeMonitor": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "format": "uuid" },
-          "user_id": { "type": "string", "format": "uuid" },
-          "name": { "type": "string", "example": "My API" },
-          "url": { "type": "string", "example": "https://api.example.com/health" },
-          "interval_seconds": { "type": "integer", "example": 60 },
-          "is_active": { "type": "boolean", "example": true },
-          "last_checked_at": { "type": "string", "format": "date-time", "nullable": true },
-          "last_status": { "type": "string", "enum": ["up", "down", "unknown"], "nullable": true },
-          "last_latency_ms": { "type": "number", "nullable": true },
-          "created_at": { "type": "string", "format": "date-time" }
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "example": "My API"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://api.example.com/health"
+          },
+          "interval_seconds": {
+            "type": "integer",
+            "example": 60
+          },
+          "is_active": {
+            "type": "boolean",
+            "example": true
+          },
+          "last_checked_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "last_status": {
+            "type": "string",
+            "enum": [
+              "up",
+              "down",
+              "unknown"
+            ],
+            "nullable": true
+          },
+          "last_latency_ms": {
+            "type": "number",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "Error": {
         "type": "object",
         "properties": {
-          "error": { "type": "string", "example": "Not found" }
+          "error": {
+            "type": "string",
+            "example": "Not found"
+          }
+        }
+      },
+      "Integration": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string",
+            "example": "bitcoin"
+          },
+          "config": {
+            "type": "object",
+            "description": "Provider-specific configuration"
+          },
+          "is_active": {
+            "type": "boolean",
+            "example": true
+          },
+          "last_synced_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "last_error": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ClaudeUsageRow": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-03-28"
+          },
+          "session_id": {
+            "type": "string",
+            "example": "unique-session-id"
+          },
+          "project": {
+            "type": "string",
+            "example": "numbrs"
+          },
+          "messages": {
+            "type": "integer",
+            "example": 42
+          },
+          "tool_calls": {
+            "type": "integer",
+            "example": 15
+          },
+          "input_tokens": {
+            "type": "integer",
+            "example": 50000
+          },
+          "output_tokens": {
+            "type": "integer",
+            "example": 12000
+          },
+          "cache_read_tokens": {
+            "type": "integer",
+            "example": 30000
+          },
+          "cache_write_tokens": {
+            "type": "integer",
+            "example": 5000
+          },
+          "model": {
+            "type": "string",
+            "example": "claude-sonnet-4-6"
+          }
+        }
+      },
+      "Metric": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string",
+            "example": "system.cpu_pct"
+          },
+          "name": {
+            "type": "string",
+            "example": "CPU Usage"
+          },
+          "unit": {
+            "type": "string",
+            "example": "%"
+          },
+          "category": {
+            "type": "string",
+            "example": "custom"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "IngestItem": {
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Metric key (alias for metric_key)",
+            "example": "system.cpu_pct"
+          },
+          "metric_key": {
+            "type": "string",
+            "description": "Metric key",
+            "example": "relay_latency_connect_ms"
+          },
+          "value": {
+            "type": "number",
+            "example": 42.5
+          },
+          "relay_url": {
+            "type": "string",
+            "description": "Associate with a relay by URL (auto-created if new)",
+            "example": "wss://nos.lol"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp (defaults to now)"
+          },
+          "tags": {
+            "type": "object",
+            "description": "Optional dimensions/labels"
+          }
         }
       }
     }
   },
   "tags": [
-    { "name": "Relays", "description": "Manage Nostr relay monitoring targets" },
-    { "name": "Dashboards", "description": "Create and manage metric dashboards" },
-    { "name": "Alerts", "description": "Alert rules for metric thresholds" },
-    { "name": "Monitors", "description": "HTTP/WSS uptime monitors" },
-    { "name": "Account", "description": "User profile and stats" },
-    { "name": "Ingest", "description": "Push metric datapoints into numbrs" }
+    {
+      "name": "Relays",
+      "description": "Manage Nostr relay monitoring targets"
+    },
+    {
+      "name": "Dashboards",
+      "description": "Create and manage metric dashboards"
+    },
+    {
+      "name": "Alerts",
+      "description": "Alert rules for metric thresholds"
+    },
+    {
+      "name": "Monitors",
+      "description": "HTTP/WSS uptime monitors"
+    },
+    {
+      "name": "Account",
+      "description": "User profile and stats"
+    },
+    {
+      "name": "Ingest",
+      "description": "Push metric datapoints into numbrs"
+    },
+    {
+      "name": "Integrations",
+      "description": "Enable and manage server-side data integrations"
+    },
+    {
+      "name": "Panels",
+      "description": "Manage panels within dashboards"
+    },
+    {
+      "name": "Metrics",
+      "description": "List available metrics"
+    },
+    {
+      "name": "Claude Usage",
+      "description": "Track Claude Code session usage"
+    },
+    {
+      "name": "Integrations",
+      "description": "Enable and manage server-side data integrations"
+    },
+    {
+      "name": "Panels",
+      "description": "Manage panels within dashboards"
+    },
+    {
+      "name": "Metrics",
+      "description": "List available metrics"
+    },
+    {
+      "name": "Claude Usage",
+      "description": "Track Claude Code session usage"
+    }
   ],
   "paths": {
     "/api/relays": {
       "get": {
-        "tags": ["Relays"],
+        "tags": [
+          "Relays"
+        ],
         "summary": "List relays",
         "description": "Returns all relays for the authenticated user.",
         "responses": {
@@ -137,18 +518,40 @@
             "description": "List of relays",
             "content": {
               "application/json": {
-                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Relay" } },
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Relay"
+                  }
+                },
                 "example": [
-                  { "id": "550e8400-e29b-41d4-a716-446655440000", "name": "nos.lol", "url": "wss://nos.lol", "region": null, "created_at": "2026-01-01T00:00:00Z" }
+                  {
+                    "id": "550e8400-e29b-41d4-a716-446655440000",
+                    "name": "nos.lol",
+                    "url": "wss://nos.lol",
+                    "region": null,
+                    "created_at": "2026-01-01T00:00:00Z"
+                  }
                 ]
               }
             }
           },
-          "401": { "description": "Invalid or missing API key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+          "401": {
+            "description": "Invalid or missing API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
         }
       },
       "post": {
-        "tags": ["Relays"],
+        "tags": [
+          "Relays"
+        ],
         "summary": "Add a relay",
         "requestBody": {
           "required": true,
@@ -156,28 +559,65 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["name", "url"],
+                "required": [
+                  "name",
+                  "url"
+                ],
                 "properties": {
-                  "name": { "type": "string", "example": "nos.lol" },
-                  "url": { "type": "string", "example": "wss://nos.lol" },
-                  "region": { "type": "string", "example": "us-east" }
+                  "name": {
+                    "type": "string",
+                    "example": "nos.lol"
+                  },
+                  "url": {
+                    "type": "string",
+                    "example": "wss://nos.lol"
+                  },
+                  "region": {
+                    "type": "string",
+                    "example": "us-east"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "201": { "description": "Relay created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Relay" } } } },
-          "400": { "description": "Missing required fields" },
-          "401": { "description": "Invalid or missing API key" }
+          "201": {
+            "description": "Relay created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Relay"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing required fields"
+          },
+          "401": {
+            "description": "Invalid or missing API key"
+          }
         }
       }
     },
     "/api/relays/{id}": {
       "patch": {
-        "tags": ["Relays"],
+        "tags": [
+          "Relays"
+        ],
         "summary": "Update a relay",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -185,40 +625,103 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "name": { "type": "string" },
-                  "url": { "type": "string" },
-                  "region": { "type": "string" }
+                  "name": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "region": {
+                    "type": "string"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "Updated relay", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Relay" } } } },
-          "404": { "description": "Not found" }
+          "200": {
+            "description": "Updated relay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Relay"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
         }
       },
       "delete": {
-        "tags": ["Relays"],
+        "tags": [
+          "Relays"
+        ],
         "summary": "Delete a relay",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
-          "200": { "description": "Deleted", "content": { "application/json": { "schema": { "type": "object", "properties": { "deleted": { "type": "boolean" } } } } } },
-          "404": { "description": "Not found" }
+          "200": {
+            "description": "Deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
         }
       }
     },
     "/api/dashboards": {
       "get": {
-        "tags": ["Dashboards"],
+        "tags": [
+          "Dashboards"
+        ],
         "summary": "List dashboards",
         "responses": {
-          "200": { "description": "List of dashboards", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Dashboard" } } } } },
-          "401": { "description": "Invalid or missing API key" }
+          "200": {
+            "description": "List of dashboards",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Dashboard"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing API key"
+          }
         }
       },
       "post": {
-        "tags": ["Dashboards"],
+        "tags": [
+          "Dashboards"
+        ],
         "summary": "Create a dashboard",
         "requestBody": {
           "required": true,
@@ -226,24 +729,45 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["name"],
+                "required": [
+                  "name"
+                ],
                 "properties": {
-                  "name": { "type": "string", "example": "My Dashboard" },
-                  "description": { "type": "string", "example": "Custom metrics overview" }
+                  "name": {
+                    "type": "string",
+                    "example": "My Dashboard"
+                  },
+                  "description": {
+                    "type": "string",
+                    "example": "Custom metrics overview"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "201": { "description": "Dashboard created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Dashboard" } } } },
-          "400": { "description": "Missing required fields" }
+          "201": {
+            "description": "Dashboard created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dashboard"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing required fields"
+          }
         }
       }
     },
     "/api/dashboards/from-template": {
       "post": {
-        "tags": ["Dashboards"],
+        "tags": [
+          "Dashboards"
+        ],
         "summary": "Create dashboard from template",
         "description": "Creates a dashboard pre-populated with panels for a specific use case.",
         "requestBody": {
@@ -252,7 +776,9 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["template"],
+                "required": [
+                  "template"
+                ],
                 "properties": {
                   "template": {
                     "type": "string",
@@ -273,12 +799,17 @@
                       "github-projects",
                       "vercel-site",
                       "personal-overview",
-                      "personal-stats"
+                      "personal-stats",
+                      "claude-usage"
                     ],
                     "example": "relay-health",
-                    "description": "relay-health / relay-overview: Nostr relay monitoring | network-health: network-wide stats | zap-economy: Lightning zaps | protocol-stats: Nostr event analytics | nostr-relays: self-hosted relay DB/pubkey stats | bitaxe: Bitcoin mining | system-health / mac-mini-health: CPU/RAM/disk | uptime-overview: uptime % and latency | media: Plex+Jellyfin combined | plex-media-server: Plex only | github-project: single repo stats | github-projects: multi-repo | vercel-site: deploy tracking | personal-overview: BTC + Nostr + GitHub | personal-stats: custom personal metrics"
+                    "description": "relay-health / relay-overview: Nostr relay monitoring | network-health: network-wide stats | zap-economy: Lightning zaps | protocol-stats: Nostr event analytics | nostr-relays: self-hosted relay DB/pubkey stats | bitaxe: Bitcoin mining | system-health / mac-mini-health: CPU/RAM/disk | uptime-overview: uptime % and latency | media: Plex+Jellyfin combined | plex-media-server: Plex only | github-project: single repo stats | github-projects: multi-repo | vercel-site: deploy tracking | personal-overview: BTC + Nostr + GitHub | personal-stats: custom personal metrics | claude-usage: Claude Code token usage and cost tracking"
                   },
-                  "name": { "type": "string", "description": "Override the default dashboard name", "example": "My Relay Dashboard" }
+                  "name": {
+                    "type": "string",
+                    "description": "Override the default dashboard name",
+                    "example": "My Relay Dashboard"
+                  }
                 }
               }
             }
@@ -291,40 +822,88 @@
               "application/json": {
                 "schema": {
                   "allOf": [
-                    { "$ref": "#/components/schemas/Dashboard" },
-                    { "type": "object", "properties": { "panels": { "type": "array", "items": { "$ref": "#/components/schemas/Panel" } } } }
+                    {
+                      "$ref": "#/components/schemas/Dashboard"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "panels": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Panel"
+                          }
+                        }
+                      }
+                    }
                   ]
                 }
               }
             }
           },
-          "400": { "description": "Unknown template" }
+          "400": {
+            "description": "Unknown template"
+          }
         }
       }
     },
     "/api/dashboards/{id}": {
       "delete": {
-        "tags": ["Dashboards"],
+        "tags": [
+          "Dashboards"
+        ],
         "summary": "Delete a dashboard",
         "description": "Deletes the dashboard and all its panels.",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
-          "200": { "description": "Deleted" },
-          "404": { "description": "Not found" }
+          "200": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
         }
       }
     },
     "/api/alerts": {
       "get": {
-        "tags": ["Alerts"],
+        "tags": [
+          "Alerts"
+        ],
         "summary": "List alert rules",
         "responses": {
-          "200": { "description": "List of alert rules", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/AlertRule" } } } } },
-          "401": { "description": "Invalid or missing API key" }
+          "200": {
+            "description": "List of alert rules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AlertRule"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing API key"
+          }
         }
       },
       "post": {
-        "tags": ["Alerts"],
+        "tags": [
+          "Alerts"
+        ],
         "summary": "Create an alert rule",
         "requestBody": {
           "required": true,
@@ -332,30 +911,78 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["name", "metric", "condition", "threshold"],
+                "required": [
+                  "name",
+                  "metric",
+                  "condition",
+                  "threshold"
+                ],
                 "properties": {
-                  "name": { "type": "string", "example": "High Latency Alert" },
-                  "metric": { "type": "string", "example": "relay_latency_connect_ms" },
-                  "condition": { "type": "string", "enum": ["gt", "lt"], "example": "gt" },
-                  "threshold": { "type": "number", "example": 1000 },
-                  "relay_id": { "type": "string", "format": "uuid", "nullable": true }
+                  "name": {
+                    "type": "string",
+                    "example": "High Latency Alert"
+                  },
+                  "metric": {
+                    "type": "string",
+                    "example": "relay_latency_connect_ms"
+                  },
+                  "condition": {
+                    "type": "string",
+                    "enum": [
+                      "gt",
+                      "lt"
+                    ],
+                    "example": "gt"
+                  },
+                  "threshold": {
+                    "type": "number",
+                    "example": 1000
+                  },
+                  "relay_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "nullable": true
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "201": { "description": "Alert created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AlertRule" } } } },
-          "400": { "description": "Missing required fields" }
+          "201": {
+            "description": "Alert created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertRule"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing required fields"
+          }
         }
       }
     },
     "/api/alerts/{id}": {
       "patch": {
-        "tags": ["Alerts"],
+        "tags": [
+          "Alerts"
+        ],
         "summary": "Update an alert rule",
         "description": "Update any field including `enabled` (maps to `is_active`) to pause/resume alerting.",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -363,41 +990,99 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "name": { "type": "string" },
-                  "threshold": { "type": "number" },
-                  "condition": { "type": "string", "enum": ["gt", "lt"] },
-                  "enabled": { "type": "boolean", "description": "Alias for is_active" }
+                  "name": {
+                    "type": "string"
+                  },
+                  "threshold": {
+                    "type": "number"
+                  },
+                  "condition": {
+                    "type": "string",
+                    "enum": [
+                      "gt",
+                      "lt"
+                    ]
+                  },
+                  "enabled": {
+                    "type": "boolean",
+                    "description": "Alias for is_active"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "200": { "description": "Updated alert rule", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AlertRule" } } } },
-          "404": { "description": "Not found" }
+          "200": {
+            "description": "Updated alert rule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AlertRule"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
         }
       },
       "delete": {
-        "tags": ["Alerts"],
+        "tags": [
+          "Alerts"
+        ],
         "summary": "Delete an alert rule",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
-          "200": { "description": "Deleted" },
-          "404": { "description": "Not found" }
+          "200": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
         }
       }
     },
     "/api/monitors": {
       "get": {
-        "tags": ["Monitors"],
+        "tags": [
+          "Monitors"
+        ],
         "summary": "List uptime monitors",
         "responses": {
-          "200": { "description": "List of monitors", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/UptimeMonitor" } } } } },
-          "401": { "description": "Invalid or missing API key" }
+          "200": {
+            "description": "List of monitors",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UptimeMonitor"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing API key"
+          }
         }
       },
       "post": {
-        "tags": ["Monitors"],
+        "tags": [
+          "Monitors"
+        ],
         "summary": "Create an uptime monitor",
         "requestBody": {
           "required": true,
@@ -405,36 +1090,81 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["name", "url"],
+                "required": [
+                  "name",
+                  "url"
+                ],
                 "properties": {
-                  "name": { "type": "string", "example": "My API" },
-                  "url": { "type": "string", "example": "https://api.example.com/health" },
-                  "type": { "type": "string", "enum": ["http", "wss"], "default": "http" }
+                  "name": {
+                    "type": "string",
+                    "example": "My API"
+                  },
+                  "url": {
+                    "type": "string",
+                    "example": "https://api.example.com/health"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "http",
+                      "wss"
+                    ],
+                    "default": "http"
+                  }
                 }
               }
             }
           }
         },
         "responses": {
-          "201": { "description": "Monitor created", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UptimeMonitor" } } } },
-          "400": { "description": "Missing required fields" }
+          "201": {
+            "description": "Monitor created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UptimeMonitor"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing required fields"
+          }
         }
       }
     },
     "/api/monitors/{id}": {
       "delete": {
-        "tags": ["Monitors"],
+        "tags": [
+          "Monitors"
+        ],
         "summary": "Delete an uptime monitor",
-        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string", "format": "uuid" } }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
-          "200": { "description": "Deleted" },
-          "404": { "description": "Not found" }
+          "200": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "Not found"
+          }
         }
       }
     },
     "/api/me": {
       "get": {
-        "tags": ["Account"],
+        "tags": [
+          "Account"
+        ],
         "summary": "Get account info",
         "description": "Returns the authenticated user's profile and resource counts.",
         "responses": {
@@ -445,14 +1175,25 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "user_id": { "type": "string", "format": "uuid" },
+                    "user_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
                     "stats": {
                       "type": "object",
                       "properties": {
-                        "relays": { "type": "integer" },
-                        "dashboards": { "type": "integer" },
-                        "alerts": { "type": "integer" },
-                        "monitors": { "type": "integer" }
+                        "relays": {
+                          "type": "integer"
+                        },
+                        "dashboards": {
+                          "type": "integer"
+                        },
+                        "alerts": {
+                          "type": "integer"
+                        },
+                        "monitors": {
+                          "type": "integer"
+                        }
                       }
                     },
                     "api_keys": {
@@ -460,10 +1201,22 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "id": { "type": "string", "format": "uuid" },
-                          "name": { "type": "string" },
-                          "created_at": { "type": "string", "format": "date-time" },
-                          "last_used_at": { "type": "string", "format": "date-time", "nullable": true }
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "created_at": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "last_used_at": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          }
                         }
                       }
                     }
@@ -471,19 +1224,35 @@
                 },
                 "example": {
                   "user_id": "550e8400-e29b-41d4-a716-446655440000",
-                  "stats": { "relays": 3, "dashboards": 2, "alerts": 5, "monitors": 1 },
-                  "api_keys": [{ "id": "abc123", "name": "My Key", "created_at": "2026-01-01T00:00:00Z", "last_used_at": "2026-03-27T12:00:00Z" }]
+                  "stats": {
+                    "relays": 3,
+                    "dashboards": 2,
+                    "alerts": 5,
+                    "monitors": 1
+                  },
+                  "api_keys": [
+                    {
+                      "id": "abc123",
+                      "name": "My Key",
+                      "created_at": "2026-01-01T00:00:00Z",
+                      "last_used_at": "2026-03-27T12:00:00Z"
+                    }
+                  ]
                 }
               }
             }
           },
-          "401": { "description": "Invalid or missing API key" }
+          "401": {
+            "description": "Invalid or missing API key"
+          }
         }
       }
     },
     "/api/ingest": {
       "post": {
-        "tags": ["Ingest"],
+        "tags": [
+          "Ingest"
+        ],
         "summary": "Push metric datapoints",
         "description": "Ingests one or more datapoints. Metrics and relays are auto-created if they don't exist.",
         "requestBody": {
@@ -492,20 +1261,38 @@
             "application/json": {
               "schema": {
                 "oneOf": [
-                  { "$ref": "#/components/schemas/IngestItem" },
-                  { "type": "array", "items": { "$ref": "#/components/schemas/IngestItem" } }
+                  {
+                    "$ref": "#/components/schemas/IngestItem"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/IngestItem"
+                    }
+                  }
                 ]
               },
               "examples": {
                 "single": {
                   "summary": "Single datapoint",
-                  "value": { "key": "system.cpu_pct", "value": 42.5 }
+                  "value": {
+                    "key": "system.cpu_pct",
+                    "value": 42.5
+                  }
                 },
                 "batch": {
                   "summary": "Batch with relay",
                   "value": [
-                    { "metric_key": "relay_latency_connect_ms", "value": 120, "relay_url": "wss://nos.lol" },
-                    { "metric_key": "relay_up", "value": 1, "relay_url": "wss://nos.lol" }
+                    {
+                      "metric_key": "relay_latency_connect_ms",
+                      "value": 120,
+                      "relay_url": "wss://nos.lol"
+                    },
+                    {
+                      "metric_key": "relay_up",
+                      "value": 1,
+                      "relay_url": "wss://nos.lol"
+                    }
                   ]
                 }
               }
@@ -520,30 +1307,637 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "ingested": { "type": "integer", "example": 2 },
-                    "errors": { "type": "array", "items": { "type": "string" } }
+                    "ingested": {
+                      "type": "integer",
+                      "example": 2
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
                   }
                 }
               }
             }
           },
-          "400": { "description": "Invalid payload" },
-          "401": { "description": "Invalid or missing API key" }
+          "400": {
+            "description": "Invalid payload"
+          },
+          "401": {
+            "description": "Invalid or missing API key"
+          }
         }
       }
-    }
-  },
-  "x-schemas-extra": {
-    "IngestItem": {
-      "type": "object",
-      "required": ["value"],
-      "properties": {
-        "key": { "type": "string", "description": "Metric key (alias for metric_key)", "example": "system.cpu_pct" },
-        "metric_key": { "type": "string", "description": "Metric key", "example": "relay_latency_connect_ms" },
-        "value": { "type": "number", "example": 42.5 },
-        "relay_url": { "type": "string", "description": "Associate with a relay by URL (auto-created if new)", "example": "wss://nos.lol" },
-        "recorded_at": { "type": "string", "format": "date-time", "description": "Timestamp (defaults to now)" },
-        "tags": { "type": "object", "description": "Optional dimensions/labels" }
+    },
+    "/api/integrations": {
+      "get": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "List enabled integrations",
+        "responses": {
+          "200": {
+            "description": "List of integrations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Integration"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or missing API key"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Enable an integration",
+        "description": "Enable a server-side integration. Upserts by provider \u2014 safe to call multiple times.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "provider"
+                ],
+                "properties": {
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "bitcoin",
+                      "mempool",
+                      "moscow-time",
+                      "halving",
+                      "fng",
+                      "lightning",
+                      "coingecko",
+                      "weather",
+                      "github",
+                      "fred"
+                    ],
+                    "example": "bitcoin"
+                  },
+                  "config": {
+                    "type": "object",
+                    "description": "Provider config (e.g. {\"latitude\": 50.08, \"longitude\": 14.44} for weather)",
+                    "example": {}
+                  }
+                }
+              },
+              "examples": {
+                "bitcoin": {
+                  "summary": "Enable Bitcoin price (no config)",
+                  "value": {
+                    "provider": "bitcoin"
+                  }
+                },
+                "weather": {
+                  "summary": "Enable weather with location",
+                  "value": {
+                    "provider": "weather",
+                    "config": {
+                      "latitude": 50.08,
+                      "longitude": 14.44,
+                      "location_name": "Prague"
+                    }
+                  }
+                },
+                "github": {
+                  "summary": "Enable GitHub stats",
+                  "value": {
+                    "provider": "github",
+                    "config": {
+                      "username": "satsdisco",
+                      "repos": [
+                        "satsdisco/numbrs"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Integration enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Integration"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing provider"
+          }
+        }
+      }
+    },
+    "/api/integrations/{provider}": {
+      "patch": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Update an integration",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "weather"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "config": {
+                    "type": "object"
+                  },
+                  "is_active": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated integration"
+          },
+          "404": {
+            "description": "Integration not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Integrations"
+        ],
+        "summary": "Delete an integration",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/api/dashboards/{id}/panels": {
+      "get": {
+        "tags": [
+          "Panels"
+        ],
+        "summary": "List panels in a dashboard",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of panels",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Panel"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dashboard not found"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Panels"
+        ],
+        "summary": "Add a panel to a dashboard",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "panel_type"
+                ],
+                "properties": {
+                  "panel_type": {
+                    "type": "string",
+                    "enum": [
+                      "stat",
+                      "line",
+                      "area",
+                      "gauge",
+                      "bar"
+                    ],
+                    "example": "area"
+                  },
+                  "title": {
+                    "type": "string",
+                    "example": "CPU Usage"
+                  },
+                  "config": {
+                    "type": "object",
+                    "properties": {
+                      "metric_key": {
+                        "type": "string",
+                        "example": "system.cpu_pct"
+                      },
+                      "data_source": {
+                        "type": "string",
+                        "enum": [
+                          "custom",
+                          "relay",
+                          "global"
+                        ],
+                        "example": "custom"
+                      },
+                      "unit": {
+                        "type": "string",
+                        "example": "%"
+                      },
+                      "stat_field": {
+                        "type": "string",
+                        "enum": [
+                          "latest",
+                          "avg",
+                          "sum",
+                          "min",
+                          "max",
+                          "p95"
+                        ]
+                      },
+                      "gauge_max": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "layout": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "integer",
+                        "example": 0
+                      },
+                      "y": {
+                        "type": "integer",
+                        "example": 0
+                      },
+                      "w": {
+                        "type": "integer",
+                        "example": 6
+                      },
+                      "h": {
+                        "type": "integer",
+                        "example": 4
+                      }
+                    }
+                  }
+                }
+              },
+              "examples": {
+                "area": {
+                  "summary": "Area chart",
+                  "value": {
+                    "panel_type": "area",
+                    "title": "CPU Usage",
+                    "config": {
+                      "metric_key": "system.cpu_pct",
+                      "data_source": "custom",
+                      "unit": "%"
+                    },
+                    "layout": {
+                      "x": 0,
+                      "y": 0,
+                      "w": 6,
+                      "h": 4
+                    }
+                  }
+                },
+                "stat": {
+                  "summary": "Stat card",
+                  "value": {
+                    "panel_type": "stat",
+                    "title": "BTC Price",
+                    "config": {
+                      "metric_key": "bitcoin.price_usd",
+                      "data_source": "custom",
+                      "stat_field": "latest",
+                      "unit": "$"
+                    },
+                    "layout": {
+                      "x": 6,
+                      "y": 0,
+                      "w": 3,
+                      "h": 2
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Panel created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Panel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing panel_type"
+          },
+          "404": {
+            "description": "Dashboard not found"
+          }
+        }
+      }
+    },
+    "/api/dashboards/{id}/panels/{panelId}": {
+      "patch": {
+        "tags": [
+          "Panels"
+        ],
+        "summary": "Update a panel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "panelId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "type": "object"
+                  },
+                  "layout": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated panel"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Panels"
+        ],
+        "summary": "Delete a panel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "panelId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted"
+          }
+        }
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "tags": [
+          "Metrics"
+        ],
+        "summary": "List all metrics",
+        "description": "Returns all metric keys in your account. Useful for discovering available data when building custom dashboards.",
+        "responses": {
+          "200": {
+            "description": "List of metrics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Metric"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/claude-usage": {
+      "get": {
+        "tags": [
+          "Claude Usage"
+        ],
+        "summary": "Get Claude Code usage",
+        "description": "Returns Claude Code session data. Data appears on the /claude page.",
+        "parameters": [
+          {
+            "name": "since",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Filter by date (YYYY-MM-DD)",
+            "example": "2026-03-01"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usage rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ClaudeUsageRow"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Claude Usage"
+        ],
+        "summary": "Push Claude Code session data",
+        "description": "Push one or more Claude Code sessions. Upserts by session_id \u2014 safe to re-push. Data appears on the /claude page.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ClaudeUsageRow"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/ClaudeUsageRow"
+                    }
+                  }
+                ]
+              },
+              "examples": {
+                "single": {
+                  "summary": "Single session",
+                  "value": {
+                    "date": "2026-03-28",
+                    "session_id": "sess-123",
+                    "project": "numbrs",
+                    "input_tokens": 50000,
+                    "output_tokens": 12000,
+                    "model": "claude-sonnet-4-6"
+                  }
+                },
+                "batch": {
+                  "summary": "Multiple sessions",
+                  "value": [
+                    {
+                      "date": "2026-03-28",
+                      "session_id": "sess-1",
+                      "project": "numbrs",
+                      "input_tokens": 50000,
+                      "output_tokens": 12000,
+                      "model": "claude-sonnet-4-6"
+                    },
+                    {
+                      "date": "2026-03-28",
+                      "session_id": "sess-2",
+                      "project": "myapp",
+                      "input_tokens": 80000,
+                      "output_tokens": 25000,
+                      "model": "claude-opus-4-6"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Sessions inserted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "inserted": {
+                      "type": "integer",
+                      "example": 2
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload"
+          }
+        }
       }
     }
   }
