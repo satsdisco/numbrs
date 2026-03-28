@@ -4,11 +4,12 @@ import { cn } from "@/lib/utils";
 interface TimeRangeSelectorProps {
   value: TimeRange;
   onChange: (range: TimeRange) => void;
+  ranges?: TimeRange[];
 }
 
-const ranges: TimeRange[] = ["live", "1h", "6h", "24h", "7d", "30d"];
+const DEFAULT_RANGES: TimeRange[] = ["live", "1h", "6h", "24h", "7d", "30d"];
 
-export default function TimeRangeSelector({ value, onChange }: TimeRangeSelectorProps) {
+export default function TimeRangeSelector({ value, onChange, ranges = DEFAULT_RANGES }: TimeRangeSelectorProps) {
   return (
     <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
       {ranges.map((r) => (

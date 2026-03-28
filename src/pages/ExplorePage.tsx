@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import TimeRangeSelector from "@/components/TimeRangeSelector";
 
 interface DirectoryRelay {
   relay_id: string;
@@ -42,12 +43,6 @@ const SCORE_BG: Record<ScoreColor, string> = {
   destructive: "bg-destructive/15 text-destructive border-destructive/30",
 };
 
-const TIME_OPTIONS: { value: TimeRange; label: string }[] = [
-  { value: "1h", label: "1H" },
-  { value: "24h", label: "24H" },
-  { value: "7d", label: "7D" },
-  { value: "30d", label: "30D" },
-];
 
 export default function ExplorePage() {
   const { user } = useAuth();
@@ -183,22 +178,7 @@ export default function ExplorePage() {
               className="pl-9 bg-card border-border"
             />
           </div>
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-0.5">
-            {TIME_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setRange(opt.value)}
-                className={cn(
-                  "px-3 py-1.5 rounded-md text-xs font-mono font-medium transition-colors",
-                  range === opt.value
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          <TimeRangeSelector value={range} onChange={setRange} ranges={["1h", "24h", "7d", "30d"]} />
           {!user && (
             <Link to="/auth">
               <Button variant="outline" size="sm" className="gap-1.5">

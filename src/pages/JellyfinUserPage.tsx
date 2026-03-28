@@ -14,9 +14,8 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
-
-type Range = "7d" | "30d" | "90d";
-const RANGES: Range[] = ["7d", "30d", "90d"];
+import { TimeRange } from "@/lib/types";
+import TimeRangeSelector from "@/components/TimeRangeSelector";
 
 const PURPLE = "#7c3aed";
 
@@ -59,9 +58,9 @@ function EventTypeBadge({ eventType }: { eventType: string }) {
 
 export default function JellyfinUserPage() {
   const { username } = useParams<{ username: string }>();
-  const [range, setRange] = useState<Range>("30d");
+  const [range, setRange] = useState<TimeRange>("30d");
 
-  const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
+  const days = range === "7d" ? 7 : 30;
   const since = subDays(new Date(), days).toISOString();
   const decodedUsername = username ? decodeURIComponent(username) : "";
 
@@ -154,22 +153,7 @@ export default function JellyfinUserPage() {
             <p className="text-xs text-muted-foreground">Jellyfin User</p>
           </div>
         </div>
-        <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
-          {RANGES.map((r) => (
-            <button
-              key={r}
-              onClick={() => setRange(r)}
-              className={cn(
-                "rounded-sm px-3 py-1 font-mono text-xs font-medium transition-all",
-                range === r
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {r}
-            </button>
-          ))}
-        </div>
+        <TimeRangeSelector value={range} onChange={setRange} ranges={["7d", "30d"]} />
       </div>
 
       {/* Stat cards */}

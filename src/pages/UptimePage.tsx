@@ -30,44 +30,20 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Activity, Plus, Trash2, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { TimeRange } from "@/lib/types";
+import TimeRangeSelector from "@/components/TimeRangeSelector";
 import { motion, AnimatePresence } from "framer-motion";
 
-// ─── Range selector ────────────────────────────────────────────────────────────
+// ─── Range config ───────────────────────────────────────────────────────────────
 
-type UptimeRange = "24h" | "7d" | "30d";
-
-const RANGE_OPTIONS: { label: string; value: UptimeRange; hours: number; eventLimit: number }[] = [
-  { label: "24h", value: "24h", hours: 24, eventLimit: 50 },
-  { label: "7d",  value: "7d",  hours: 168, eventLimit: 200 },
-  { label: "30d", value: "30d", hours: 720, eventLimit: 500 },
-];
-
-function UptimeRangeSelector({
-  value,
-  onChange,
-}: {
-  value: UptimeRange;
-  onChange: (v: UptimeRange) => void;
-}) {
-  return (
-    <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
-      {RANGE_OPTIONS.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => onChange(opt.value)}
-          className={cn(
-            "rounded-sm px-3 py-1 font-mono text-xs font-medium transition-all duration-150",
-            value === opt.value
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-}
+const UPTIME_RANGE_CONFIG: Record<TimeRange, { hours: number; eventLimit: number }> = {
+  live:  { hours: 0.25, eventLimit: 20 },
+  "1h":  { hours: 1,   eventLimit: 20 },
+  "6h":  { hours: 6,   eventLimit: 30 },
+  "24h": { hours: 24,  eventLimit: 50 },
+  "7d":  { hours: 168, eventLimit: 200 },
+  "30d": { hours: 720, eventLimit: 500 },
+};
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -399,9 +375,9 @@ export default function UptimePage() {
   });
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
-  const [range, setRange] = useState<UptimeRange>("24h");
+  const [range, setRange] = useState<TimeRange>("24h");
 
-  const rangeOpt = RANGE_OPTIONS.find((o) => o.value === range)!;
+  const rangeOpt = UPTIME_RANGE_CONFIG[range];;
 
   const { data: monitors, isLoading } = useQuery({
     queryKey: ["uptime-monitors"],
@@ -450,7 +426,7 @@ export default function UptimePage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <UptimeRangeSelector value={range} onChange={setRange} />
+          <TimeRangeSelector value={range} onChange={setRange} ranges={["24h", "7d", "30d"]} />
           <Button
             variant="outline"
             size="sm"

@@ -17,30 +17,8 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
-
-type Range = "7d" | "30d" | "90d";
-const RANGES: Range[] = ["7d", "30d", "90d"];
-
-function RangeSelector({ value, onChange }: { value: Range; onChange: (r: Range) => void }) {
-  return (
-    <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
-      {RANGES.map((r) => (
-        <button
-          key={r}
-          onClick={() => onChange(r)}
-          className={cn(
-            "rounded-sm px-3 py-1 font-mono text-xs font-medium transition-all",
-            value === r
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          {r}
-        </button>
-      ))}
-    </div>
-  );
-}
+import { TimeRange } from "@/lib/types";
+import TimeRangeSelector from "@/components/TimeRangeSelector";
 
 function formatHour(h: number): string {
   if (h === 0) return "12am";
@@ -103,14 +81,14 @@ function EventBadge({ event }: { event: string }) {
 }
 
 export default function PlexPage() {
-  const [range, setRange] = useState<Range>("30d");
+  const [range, setRange] = useState<TimeRange>("30d");
   const [contentTab, setContentTab] = useState<ContentTab>("Movies");
 
   const { pullIndicator } = usePullToRefresh({
     queryKeys: [["plex_events"]],
   });
 
-  const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
+  const days = range === "7d" ? 7 : 30;
   const since = subDays(new Date(), days).toISOString();
 
   const { data: events = [], isLoading } = useQuery({
@@ -277,7 +255,7 @@ export default function PlexPage() {
             </p>
           </div>
         </div>
-        <RangeSelector value={range} onChange={setRange} />
+        <TimeRangeSelector value={range} onChange={setRange} ranges={["7d", "30d"]} />
       </div>
 
       {/* Stat cards */}
