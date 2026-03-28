@@ -24,9 +24,9 @@ serve(async (req) => {
     const fngValue = parseInt(entry.value, 10);
     const fngClassification = entry.value_classification as string;
 
+    // Only store the numeric value — classification is a string and can't go in the numeric datapoints table
     const metrics = [
       { key: "fng.value", value: fngValue, name: "Fear & Greed Index", unit: "" },
-      { key: "fng.classification", value: fngClassification, name: "Fear & Greed Classification", unit: "" },
     ];
 
     // Find all users with an active fng integration
