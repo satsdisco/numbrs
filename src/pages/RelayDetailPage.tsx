@@ -23,7 +23,7 @@ import {
 import TimeRangeSelector from "@/components/TimeRangeSelector";
 import TimeseriesChart from "@/components/TimeseriesChart";
 import StatsGrid from "@/components/StatsGrid";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Copy, Check } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -42,6 +42,14 @@ export default function RelayDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [range, setRange] = useState<TimeRange>("live");
+  const [copied, setCopied] = useState(false);
+
+  function copyUrl() {
+    navigator.clipboard.writeText(relay?.url ?? "").then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
 
   // Auto-refresh every 30s in Live mode
   useEffect(() => {
@@ -190,14 +198,34 @@ export default function RelayDetailPage() {
                 </span>
               )}
             </div>
-            <p className="text-metric-sm text-muted-foreground mt-0.5">
-              {relay.url}
-              {relay.region && (
-                <span className="ml-2 text-muted-foreground/60">
-                  · {relay.region}
-                </span>
-              )}
-            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <p className="text-metric-sm text-muted-foreground">
+                {relay.url}
+                {relay.region && (
+                  <span className="ml-2 text-muted-foreground/60">
+                    · {relay.region}
+                  </span>
+                )}
+              </p>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={copyUrl}
+                    className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Copy WSS URL"
+                  >
+                    {copied ? (
+                      <Check className="h-3.5 w-3.5 text-success" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  {copied ? "Copied!" : "Copy WSS URL"}
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </div>
         </div>
         <TimeRangeSelector value={range} onChange={setRange} />
