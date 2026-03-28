@@ -6,6 +6,7 @@ import {
   fetchRelayHealth,
   fetchRelayTimeseries,
   fetchRelaySummary,
+  fetchRelayIncidents,
 } from "@/lib/api";
 import { TimeRange, RELAY_METRIC_KEYS, MetricStats } from "@/lib/types";
 import {
@@ -23,6 +24,7 @@ import {
 import TimeRangeSelector from "@/components/TimeRangeSelector";
 import TimeseriesChart from "@/components/TimeseriesChart";
 import StatsGrid from "@/components/StatsGrid";
+import IncidentsTimeline from "@/components/IncidentsTimeline";
 import { ArrowLeft, Copy, Check } from "lucide-react";
 import {
   Tooltip,
@@ -97,6 +99,12 @@ export default function RelayDetailPage() {
   const { data: uptimeTs } = useQuery({
     queryKey: ["relay-ts", id, RELAY_METRIC_KEYS.UP, range],
     queryFn: () => fetchRelayTimeseries(id!, RELAY_METRIC_KEYS.UP, range),
+    enabled: !!id,
+  });
+
+  const { data: incidents } = useQuery({
+    queryKey: ["relay-incidents", id, range],
+    queryFn: () => fetchRelayIncidents(id!, range),
     enabled: !!id,
   });
 
@@ -281,6 +289,16 @@ export default function RelayDetailPage() {
           )}
         </div>
       )}
+
+      {/* Incidents */}
+      {(h?.downtime_incidents ?? 0) > 0 || (incidents && incidents.length > 0) ? (
+        <section className="space-y-3">
+          <h2 className="font-mono text-sm font-medium text-foreground">
+            Incidents
+          </h2>
+          <IncidentsTimeline incidents={incidents ?? []} />
+        </section>
+      ) : null}
 
       {/* Connect Latency */}
       <section className="space-y-3">

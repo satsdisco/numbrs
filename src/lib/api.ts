@@ -211,6 +211,29 @@ export async function triggerProbe() {
   return data;
 }
 
+// ─── Relay Incidents ───────────────────────────────────────────────────────────
+
+export interface RelayIncident {
+  incident_start: string;
+  incident_end: string;
+  duration_secs: number;
+  failed_checks: number;
+}
+
+export async function fetchRelayIncidents(
+  relayId: string,
+  range: TimeRange
+): Promise<RelayIncident[]> {
+  const { start, end } = getTimeWindow(range);
+  const { data, error } = await supabase.rpc("get_relay_incidents", {
+    p_relay_id: relayId,
+    p_start: start.toISOString(),
+    p_end: end.toISOString(),
+  } as any);
+  if (error) throw error;
+  return (data as unknown as RelayIncident[]) || [];
+}
+
 // ─── All Public Relays (for leaderboard) ───────────────────────────────────────
 
 export async function fetchAllPublicRelays(): Promise<RelayRow[]> {
