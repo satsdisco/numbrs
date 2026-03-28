@@ -37,7 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Bell, Plus, Trash2, Check, AlertTriangle, Clock, Info, Webhook, Send, Loader2 } from "lucide-react";
+import { Bell, Plus, Trash2, Check, AlertTriangle, Clock, Info, Webhook, Send, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -47,6 +47,7 @@ export default function AlertsPage() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
+  const [editTarget, setEditTarget] = useState<AlertRule | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const { data: rules, isLoading: rulesLoading } = useQuery({
@@ -89,6 +90,14 @@ export default function AlertsPage() {
     queryKey: ["notification-channels"],
     queryFn: fetchNotificationChannels,
   });
+
+  // Build a map of rule id → most recent triggered_at
+  const lastTriggeredMap = (events ?? []).reduce<Record<string, string>>((acc, evt) => {
+    if (!acc[evt.alert_rule_id] || evt.triggered_at > acc[evt.alert_rule_id]) {
+      acc[evt.alert_rule_id] = evt.triggered_at;
+    }
+    return acc;
+  }, {});
 
   const unacknowledgedCount = events?.filter((e) => !e.acknowledged).length ?? 0;
 
@@ -168,10 +177,12 @@ export default function AlertsPage() {
                   key={rule.id}
                   rule={rule}
                   relayName={relays?.find((r) => r.id === rule.relay_id)?.name}
+                  lastTriggered={lastTriggeredMap[rule.id] ?? null}
                   index={i}
                   onToggle={(active) =>
                     toggleMutation.mutate({ id: rule.id, is_active: active })
                   }
+                  onEdit={() => setEditTarget(rule)}
                   onDelete={() => setDeleteTarget(rule.id)}
                 />
               ))}
@@ -271,27 +282,43 @@ export default function AlertsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <CreateAlertDialog
+      <AlertRuleDialog
         open={showCreate}
         onClose={() => setShowCreate(false)}
         relays={relays ?? []}
         userId={user?.id ?? ""}
       />
+
+      {editTarget && (
+        <AlertRuleDialog
+          open
+          onClose={() => setEditTarget(null)}
+          relays={relays ?? []}
+          userId={user?.id ?? ""}
+          editTarget={editTarget}
+        />
+      )}
     </div>
   );
 }
 
+// ─── Rule Card ────────────────────────────────────────────────────────────────
+
 function RuleCard({
   rule,
   relayName,
+  lastTriggered,
   index,
   onToggle,
+  onEdit,
   onDelete,
 }: {
   rule: AlertRule;
   relayName?: string;
+  lastTriggered: string | null;
   index: number;
   onToggle: (active: boolean) => void;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   const metric = ALERT_METRICS.find((m) => m.key === rule.metric_key);
@@ -314,6 +341,12 @@ function RuleCard({
           <span className="text-warning">{CONDITION_LABELS[rule.condition]}</span>{" "}
           <span className="font-mono font-medium">{rule.threshold}{metric?.unit}</span>
         </div>
+        <div className="text-[10px] text-muted-foreground mt-1">
+          Last triggered:{" "}
+          {lastTriggered
+            ? formatDistanceToNow(new Date(lastTriggered), { addSuffix: true })
+            : "Never"}
+        </div>
       </div>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -327,8 +360,16 @@ function RuleCard({
         <TooltipContent>Toggle alert on/off</TooltipContent>
       </Tooltip>
       <button
+        onClick={onEdit}
+        className="text-muted-foreground hover:text-foreground transition-colors"
+        title="Edit rule"
+      >
+        <Pencil className="h-4 w-4" />
+      </button>
+      <button
         onClick={onDelete}
         className="text-muted-foreground hover:text-destructive transition-colors"
+        title="Delete rule"
       >
         <Trash2 className="h-4 w-4" />
       </button>
@@ -482,25 +523,29 @@ function NotificationChannelsPanel({ channels }: { channels: NotificationChannel
   );
 }
 
-// ─── Create Alert Dialog ──────────────────────────────────────────────────────
+// ─── Alert Rule Dialog (create + edit) ───────────────────────────────────────
 
-function CreateAlertDialog({
+function AlertRuleDialog({
   open,
   onClose,
   relays,
   userId,
+  editTarget,
 }: {
   open: boolean;
   onClose: () => void;
   relays: { id: string; name: string }[];
   userId: string;
+  editTarget?: AlertRule;
 }) {
   const queryClient = useQueryClient();
-  const [name, setName] = useState("");
-  const [metricKey, setMetricKey] = useState("relay_latency_connect_ms");
-  const [condition, setCondition] = useState<"gt" | "lt">("gt");
-  const [threshold, setThreshold] = useState("");
-  const [relayId, setRelayId] = useState<string>("");
+  const isEditing = !!editTarget;
+
+  const [name, setName] = useState(editTarget?.name ?? "");
+  const [metricKey, setMetricKey] = useState(editTarget?.metric_key ?? "relay_latency_connect_ms");
+  const [condition, setCondition] = useState<"gt" | "lt">(editTarget?.condition ?? "gt");
+  const [threshold, setThreshold] = useState(editTarget?.threshold != null ? String(editTarget.threshold) : "");
+  const [relayId, setRelayId] = useState<string>(editTarget?.relay_id ?? "");
 
   const metric = ALERT_METRICS.find((m) => m.key === metricKey);
 
@@ -518,17 +563,36 @@ function CreateAlertDialog({
       queryClient.invalidateQueries({ queryKey: ["alert-rules"] });
       toast.success("Alert rule created");
       onClose();
-      setName("");
-      setThreshold("");
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  const editMutation = useMutation({
+    mutationFn: () =>
+      updateAlertRule(editTarget!.id, {
+        name: name || `${metric?.label} alert`,
+        metric_key: metricKey,
+        condition,
+        threshold: parseFloat(threshold),
+        relay_id: relayId || null,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["alert-rules"] });
+      toast.success("Alert rule updated");
+      onClose();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const isPending = createMutation.isPending || editMutation.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-mono">New Alert Rule</DialogTitle>
+          <DialogTitle className="font-mono">
+            {isEditing ? "Edit Alert Rule" : "New Alert Rule"}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 mt-2">
           <div>
@@ -537,6 +601,7 @@ function CreateAlertDialog({
               placeholder="e.g. High latency warning"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              autoFocus
             />
           </div>
 
@@ -608,10 +673,12 @@ function CreateAlertDialog({
 
           <Button
             className="w-full"
-            disabled={!threshold || createMutation.isPending}
-            onClick={() => createMutation.mutate()}
+            disabled={!threshold || isPending}
+            onClick={() => isEditing ? editMutation.mutate() : createMutation.mutate()}
           >
-            {createMutation.isPending ? "Creating..." : "Create Alert Rule"}
+            {isPending
+              ? isEditing ? "Saving…" : "Creating…"
+              : isEditing ? "Save Changes" : "Create Alert Rule"}
           </Button>
         </div>
       </DialogContent>

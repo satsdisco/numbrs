@@ -53,7 +53,7 @@ export async function createAlertRule(rule: {
 
 export async function updateAlertRule(
   id: string,
-  updates: Partial<Pick<AlertRule, "is_active" | "name" | "threshold" | "condition">>
+  updates: Partial<Pick<AlertRule, "is_active" | "name" | "threshold" | "condition" | "metric_key" | "relay_id">>
 ): Promise<void> {
   const { error } = await supabase
     .from("alert_rules")
