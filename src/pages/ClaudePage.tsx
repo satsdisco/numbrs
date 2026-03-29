@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Bot } from "lucide-react";
 import { format, subDays, startOfDay } from "date-fns";
 import {
@@ -228,6 +229,7 @@ function OverviewTab({ range }: { range: Range }) {
   const [editingCost, setEditingCost] = useState(false);
   const [costInput, setCostInput] = useState<string>("");
   const costInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (editingCost && costInputRef.current) {
@@ -237,27 +239,31 @@ function OverviewTab({ range }: { range: Range }) {
   }, [editingCost]);
 
   const { data: openclawRows = [], isLoading: ocLoading } = useQuery({
-    queryKey: ["overview_openclaw", range],
+    queryKey: ["overview_openclaw", range, user?.id],
     queryFn: async (): Promise<{ date: string; session_id: string; output_tokens: number; input_tokens: number; cost_usd: number }[]> => {
       const { data } = await supabase
         .from("openclaw_usage")
         .select("date, session_id, output_tokens, input_tokens, cost_usd")
+        .eq("user_id", user!.id)
         .gte("date", since)
         .order("date", { ascending: true });
       return (data as any[]) || [];
     },
+    enabled: !!user,
   });
 
   const { data: codeRows = [], isLoading: codeLoading } = useQuery({
-    queryKey: ["overview_code", range],
+    queryKey: ["overview_code", range, user?.id],
     queryFn: async (): Promise<{ date: string; session_id: string; output_tokens: number; input_tokens: number }[]> => {
       const { data } = await supabase
         .from("claude_usage")
         .select("date, session_id, output_tokens, input_tokens")
+        .eq("user_id", user!.id)
         .gte("date", since)
         .order("date", { ascending: true });
       return (data as any[]) || [];
     },
+    enabled: !!user,
   });
 
   const isLoading = ocLoading || codeLoading;
@@ -557,45 +563,52 @@ function OverviewTab({ range }: { range: Range }) {
 
 function OpenClawTab({ range }: { range: Range }) {
   const since = sinceDate(range);
+  const { user } = useAuth();
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["openclaw_usage", range],
+    queryKey: ["openclaw_usage", range, user?.id],
     queryFn: async (): Promise<OpenClawRow[]> => {
       const { data } = await supabase
         .from("openclaw_usage")
         .select(
           "date, session_id, channel, model, messages, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd"
         )
+        .eq("user_id", user!.id)
         .gte("date", since)
         .order("date", { ascending: true });
       return (data as OpenClawRow[]) || [];
     },
+    enabled: !!user,
   });
 
   // Separate query for heatmap — 90d, uses created_at
   const { data: heatmapRows = [] } = useQuery({
-    queryKey: ["openclaw_heatmap"],
+    queryKey: ["openclaw_heatmap", user?.id],
     queryFn: async (): Promise<{ output_tokens: number; created_at: string; session_started_at: string | null }[]> => {
       const since90 = format(subDays(new Date(), 90), "yyyy-MM-dd");
       const { data } = await supabase
         .from("openclaw_usage")
         .select("output_tokens, created_at, session_started_at")
+        .eq("user_id", user!.id)
         .gte("date", since90);
       return (data as any[]) || [];
     },
+    enabled: !!user,
   });
 
   // Separate query for monthly trend — last 6 months
   const { data: monthlyRows = [] } = useQuery({
-    queryKey: ["openclaw_monthly"],
+    queryKey: ["openclaw_monthly", user?.id],
     queryFn: async (): Promise<{ date: string; output_tokens: number }[]> => {
       const since6m = format(subDays(new Date(), 180), "yyyy-MM-dd");
       const { data } = await supabase
         .from("openclaw_usage")
         .select("date, output_tokens")
+        .eq("user_id", user!.id)
         .gte("date", since6m);
       return (data as any[]) || [];
     },
+    enabled: !!user,
   });
 
   // ── Stats ────────────────────────────────────────────────────────────────────
@@ -1053,33 +1066,38 @@ function OpenClawTab({ range }: { range: Range }) {
 
 function ClaudeCodeTab({ range }: { range: Range }) {
   const since = sinceDate(range);
+  const { user } = useAuth();
 
   const { data: rows = [], isLoading } = useQuery({
-    queryKey: ["claude_usage_v2", range],
+    queryKey: ["claude_usage_v2", range, user?.id],
     queryFn: async (): Promise<UsageRow[]> => {
       const { data } = await supabase
         .from("claude_usage")
         .select(
           "date, project, messages, tool_calls, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, model, session_id, created_at"
         )
+        .eq("user_id", user!.id)
         .gte("date", since)
         .order("date", { ascending: true });
       return (data as UsageRow[]) || [];
     },
+    enabled: !!user,
   });
 
   // Top sessions query
   const { data: topSessionRows = [], isLoading: topSessionsLoading } = useQuery({
-    queryKey: ["claude_top_sessions", range],
+    queryKey: ["claude_top_sessions", range, user?.id],
     queryFn: async (): Promise<{ date: string; project: string; output_tokens: number; tool_calls: number; model: string; session_id: string }[]> => {
       const { data } = await supabase
         .from("claude_usage")
         .select("date, project, output_tokens, tool_calls, model, session_id")
+        .eq("user_id", user!.id)
         .gte("date", since)
         .order("output_tokens", { ascending: false })
         .limit(10);
       return (data as any[]) || [];
     },
+    enabled: !!user,
   });
 
   // ── Aggregate stats ──────────────────────────────────────────────────────────
@@ -1495,16 +1513,19 @@ function ClaudeCodeTab({ range }: { range: Range }) {
 
 function ApiSavedBanner({ range }: { range: Range }) {
   const since = sinceDate(range);
+  const { user } = useAuth();
 
   const { data: openclawRows = [] } = useQuery({
-    queryKey: ["openclaw_usage_banner", range],
+    queryKey: ["openclaw_usage_banner", range, user?.id],
     queryFn: async (): Promise<{ cost_usd: number }[]> => {
       const { data } = await supabase
         .from("openclaw_usage")
         .select("cost_usd")
+        .eq("user_id", user!.id)
         .gte("date", since);
       return (data as { cost_usd: number }[]) || [];
     },
+    enabled: !!user,
   });
 
   const totalCost = openclawRows.reduce((s, r) => s + (Number(r.cost_usd) || 0), 0);
