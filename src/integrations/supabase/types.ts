@@ -68,11 +68,15 @@ export type Database = {
       alert_rules: {
         Row: {
           condition: string
+          cooldown_minutes: number | null
           created_at: string
           id: string
           is_active: boolean
+          last_triggered_at: string | null
           metric_key: string
           name: string
+          notification_type: string | null
+          notification_url: string | null
           relay_id: string | null
           threshold: number
           updated_at: string
@@ -80,11 +84,15 @@ export type Database = {
         }
         Insert: {
           condition?: string
+          cooldown_minutes?: number | null
           created_at?: string
           id?: string
           is_active?: boolean
+          last_triggered_at?: string | null
           metric_key: string
           name?: string
+          notification_type?: string | null
+          notification_url?: string | null
           relay_id?: string | null
           threshold: number
           updated_at?: string
@@ -92,11 +100,15 @@ export type Database = {
         }
         Update: {
           condition?: string
+          cooldown_minutes?: number | null
           created_at?: string
           id?: string
           is_active?: boolean
+          last_triggered_at?: string | null
           metric_key?: string
           name?: string
+          notification_type?: string | null
+          notification_url?: string | null
           relay_id?: string | null
           threshold?: number
           updated_at?: string
@@ -139,6 +151,60 @@ export type Database = {
           last_used_at?: string | null
           name?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      claude_usage: {
+        Row: {
+          cache_read_tokens: number | null
+          cache_write_tokens: number | null
+          created_at: string | null
+          date: string
+          id: string
+          input_tokens: number | null
+          messages: number | null
+          model: string | null
+          output_tokens: number | null
+          owner_id: string
+          project: string
+          project_path: string | null
+          session_id: string
+          tool_calls: number | null
+          user_id: string | null
+        }
+        Insert: {
+          cache_read_tokens?: number | null
+          cache_write_tokens?: number | null
+          created_at?: string | null
+          date: string
+          id?: string
+          input_tokens?: number | null
+          messages?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          owner_id: string
+          project: string
+          project_path?: string | null
+          session_id: string
+          tool_calls?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          cache_read_tokens?: number | null
+          cache_write_tokens?: number | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          input_tokens?: number | null
+          messages?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          owner_id?: string
+          project?: string
+          project_path?: string | null
+          session_id?: string
+          tool_calls?: number | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -217,6 +283,114 @@ export type Database = {
           },
         ]
       }
+      jellyfin_events: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          date_played: string | null
+          event_type: string | null
+          id: string
+          jellyfin_item_id: string | null
+          media_type: string | null
+          owner_id: string
+          parsed_artist: string | null
+          parsed_title: string | null
+          user_id_jellyfin: string | null
+          username: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          date_played?: string | null
+          event_type?: string | null
+          id?: string
+          jellyfin_item_id?: string | null
+          media_type?: string | null
+          owner_id: string
+          parsed_artist?: string | null
+          parsed_title?: string | null
+          user_id_jellyfin?: string | null
+          username?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          date_played?: string | null
+          event_type?: string | null
+          id?: string
+          jellyfin_item_id?: string | null
+          media_type?: string | null
+          owner_id?: string
+          parsed_artist?: string | null
+          parsed_title?: string | null
+          user_id_jellyfin?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
+      kuma_heartbeats: {
+        Row: {
+          checked_at: string
+          id: string
+          monitor_name: string
+          response_time_ms: number | null
+          status: number
+        }
+        Insert: {
+          checked_at?: string
+          id?: string
+          monitor_name: string
+          response_time_ms?: number | null
+          status: number
+        }
+        Update: {
+          checked_at?: string
+          id?: string
+          monitor_name?: string
+          response_time_ms?: number | null
+          status?: number
+        }
+        Relationships: []
+      }
+      kuma_monitors: {
+        Row: {
+          cert_days_remaining: number | null
+          cert_is_valid: boolean | null
+          hostname: string | null
+          last_updated: string
+          monitor_type: string | null
+          name: string
+          port: string | null
+          response_time_ms: number | null
+          status: number
+          url: string | null
+        }
+        Insert: {
+          cert_days_remaining?: number | null
+          cert_is_valid?: boolean | null
+          hostname?: string | null
+          last_updated?: string
+          monitor_type?: string | null
+          name: string
+          port?: string | null
+          response_time_ms?: number | null
+          status?: number
+          url?: string | null
+        }
+        Update: {
+          cert_days_remaining?: number | null
+          cert_is_valid?: boolean | null
+          hostname?: string | null
+          last_updated?: string
+          monitor_type?: string | null
+          name?: string
+          port?: string | null
+          response_time_ms?: number | null
+          status?: number
+          url?: string | null
+        }
+        Relationships: []
+      }
       metrics: {
         Row: {
           category: string
@@ -262,6 +436,90 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_channels: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      openclaw_usage: {
+        Row: {
+          cache_read_tokens: number | null
+          cache_write_tokens: number | null
+          channel: string | null
+          cost_usd: number | null
+          created_at: string | null
+          date: string
+          id: string
+          input_tokens: number | null
+          messages: number | null
+          model: string | null
+          output_tokens: number | null
+          owner_id: string
+          session_id: string
+          user_id: string | null
+        }
+        Insert: {
+          cache_read_tokens?: number | null
+          cache_write_tokens?: number | null
+          channel?: string | null
+          cost_usd?: number | null
+          created_at?: string | null
+          date: string
+          id?: string
+          input_tokens?: number | null
+          messages?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          owner_id: string
+          session_id: string
+          user_id?: string | null
+        }
+        Update: {
+          cache_read_tokens?: number | null
+          cache_write_tokens?: number | null
+          channel?: string | null
+          cost_usd?: number | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          input_tokens?: number | null
+          messages?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          owner_id?: string
+          session_id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       panels: {
         Row: {
           config: Json
@@ -303,12 +561,71 @@ export type Database = {
           },
         ]
       }
+      plex_events: {
+        Row: {
+          created_at: string | null
+          duration_ms: number | null
+          event: string
+          grandparent_title: string | null
+          id: string
+          local: boolean | null
+          media_type: string | null
+          owner_id: string
+          parent_title: string | null
+          player_platform: string | null
+          player_title: string | null
+          rating_key: string | null
+          title: string | null
+          user_id_plex: number | null
+          username: string | null
+          view_offset_ms: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          duration_ms?: number | null
+          event: string
+          grandparent_title?: string | null
+          id?: string
+          local?: boolean | null
+          media_type?: string | null
+          owner_id: string
+          parent_title?: string | null
+          player_platform?: string | null
+          player_title?: string | null
+          rating_key?: string | null
+          title?: string | null
+          user_id_plex?: number | null
+          username?: string | null
+          view_offset_ms?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          duration_ms?: number | null
+          event?: string
+          grandparent_title?: string | null
+          id?: string
+          local?: boolean | null
+          media_type?: string | null
+          owner_id?: string
+          parent_title?: string | null
+          player_platform?: string | null
+          player_title?: string | null
+          rating_key?: string | null
+          title?: string | null
+          user_id_plex?: number | null
+          username?: string | null
+          view_offset_ms?: number | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
           display_name: string | null
           email: string | null
           id: string
+          nostr_name: string | null
+          nostr_picture: string | null
           pubkey: string | null
           updated_at: string
           user_id: string
@@ -318,6 +635,8 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          nostr_name?: string | null
+          nostr_picture?: string | null
           pubkey?: string | null
           updated_at?: string
           user_id: string
@@ -327,6 +646,8 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          nostr_name?: string | null
+          nostr_picture?: string | null
           pubkey?: string | null
           updated_at?: string
           user_id?: string
@@ -337,6 +658,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_public: boolean
           name: string
           region: string | null
           updated_at: string
@@ -346,6 +668,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          is_public?: boolean
           name: string
           region?: string | null
           updated_at?: string
@@ -355,8 +678,98 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          is_public?: boolean
           name?: string
           region?: string | null
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      uptime_events: {
+        Row: {
+          checked_at: string
+          error_message: string | null
+          id: string
+          latency_ms: number | null
+          monitor_id: string
+          status: string
+          status_code: number | null
+        }
+        Insert: {
+          checked_at?: string
+          error_message?: string | null
+          id?: string
+          latency_ms?: number | null
+          monitor_id: string
+          status: string
+          status_code?: number | null
+        }
+        Update: {
+          checked_at?: string
+          error_message?: string | null
+          id?: string
+          latency_ms?: number | null
+          monitor_id?: string
+          status?: string
+          status_code?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "uptime_events_monitor_id_fkey"
+            columns: ["monitor_id"]
+            isOneToOne: false
+            referencedRelation: "uptime_monitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      uptime_monitors: {
+        Row: {
+          created_at: string
+          id: string
+          interval_seconds: number
+          is_active: boolean
+          last_checked_at: string | null
+          last_latency_ms: number | null
+          last_notified_at: string | null
+          last_status: string | null
+          name: string
+          notification_url: string | null
+          previous_status: string | null
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          interval_seconds?: number
+          is_active?: boolean
+          last_checked_at?: string | null
+          last_latency_ms?: number | null
+          last_notified_at?: string | null
+          last_status?: string | null
+          name: string
+          notification_url?: string | null
+          previous_status?: string | null
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          interval_seconds?: number
+          is_active?: boolean
+          last_checked_at?: string | null
+          last_latency_ms?: number | null
+          last_notified_at?: string | null
+          last_status?: string | null
+          name?: string
+          notification_url?: string | null
+          previous_status?: string | null
           updated_at?: string
           url?: string
           user_id?: string
@@ -394,6 +807,30 @@ export type Database = {
           last_error?: string | null
           last_synced_at?: string | null
           provider?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          custom_accent: string | null
+          id: string
+          theme_preset: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          custom_accent?: string | null
+          id?: string
+          theme_preset?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          custom_accent?: string | null
+          id?: string
+          theme_preset?: string
           updated_at?: string
           user_id?: string
         }
@@ -450,6 +887,15 @@ export type Database = {
           uptime_pct: number
         }[]
       }
+      get_relay_incidents: {
+        Args: { p_end: string; p_relay_id: string; p_start: string }
+        Returns: {
+          duration_secs: number
+          failed_checks: number
+          incident_end: string
+          incident_start: string
+        }[]
+      }
       get_relay_summary: {
         Args: { p_end: string; p_relay_id: string; p_start: string }
         Returns: {
@@ -492,6 +938,15 @@ export type Database = {
           count: number
           max_value: number
           min_value: number
+        }[]
+      }
+      get_uptime_summary: {
+        Args: { p_hours?: number; p_monitor_id: string }
+        Returns: {
+          avg_latency_ms: number
+          failed_checks: number
+          total_checks: number
+          uptime_pct: number
         }[]
       }
       get_user_id_from_api_key: {
@@ -630,3 +1085,5 @@ export const Constants = {
     Enums: {},
   },
 } as const
+A new version of Supabase CLI is available: v2.84.2 (currently installed v2.75.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

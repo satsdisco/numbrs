@@ -1,40 +1,20 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
-import { useAuth } from "@/hooks/useAuth";
 import {
   fetchMonitors,
-  createMonitor,
-  deleteMonitor,
   fetchUptimeEvents,
   fetchUptimeSummary,
-  triggerUptimeCheck,
   type UptimeMonitor,
   type UptimeEvent,
 } from "@/lib/uptime-api";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Activity, Plus, Trash2, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { Activity, ChevronDown, ChevronUp } from "lucide-react";
 import { TimeRange } from "@/lib/types";
 import TimeRangeSelector from "@/components/TimeRangeSelector";
 import { motion, AnimatePresence } from "framer-motion";
 
-// ─── Range config ───────────────────────────────────────────────────────────────
+// ─── Range config ────────────────────────────────────────────────────────────
 
 const UPTIME_RANGE_CONFIG: Record<TimeRange, { hours: number; eventLimit: number }> = {
   live:  { hours: 0.25, eventLimit: 20 },
@@ -45,24 +25,42 @@ const UPTIME_RANGE_CONFIG: Record<TimeRange, { hours: number; eventLimit: number
   "30d": { hours: 720, eventLimit: 500 },
 };
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatLatency(ms: number | null): string {
-  if (ms === null) return "—";
-  if (ms < 1000) return `${ms}ms`;
+  if (ms === null || ms < 0) return "—";
+  if (ms < 1000) return `${Math.round(ms)}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-function StatusBadge({ status }: { status: "up" | "down" | "unknown" | null }) {
-  if (!status || status === "unknown") {
+function monitorAddress(monitor: UptimeMonitor): string {
+  if (monitor.url) return monitor.url;
+  if (monitor.hostname) {
+    return monitor.port ? `${monitor.hostname}:${monitor.port}` : monitor.hostname;
+  }
+  return monitor.monitor_type ?? "—";
+}
+
+// ─── Status badge ────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: number }) {
+  if (status === 3) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground">
         <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-        Unknown
+        Maintenance
       </span>
     );
   }
-  const up = status === "up";
+  if (status === 2) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/50 px-2.5 py-1 text-xs font-medium text-muted-foreground">
+        <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+        Pending
+      </span>
+    );
+  }
+  const up = status === 1;
   return (
     <span
       className={cn(
@@ -83,12 +81,12 @@ function StatusBadge({ status }: { status: "up" | "down" | "unknown" | null }) {
   );
 }
 
-// ─── Timeline dots for last N events ──────────────────────────────────────────
+// ─── Timeline dots for last N heartbeats ─────────────────────────────────────
 
 function EventTimeline({ events }: { events: UptimeEvent[] }) {
   if (events.length === 0) {
     return (
-      <p className="text-xs text-muted-foreground italic">No events yet.</p>
+      <p className="text-xs text-muted-foreground italic">No heartbeats yet.</p>
     );
   }
 
@@ -100,10 +98,10 @@ function EventTimeline({ events }: { events: UptimeEvent[] }) {
         {reversed.map((evt) => (
           <span
             key={evt.id}
-            title={`${evt.status.toUpperCase()} — ${formatLatency(evt.latency_ms)} — ${new Date(evt.checked_at).toLocaleString()}`}
+            title={`${evt.status === 1 ? "UP" : "DOWN"} — ${formatLatency(evt.response_time_ms)} — ${new Date(evt.checked_at).toLocaleString()}`}
             className={cn(
               "h-3 w-3 rounded-sm cursor-default transition-opacity hover:opacity-70",
-              evt.status === "up" ? "bg-success" : "bg-destructive"
+              evt.status === 1 ? "bg-success" : "bg-destructive"
             )}
           />
         ))}
@@ -115,7 +113,7 @@ function EventTimeline({ events }: { events: UptimeEvent[] }) {
   );
 }
 
-// ─── Expanded monitor row ──────────────────────────────────────────────────────
+// ─── Expanded monitor detail ──────────────────────────────────────────────────
 
 function MonitorDetail({
   monitor,
@@ -127,14 +125,14 @@ function MonitorDetail({
   eventLimit: number;
 }) {
   const { data: events, isLoading } = useQuery({
-    queryKey: ["uptime-events", monitor.id, eventLimit],
-    queryFn: () => fetchUptimeEvents(monitor.id, eventLimit),
+    queryKey: ["uptime-events", monitor.name, eventLimit],
+    queryFn: () => fetchUptimeEvents(monitor.name, eventLimit),
     refetchInterval: 30_000,
   });
 
   const { data: summary } = useQuery({
-    queryKey: ["uptime-summary", monitor.id, rangeHours],
-    queryFn: () => fetchUptimeSummary(monitor.id, rangeHours),
+    queryKey: ["uptime-summary", monitor.name, rangeHours],
+    queryFn: () => fetchUptimeSummary(monitor.name, rangeHours),
     refetchInterval: 30_000,
   });
 
@@ -165,6 +163,38 @@ function MonitorDetail({
             {summary?.failed_checks ?? "—"}
           </div>
         </div>
+        {(monitor.cert_days_remaining != null || monitor.cert_is_valid != null) && (
+          <div>
+            <span className="text-muted-foreground uppercase tracking-wider">TLS Cert</span>
+            <div className="font-mono text-sm font-semibold mt-0.5">
+              {monitor.cert_is_valid === false ? (
+                <span className="text-destructive">Invalid</span>
+              ) : monitor.cert_days_remaining != null ? (
+                <span
+                  className={cn(
+                    monitor.cert_days_remaining < 14
+                      ? "text-destructive"
+                      : monitor.cert_days_remaining < 30
+                      ? "text-amber-500"
+                      : "text-success"
+                  )}
+                >
+                  {monitor.cert_days_remaining}d left
+                </span>
+              ) : (
+                "—"
+              )}
+            </div>
+          </div>
+        )}
+        {monitor.monitor_type && (
+          <div>
+            <span className="text-muted-foreground uppercase tracking-wider">Type</span>
+            <div className="font-mono text-sm font-semibold text-foreground mt-0.5 uppercase">
+              {monitor.monitor_type}
+            </div>
+          </div>
+        )}
       </div>
       {isLoading ? (
         <div className="h-4 w-32 bg-muted animate-pulse rounded" />
@@ -175,24 +205,22 @@ function MonitorDetail({
   );
 }
 
-// ─── Monitor row ───────────────────────────────────────────────────────────────
+// ─── Monitor row ─────────────────────────────────────────────────────────────
 
 function MonitorRow({
   monitor,
   rangeHours,
   eventLimit,
-  onDelete,
 }: {
   monitor: UptimeMonitor;
   rangeHours: number;
   eventLimit: number;
-  onDelete: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
   const { data: summary } = useQuery({
-    queryKey: ["uptime-summary", monitor.id, rangeHours],
-    queryFn: () => fetchUptimeSummary(monitor.id, rangeHours),
+    queryKey: ["uptime-summary", monitor.name, rangeHours],
+    queryFn: () => fetchUptimeSummary(monitor.name, rangeHours),
     refetchInterval: 30_000,
   });
 
@@ -202,14 +230,14 @@ function MonitorRow({
         className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-muted/20 transition-colors"
         onClick={() => setExpanded((v) => !v)}
       >
-        <StatusBadge status={monitor.last_status} />
+        <StatusBadge status={monitor.status} />
 
         <div className="flex-1 min-w-0">
           <div className="font-mono text-sm font-semibold text-foreground truncate">
             {monitor.name}
           </div>
           <div className="text-xs text-muted-foreground truncate mt-0.5">
-            {monitor.url}
+            {monitorAddress(monitor)}
           </div>
         </div>
 
@@ -217,7 +245,7 @@ function MonitorRow({
           <div className="text-center">
             <div className="text-muted-foreground uppercase tracking-wider text-[10px]">Latency</div>
             <div className="font-mono text-foreground mt-0.5">
-              {formatLatency(monitor.last_latency_ms)}
+              {formatLatency(monitor.response_time_ms)}
             </div>
           </div>
           <div className="text-center">
@@ -228,16 +256,7 @@ function MonitorRow({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (confirm(`Delete monitor "${monitor.name}"?`)) onDelete(monitor.id);
-            }}
-            className="rounded p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+        <div className="shrink-0">
           {expanded ? (
             <ChevronUp className="h-4 w-4 text-muted-foreground" />
           ) : (
@@ -267,152 +286,21 @@ function MonitorRow({
   );
 }
 
-// ─── Add Monitor Dialog ────────────────────────────────────────────────────────
-
-const INTERVAL_OPTIONS = [
-  { label: "1 minute", value: 60 },
-  { label: "5 minutes", value: 300 },
-  { label: "15 minutes", value: 900 },
-  { label: "30 minutes", value: 1800 },
-  { label: "1 hour", value: 3600 },
-];
-
-function AddMonitorDialog({
-  open,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSubmit: (data: { name: string; url: string; interval_seconds: number }) => void;
-}) {
-  const [name, setName] = useState("");
-  const [url, setUrl] = useState("");
-  const [interval, setInterval] = useState("300");
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !url.trim()) {
-      toast.error("Name and URL are required");
-      return;
-    }
-    let finalUrl = url.trim();
-    if (!finalUrl.startsWith("http://") && !finalUrl.startsWith("https://")) {
-      finalUrl = "https://" + finalUrl;
-    }
-    onSubmit({ name: name.trim(), url: finalUrl, interval_seconds: parseInt(interval) });
-    setName("");
-    setUrl("");
-    setInterval("300");
-    onClose();
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="font-mono">Add Monitor</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Name
-            </label>
-            <Input
-              placeholder="My Website"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              URL
-            </label>
-            <Input
-              placeholder="https://example.com"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              type="url"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Check Interval
-            </label>
-            <Select value={interval} onValueChange={setInterval}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {INTERVAL_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={String(opt.value)}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit">Add Monitor</Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// ─── Uptime Page ───────────────────────────────────────────────────────────────
+// ─── Uptime Page ──────────────────────────────────────────────────────────────
 
 export default function UptimePage() {
-  const { user } = useAuth();
-
   const { pullIndicator } = usePullToRefresh({
     queryKeys: [["uptime-monitors"], ["uptime-summary"], ["uptime-events"]],
   });
-  const queryClient = useQueryClient();
-  const [showAdd, setShowAdd] = useState(false);
+  useQueryClient();
   const [range, setRange] = useState<TimeRange>("24h");
 
-  const rangeOpt = UPTIME_RANGE_CONFIG[range];;
+  const rangeOpt = UPTIME_RANGE_CONFIG[range];
 
   const { data: monitors, isLoading } = useQuery({
     queryKey: ["uptime-monitors"],
     queryFn: fetchMonitors,
     refetchInterval: 30_000,
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (data: { name: string; url: string; interval_seconds: number }) =>
-      createMonitor({ ...data, user_id: user!.id }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["uptime-monitors"] });
-      toast.success("Monitor added");
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: deleteMonitor,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["uptime-monitors"] });
-      toast.success("Monitor deleted");
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  const checkMutation = useMutation({
-    mutationFn: () => triggerUptimeCheck(),
-    onSuccess: (data: any) => {
-      toast.success(`Checked ${data?.checked ?? 0} monitors`);
-      queryClient.invalidateQueries({ queryKey: ["uptime-monitors"] });
-      queryClient.invalidateQueries({ queryKey: ["uptime-summary"] });
-      queryClient.invalidateQueries({ queryKey: ["uptime-events"] });
-    },
-    onError: (err: Error) => toast.error(err.message),
   });
 
   return (
@@ -422,27 +310,10 @@ export default function UptimePage() {
         <div>
           <h1 className="font-mono text-xl font-semibold text-foreground">Uptime</h1>
           <p className="text-metric-sm text-muted-foreground mt-1">
-            Monitor any URL — track availability and latency
+            Live data from Uptime Kuma — 13 monitors, 60s intervals
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <TimeRangeSelector value={range} onChange={setRange} ranges={["24h", "7d", "30d"]} />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => checkMutation.mutate()}
-            disabled={checkMutation.isPending || !monitors?.length}
-            className="gap-1.5"
-          >
-            <RefreshCw
-              className={cn("h-3.5 w-3.5", checkMutation.isPending && "animate-spin")}
-            />
-            Check Now
-          </Button>
-          <Button size="sm" className="gap-1.5" onClick={() => setShowAdd(true)}>
-            <Plus className="h-3.5 w-3.5" /> Add Monitor
-          </Button>
-        </div>
+        <TimeRangeSelector value={range} onChange={setRange} ranges={["24h", "7d", "30d"]} />
       </div>
 
       {isLoading ? (
@@ -472,33 +343,23 @@ export default function UptimePage() {
           className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 py-20 text-center"
         >
           <Activity className="h-10 w-10 text-muted-foreground mb-4" />
-          <h2 className="text-lg font-medium text-foreground mb-2">No monitors yet</h2>
-          <p className="text-metric-sm text-muted-foreground mb-6 max-w-sm">
-            Add a URL to start tracking uptime. We'll ping it on your chosen schedule and alert you on downtime.
+          <h2 className="text-lg font-medium text-foreground mb-2">No monitor data yet</h2>
+          <p className="text-metric-sm text-muted-foreground max-w-sm">
+            Waiting for kuma-sync.sh to run. Make sure the cron job is active on the Mac Mini.
           </p>
-          <Button className="gap-1.5" onClick={() => setShowAdd(true)}>
-            <Plus className="h-4 w-4" /> Add your first monitor
-          </Button>
         </motion.div>
       ) : (
         <div className="space-y-3">
           {monitors.map((monitor) => (
             <MonitorRow
-              key={monitor.id}
+              key={monitor.name}
               monitor={monitor}
               rangeHours={rangeOpt.hours}
               eventLimit={rangeOpt.eventLimit}
-              onDelete={(id) => deleteMutation.mutate(id)}
             />
           ))}
         </div>
       )}
-
-      <AddMonitorDialog
-        open={showAdd}
-        onClose={() => setShowAdd(false)}
-        onSubmit={(data) => createMutation.mutate(data)}
-      />
     </div>
   );
 }
