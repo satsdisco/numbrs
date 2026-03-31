@@ -26,6 +26,7 @@ import TimeseriesChart from "@/components/TimeseriesChart";
 import StatsGrid from "@/components/StatsGrid";
 import IncidentsTimeline from "@/components/IncidentsTimeline";
 import { ArrowLeft, Copy, Check } from "lucide-react";
+import RelayExplorer from "@/components/RelayExplorer";
 import {
   Tooltip,
   TooltipContent,
@@ -325,6 +326,11 @@ export default function RelayDetailPage() {
         </h2>
         <TimeseriesChart data={uptimeTs || []} />
         <StatsGrid stats={toStats(upMetric)} />
+      </section>
+
+      {/* Explorer */}
+      <section className="space-y-3">
+        <RelayExplorer relayUrl={relay.url} />
       </section>
     </div>
   );
