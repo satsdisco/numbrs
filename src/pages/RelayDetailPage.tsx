@@ -27,6 +27,8 @@ import StatsGrid from "@/components/StatsGrid";
 import IncidentsTimeline from "@/components/IncidentsTimeline";
 import { ArrowLeft, Copy, Check } from "lucide-react";
 import RelayExplorer from "@/components/RelayExplorer";
+import ActivityTimeline from "@/components/relay-explorer/ActivityTimeline";
+import ZapAnalytics from "@/components/relay-explorer/ZapAnalytics";
 import {
   Tooltip,
   TooltipContent,
@@ -326,6 +328,16 @@ export default function RelayDetailPage() {
         </h2>
         <TimeseriesChart data={uptimeTs || []} />
         <StatsGrid stats={toStats(upMetric)} />
+      </section>
+
+      {/* Activity Timeline */}
+      <section className="space-y-3">
+        <ActivityTimeline relayId={id} />
+      </section>
+
+      {/* Zap Analytics */}
+      <section className="space-y-3">
+        <ZapAnalytics relayId={id} />
       </section>
 
       {/* Explorer */}
