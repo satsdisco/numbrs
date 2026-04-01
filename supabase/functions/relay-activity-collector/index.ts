@@ -127,13 +127,7 @@ async function sampleRelay(
   });
 }
 
-Deno.serve(async (req) => {
-  // Verify this is an authorized call
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-
+Deno.serve(async (_req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const supabase = createClient(supabaseUrl, serviceKey);
@@ -141,8 +135,7 @@ Deno.serve(async (req) => {
   // Get all relays
   const { data: relays, error: relaysError } = await supabase
     .from("relays")
-    .select("id, url")
-    .eq("is_active", true);
+    .select("id, url");
 
   if (relaysError || !relays) {
     return new Response(JSON.stringify({ error: relaysError?.message }), {

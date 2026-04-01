@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.collect-github]
 verify_jwt = false
+
+[functions.relay-activity-collector]
+verify_jwt = false
