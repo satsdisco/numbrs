@@ -11,7 +11,7 @@ export interface DashboardRow {
   updated_at: string;
 }
 
-export type PanelType = "line" | "area" | "bar" | "stat" | "gauge" | "table" | "heatmap";
+export type PanelType = "line" | "area" | "bar" | "stat" | "gauge" | "table" | "heatmap" | "transit";
 
 export type DataSourceMode = "relay" | "global" | "custom";
 
@@ -33,6 +33,8 @@ export interface PanelConfig {
   gauge_invert_colors?: boolean;
   /** Chart annotations — vertical reference lines at specific timestamps */
   annotations?: Array<{ id: string; label: string; timestamp: string; color?: string }>;
+  /** For transit panels — Prague PID stop name */
+  stop_name?: string;
 }
 
 export interface PanelLayout {
@@ -61,6 +63,7 @@ export const PANEL_TYPE_OPTIONS: { value: PanelType; label: string; description:
   { value: "gauge", label: "Gauge", description: "Circular gauge meter" },
   { value: "table", label: "Table", description: "Raw data table" },
   { value: "heatmap", label: "Heatmap", description: "Activity/uptime heatmap" },
+  { value: "transit", label: "Departures", description: "Prague PID departure board" },
 ];
 
 export const DEFAULT_PANEL_LAYOUTS: Record<PanelType, PanelLayout> = {
@@ -71,6 +74,7 @@ export const DEFAULT_PANEL_LAYOUTS: Record<PanelType, PanelLayout> = {
   gauge: { x: 0, y: 0, w: 3, h: 3 },
   table: { x: 0, y: 0, w: 6, h: 4 },
   heatmap: { x: 0, y: 0, w: 6, h: 3 },
+  transit: { x: 0, y: 0, w: 4, h: 4 },
 };
 
 // ─── Metric categories for the panel dialog ─────────────────────────────────
@@ -139,6 +143,8 @@ export const METRIC_CATALOG: MetricOption[] = [
   // Weather
   { key: "weather.temperature", label: "Temperature", unit: "°C", category: "weather", description: "Current temperature", relayScoped: false },
   { key: "weather.humidity", label: "Humidity", unit: "%", category: "weather", description: "Current relative humidity", relayScoped: false },
+  // Transport
+  { key: "transit.departures", label: "Prague Departures", unit: "", category: "transport", description: "PID departure board via Golemio API", relayScoped: false },
 ];
 
 export const METRIC_CATEGORIES = [
@@ -151,6 +157,7 @@ export const METRIC_CATEGORIES = [
   { id: "lightning", label: "⚡ Lightning", description: "Lightning Network stats" },
   { id: "markets", label: "📈 Markets", description: "Market data and sentiment" },
   { id: "weather", label: "🌤️ Weather", description: "Weather and environment" },
+  { id: "transport", label: "🚇 Transport", description: "Prague public transit departures" },
 ];
 
 // ─── Panel presets / quick-add templates ──────────────────────────────────────
@@ -162,6 +169,8 @@ export interface PanelPreset {
   stat_field?: PanelConfig["stat_field"];
   description: string;
   category: string;
+  /** For transit panels — Prague PID stop name */
+  stop_name?: string;
 }
 
 export const PANEL_PRESETS: PanelPreset[] = [
@@ -192,4 +201,7 @@ export const PANEL_PRESETS: PanelPreset[] = [
   { title: "BTC Dominance", panel_type: "gauge", metricKey: "coingecko.btc_dominance", stat_field: "latest", description: "Bitcoin market dominance", category: "markets" },
   // Weather presets
   { title: "Temperature", panel_type: "line", metricKey: "weather.temperature", description: "Temperature over time", category: "weather" },
+  // Transport presets
+  { title: "Vítězné náměstí Departures", panel_type: "transit", metricKey: "transit.departures", description: "Live PID departures from Vítězné náměstí", category: "transport", stop_name: "Vítězné náměstí" },
+  { title: "Dejvická Departures", panel_type: "transit", metricKey: "transit.departures", description: "Live PID departures from Dejvická", category: "transport", stop_name: "Dejvická" },
 ];

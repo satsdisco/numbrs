@@ -16,6 +16,7 @@ import StatPanel from "./StatPanel";
 import GaugePanel from "./GaugePanel";
 import TablePanel from "./TablePanel";
 import HeatmapPanel from "./HeatmapPanel";
+import TransitPanel from "./TransitPanel";
 
 interface PanelRendererProps {
   panel: PanelRow;
@@ -29,6 +30,7 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
   const metricKey = config.metric_key || "relay_latency_connect_ms";
   const relayId = config.relay_id || globalRelayId || undefined;
   const isGlobal = config.data_source === "global" || config.data_source === "custom";
+  const isTransit = panel.panel_type === "transit";
   const isChart = panel.panel_type === "line" || panel.panel_type === "area" || panel.panel_type === "bar" || panel.panel_type === "table" || panel.panel_type === "heatmap";
   const isStat = panel.panel_type === "stat" || panel.panel_type === "gauge";
   const isStatOnly = panel.panel_type === "stat";
@@ -38,43 +40,48 @@ export default function PanelRenderer({ panel, globalTimeRange, globalRelayId }:
   const { data: metricDef } = useQuery({
     queryKey: ["metric-def", metricKey],
     queryFn: () => fetchMetricByKey(metricKey),
-    enabled: isGlobal,
+    enabled: isGlobal && !isTransit,
   });
 
   // Relay-scoped timeseries
   const { data: relayTsData, isLoading: relayTsLoading } = useQuery({
     queryKey: ["panel-ts", panel.id, relayId, metricKey, range],
     queryFn: () => fetchRelayTimeseries(relayId!, metricKey, range),
-    enabled: !isGlobal && !!relayId && (isChart || isStatOnly),
+    enabled: !isGlobal && !!relayId && (isChart || isStatOnly) && !isTransit,
   });
 
   // Global timeseries
   const { data: globalTsData, isLoading: globalTsLoading } = useQuery({
     queryKey: ["panel-global-ts", panel.id, metricDef?.id, range],
     queryFn: () => fetchGenericTimeseries(metricDef!.id, range),
-    enabled: isGlobal && !!metricDef?.id && (isChart || isStatOnly),
+    enabled: isGlobal && !!metricDef?.id && (isChart || isStatOnly) && !isTransit,
   });
 
   // Relay-scoped summary
   const { data: summaryData, isLoading: summaryLoading } = useQuery({
     queryKey: ["panel-summary", panel.id, relayId, range],
     queryFn: () => fetchRelaySummary(relayId!, range),
-    enabled: !isGlobal && !!relayId && isStat,
+    enabled: !isGlobal && !!relayId && isStat && !isTransit,
   });
 
   // Global metric stats
   const { data: globalStats, isLoading: globalStatsLoading } = useQuery({
     queryKey: ["panel-global-stats", panel.id, metricDef?.id, range],
     queryFn: () => fetchMetricStats(metricDef!.id, range),
-    enabled: isGlobal && !!metricDef?.id && isStat,
+    enabled: isGlobal && !!metricDef?.id && isStat && !isTransit,
   });
 
   // Fetch the actual latest datapoint when stat_field is "latest"
   const { data: latestValue, isLoading: latestLoading } = useQuery({
     queryKey: ["panel-latest", panel.id, metricDef?.id],
     queryFn: () => fetchLatestDatapoint(metricDef!.id),
-    enabled: isGlobal && !!metricDef?.id && isStat && wantsLatest,
+    enabled: isGlobal && !!metricDef?.id && isStat && wantsLatest && !isTransit,
   });
+
+  // Transit panels handle their own data fetching
+  if (isTransit) {
+    return <TransitPanel config={config} />;
+  }
 
   // Determine if we need a relay but don't have one
   if (!isGlobal && !relayId) {

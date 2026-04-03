@@ -63,6 +63,7 @@ export default function AddPanelDialog({ open, onClose, onAdd }: Props) {
   const [metricKey, setMetricKey] = useState("relay_latency_connect_ms");
   const [relayId, setRelayId] = useState("");
   const [statField, setStatField] = useState("p50");
+  const [stopName, setStopName] = useState("");
 
   const { data: relays } = useQuery({
     queryKey: ["relays"],
@@ -100,6 +101,9 @@ export default function AddPanelDialog({ open, onClose, onAdd }: Props) {
     if (isRelayScoped && firstRelayId) {
       config.relay_id = firstRelayId;
     }
+    if (preset.stop_name) {
+      config.stop_name = preset.stop_name;
+    }
 
     onAdd({
       title: preset.title,
@@ -111,6 +115,20 @@ export default function AddPanelDialog({ open, onClose, onAdd }: Props) {
   };
 
   const handleAddCustom = () => {
+    if (panelType === "transit") {
+      onAdd({
+        title,
+        panel_type: "transit",
+        config: { stop_name: stopName || undefined },
+        layout: DEFAULT_PANEL_LAYOUTS["transit"],
+      });
+      onClose();
+      setTitle("New Panel");
+      setPanelType("line");
+      setStopName("");
+      return;
+    }
+
     const isRelayScoped = selectedMetric?.relayScoped ?? false;
 
     const config: PanelConfig = {
@@ -315,6 +333,21 @@ export default function AddPanelDialog({ open, onClose, onAdd }: Props) {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            )}
+
+            {panelType === "transit" && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Stop Name</Label>
+                <Input
+                  value={stopName}
+                  onChange={(e) => setStopName(e.target.value)}
+                  placeholder="e.g. Vítězné náměstí, Dejvická"
+                  className="font-mono text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Prague PID stop name (Czech with diacritics)
+                </p>
               </div>
             )}
 

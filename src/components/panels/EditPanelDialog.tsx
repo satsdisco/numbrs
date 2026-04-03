@@ -57,6 +57,7 @@ export default function EditPanelDialog({ open, onClose, panel, onSave }: Props)
   const [gaugeInvertColors, setGaugeInvertColors] = useState(
     panel.config.gauge_invert_colors ?? true
   );
+  const [stopName, setStopName] = useState(panel.config.stop_name || "");
 
   // Sync state when panel changes (dialog reopens for different panel)
   useEffect(() => {
@@ -68,6 +69,7 @@ export default function EditPanelDialog({ open, onClose, panel, onSave }: Props)
     setGaugeMax(String(panel.config.gauge_max ?? ""));
     setUnit(panel.config.unit || "");
     setGaugeInvertColors(panel.config.gauge_invert_colors ?? true);
+    setStopName(panel.config.stop_name || "");
   }, [panel]);
 
   const { data: relays } = useQuery({
@@ -88,6 +90,16 @@ export default function EditPanelDialog({ open, onClose, panel, onSave }: Props)
   }, [selectedMetric]);
 
   const handleSave = () => {
+    if (panelType === "transit") {
+      onSave({
+        title,
+        panel_type: "transit",
+        config: { stop_name: stopName || undefined },
+      });
+      onClose();
+      return;
+    }
+
     const isRelayScoped = selectedMetric?.relayScoped ?? false;
 
     const config: PanelConfig = {
@@ -195,6 +207,21 @@ export default function EditPanelDialog({ open, onClose, panel, onSave }: Props)
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {panelType === "transit" && (
+            <div className="space-y-1.5">
+              <Label className="text-xs">Stop Name</Label>
+              <Input
+                value={stopName}
+                onChange={(e) => setStopName(e.target.value)}
+                placeholder="e.g. Vítězné náměstí, Dejvická"
+                className="font-mono text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Prague PID stop name (Czech with diacritics)
+              </p>
             </div>
           )}
 
